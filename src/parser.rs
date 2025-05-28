@@ -24,22 +24,28 @@ pub enum BindingPower {
 }
 
 pub struct Parser {
-    lexer: Peekable<Lexer>,
+    tokens: Vec<Token>,
+    i: usize,
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         let mut parser = Self {
-            lexer: lexer.peekable(),
+            tokens: lexer.collect(),
+            i: 0,
         };
 
         parser
     }
 
+    pub fn current(&self) -> Option<&Token> {
+        self.tokens.get(self.i)
+    }
+
     pub fn parse(&mut self) -> Stmt {
         let mut stmts = vec![];
 
-        while self.lexer.peek().is_some() {
+        while self.current().is_some() {
             stmts.push(self.parse_stmt());
         }
 
@@ -104,7 +110,7 @@ impl Parser {
 
         loop {
             // EOF
-            let Some(current) = self.lexer.peek().cloned() else {
+            let Some(current) = self.current().cloned() else {
                 break;
             };
 
@@ -149,11 +155,13 @@ impl Parser {
     }
 
     fn next(&mut self) -> Token {
-        self.lexer.next().expect("Handle unexpected EOF")
+        let token = self.peek().clone();
+        self.i += 1;
+        token
     }
 
     fn peek(&mut self) -> &Token {
-        self.lexer.peek().expect("Handle unexpected EOF")
+        self.current().expect("Handle unexpected EOF")
     }
 
     pub fn parse_struct_instantation(&mut self, lhs: Expr, bp: BindingPower) -> Expr {
