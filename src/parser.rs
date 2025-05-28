@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 use std::iter::Peekable;
 
-use crate::ast::parsed::{Expr, Stmt};
+use miette::{NamedSource, SourceSpan};
+
+use crate::ast::parsed::{Expr, ExprKind, Stmt};
+use crate::error::{Error, Result};
 use crate::helpers;
 use crate::lexer::{self, Lexer};
 use crate::pratt::Pratt;
@@ -24,78 +27,95 @@ pub enum BindingPower {
 }
 
 pub struct Parser {
+    file_name: String,
+    content: String,
     tokens: Vec<Token>,
     i: usize,
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
-        let mut parser = Self {
+        Self {
+            file_name: lexer.file_name.clone(),
+            content: lexer.content.clone(),
             tokens: lexer.collect(),
             i: 0,
-        };
+        }
+    }
 
-        parser
+    fn named_source(&self) -> NamedSource<String> {
+        NamedSource::new(self.file_name.clone(), self.content.clone())
+    }
+
+    fn span_from_first_and_last(first: SourceSpan, last: SourceSpan) -> SourceSpan {
+        (first.offset()..last.offset() + last.len()).into()
+    }
+
+    fn new_expr(first: SourceSpan, last: SourceSpan, kind: ExprKind) -> Expr {
+        Expr::new(Self::span_from_first_and_last(first, last), kind)
     }
 
     pub fn current(&self) -> Option<&Token> {
         self.tokens.get(self.i)
     }
 
-    pub fn parse(&mut self) -> Stmt {
+    pub fn parse(&mut self) -> Result<Stmt> {
         let mut stmts = vec![];
 
         while self.current().is_some() {
-            stmts.push(self.parse_stmt());
+            stmts.push(self.parse_stmt()?);
         }
 
-        Stmt::Block { stmts }
+        Ok(Stmt::Block { stmts })
     }
 
-    fn parse_stmt(&mut self) -> Stmt {
+    fn parse_stmt(&mut self) -> Result<Stmt> {
         let Some(stmt_fn) = self.peek().stmt_handler() else {
             todo!("Good error reporting for token not being a stmt beginner token thingy");
         };
 
-        let stmt = stmt_fn(self);
-        self.expect(TokenKind::Semicolon);
-        stmt
+        let stmt = stmt_fn(self)?;
+        self.expect(TokenKind::Semicolon)?;
+        Ok(stmt)
     }
 
-    pub fn parse_primary(&mut self) -> Expr {
+    pub fn parse_primary(&mut self) -> Result<Expr> {
         let token = self.next();
         println!("Parse primary {token:#?}");
-        match token.kind {
-            TokenKind::Number(n) => Expr::Number(n),
-            TokenKind::Identifier(name) => Expr::Identifier(name),
+        let kind = match token.kind {
+            TokenKind::Number(n) => ExprKind::Number(n),
+            TokenKind::Identifier(name) => ExprKind::Identifier(name),
             _ => unreachable!(),
-        }
+        };
+
+        Ok(Self::new_expr(token.span, token.span, kind))
     }
 
-    pub fn parse_variable_declaration(&mut self) -> Stmt {
-        self.expect(TokenKind::Let);
+    pub fn parse_variable_declaration(&mut self) -> Result<Stmt> {
+        self.expect(TokenKind::Let)?;
         let ident = self.expect_ident();
 
-        self.expect(TokenKind::Equal);
-        let expr = self.parse_expr(BindingPower::Logical);
+        self.expect(TokenKind::Equal)?;
+        let expr = self.parse_expr(BindingPower::Logical)?;
 
-        Stmt::VariableDeclaration {
+        Ok(Stmt::VariableDeclaration {
             name: ident,
             value: expr,
-        }
+        })
     }
 
-    pub fn parse_binary_expr(&mut self, lhs: Expr, bp: BindingPower) -> Expr {
+    pub fn parse_binary_expr(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
         let op = self.next();
         println!("Parse binop {op:#?}");
-        let rhs = self.parse_expr(bp);
-        return Expr::BinOp {
+        let rhs = self.parse_expr(bp)?;
+
+        Ok(Self::new_expr(lhs.span, rhs.span, ExprKind::BinOp {
             lhs: Box::new(lhs),
             op: op.binop().unwrap(),
             rhs: Box::new(rhs),
-        };
+        }))
     }
-    pub fn parse_expr(&mut self, bp: BindingPower) -> Expr {
+    pub fn parse_expr(&mut self, bp: BindingPower) -> Result<Expr> {
         let current = self.peek();
 
         let Some(nud_fn) = current.nud_handler() else {
@@ -106,7 +126,7 @@ impl Parser {
             );
         };
 
-        let mut lhs = nud_fn(self);
+        let mut lhs = nud_fn(self)?;
 
         loop {
             // EOF
@@ -123,24 +143,25 @@ impl Parser {
                 break;
             }
 
-            lhs = led_handler(self, lhs, current.binding_power().unwrap());
+            lhs = led_handler(self, lhs, current.binding_power().unwrap())?;
         }
 
-        lhs
+        Ok(lhs)
     }
 
-    fn expect(&mut self, expected: TokenKind) {
+    fn expect(&mut self, expected: TokenKind) -> Result<Token> {
         let token = self.next();
+        println!("{token:#?}");
 
         if std::mem::discriminant(&token.kind) != std::mem::discriminant(&expected) {
-            let got = match token.kind {
-                TokenKind::Number(n) => n.to_string(),
-                TokenKind::Identifier(ident) => ident.to_string(),
-                _ => token.kind.name().to_string(),
-            };
-
-            panic!("Expected '{}' but got '{}'", expected.name(), got);
+            return Err(Error::UnexpectedToken {
+                src: self.named_source(),
+                span: token.span,
+                expected: expected.name().to_string(),
+            });
         }
+
+        Ok(token)
     }
 
     fn expect_ident(&mut self) -> String {
@@ -164,53 +185,63 @@ impl Parser {
         self.current().expect("Handle unexpected EOF")
     }
 
-    pub fn parse_struct_instantation(&mut self, lhs: Expr, bp: BindingPower) -> Expr {
-        let ident = match lhs {
-            Expr::Identifier(ident) => ident,
-            _ => panic!("Expected struct name in struct instantation"),
+    pub fn parse_struct_instantation(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
+        let ident = match lhs.kind {
+            ExprKind::Identifier(ident) => ident,
+            _ => {
+                return Err(Error::IdentBeforeStructInstantation {
+                    src: self.named_source(),
+                    span: lhs.span,
+                });
+            }
         };
 
         let mut members = HashMap::new();
 
-        self.expect(TokenKind::OpenCurly);
+        self.expect(TokenKind::OpenCurly)?;
 
         loop {
             if self.peek().kind == TokenKind::CloseCurly {
                 break;
             }
 
-            let value = self.parse_struct_instantation_value();
+            let value = self.parse_struct_instantation_value()?;
             members.insert(value.0, value.1);
 
             if self.peek().kind != TokenKind::Comma {
                 break;
             }
 
-            self.expect(TokenKind::Comma);
+            self.expect(TokenKind::Comma)?;
         }
 
-        self.expect(TokenKind::CloseCurly);
+        let last = self.expect(TokenKind::CloseCurly)?;
 
-        Expr::StructInstantiation {
-            name: ident,
-            members,
-        }
+        Ok(Self::new_expr(
+            lhs.span,
+            last.span,
+            ExprKind::StructInstantiation {
+                name: ident,
+                members,
+            },
+        ))
     }
 
-    fn parse_struct_instantation_value(&mut self) -> (String, Expr) {
+    fn parse_struct_instantation_value(&mut self) -> Result<(String, Expr)> {
         let name = self.expect_ident();
-        self.expect(TokenKind::Colon);
-        let expr = self.parse_expr(BindingPower::Logical);
-        (name, expr)
+        self.expect(TokenKind::Colon)?;
+        let expr = self.parse_expr(BindingPower::Logical)?;
+        Ok((name, expr))
     }
 
-    pub fn parse_member_expr(&mut self, lhs: Expr, _: BindingPower) -> Expr {
-        self.expect(TokenKind::Dot);
+    pub fn parse_member_expr(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
+        self.expect(TokenKind::Dot)?;
         let ident = self.expect_ident();
 
-        Expr::MemberAccess {
+        // TODO: Change so expect_ident returns the span
+        Ok(Self::new_expr(lhs.span, lhs.span, ExprKind::MemberAccess {
             lhs: Box::new(lhs),
             member: ident,
-        }
+        }))
     }
 }

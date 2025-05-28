@@ -1,23 +1,14 @@
+use miette::SourceSpan;
+
 use crate::ast::parsed::{BinOp, Expr, Stmt};
+use crate::error::Result;
 use crate::parser::{BindingPower, Parser};
 use crate::pratt::Pratt;
-
-#[derive(Debug, Clone, Copy)]
-pub struct Span {
-    pub start: usize,
-    pub end: usize,
-}
-
-impl Span {
-    pub fn new(start: usize, end: usize) -> Self {
-        Self { start, end }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
-    pub span: Span,
+    pub span: SourceSpan,
 }
 
 impl Token {
@@ -31,7 +22,7 @@ impl Pratt for Token {
         self.kind.is_nud()
     }
 
-    fn nud_handler(&self) -> Option<fn(&mut Parser) -> Expr> {
+    fn nud_handler(&self) -> Option<fn(&mut Parser) -> Result<Expr>> {
         self.kind.nud_handler()
     }
 
@@ -39,11 +30,11 @@ impl Pratt for Token {
         self.kind.is_led()
     }
 
-    fn led_handler(&self) -> Option<fn(&mut Parser, lhs: Expr, bp: BindingPower) -> Expr> {
+    fn led_handler(&self) -> Option<fn(&mut Parser, lhs: Expr, bp: BindingPower) -> Result<Expr>> {
         self.kind.led_handler()
     }
 
-    fn stmt_handler(&self) -> Option<fn(&mut Parser) -> crate::ast::parsed::Stmt> {
+    fn stmt_handler(&self) -> Option<fn(&mut Parser) -> Result<Stmt>> {
         self.kind.stmt_handler()
     }
 
@@ -61,7 +52,7 @@ impl Pratt for Token {
 }
 
 impl Token {
-    pub fn new(span: Span, kind: TokenKind) -> Self {
+    pub fn new(span: SourceSpan, kind: TokenKind) -> Self {
         Self { kind, span }
     }
 }

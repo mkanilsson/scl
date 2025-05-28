@@ -1,17 +1,27 @@
 use lexer::Lexer;
-use pratt::Pratt;
 
 mod ast;
+mod error;
 mod helpers;
 mod lexer;
 mod parser;
 mod pratt;
 mod token;
 
-fn main() {
+fn main() -> miette::Result<()> {
     let lexer = Lexer::new("examples/expressions.scl".into());
     let mut parser = parser::Parser::new(lexer);
-    let expr = parser.parse();
+    let expr_or_error = parser.parse();
+
+    match expr_or_error {
+        Ok(expr) => println!("{expr:#?}"),
+        Err(err) => {
+            let me: miette::Error = err.into();
+            return Err(me);
+        }
+    }
+
+    Ok(())
 
     // println!("Nud Plus: {} (false)", token::TokenKind::Plus.is_nud());
     // println!(
@@ -34,6 +44,4 @@ fn main() {
     //     "bp Number: {:#?}",
     //     token::TokenKind::Number(5).binding_power()
     // );
-
-    println!("{expr:#?}");
 }

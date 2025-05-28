@@ -1,17 +1,19 @@
 use std::{path::PathBuf, process::id};
 
-use crate::token::{Span, Token, TokenKind};
+use crate::token::{Token, TokenKind};
 
 pub struct Lexer {
-    content: String,
+    pub file_name: String,
+    pub content: String,
     position: usize,
 }
 
 impl Lexer {
     pub fn new(path: PathBuf) -> Self {
         Self {
-            content: std::fs::read_to_string(path).unwrap(),
+            content: std::fs::read_to_string(&path).unwrap(),
             position: 0,
+            file_name: path.to_string_lossy().to_string(),
         }
     }
 
@@ -39,7 +41,7 @@ impl Lexer {
     }
 
     fn read_number(&mut self, current: char) -> Token {
-        let start = self.position;
+        let start = self.position - 1;
         let mut string = String::from(current);
 
         while let Some(c) = self.peek() {
@@ -52,7 +54,7 @@ impl Lexer {
         }
 
         Token::new(
-            Span::new(start, self.position),
+            (start..self.position).into(),
             TokenKind::Number(string.parse().unwrap()),
         )
     }
@@ -76,11 +78,11 @@ impl Lexer {
             _ => TokenKind::Identifier(string),
         };
 
-        Token::new(Span::new(start, self.position), kind)
+        Token::new((start..self.position).into(), kind)
     }
 
     fn char(&self, kind: TokenKind) -> Token {
-        Token::new(Span::new(self.position, self.position), kind)
+        Token::new((self.position - 1..self.position).into(), kind)
     }
 }
 

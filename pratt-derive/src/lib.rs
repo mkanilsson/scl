@@ -138,19 +138,19 @@ fn metadata_derive_macro2(
                 }
             }
 
-            fn led_handler(&self) -> Option<fn(&mut Parser, lhs: Expr, bp: BindingPower) -> Expr> {
+            fn led_handler(&self) -> Option<fn(&mut Parser, lhs: Expr, bp: BindingPower) -> Result<Expr>> {
                 match self {
                     #(#led_handler_arms,)*
                 }
             }
 
-            fn nud_handler(&self) -> Option<fn(&mut Parser) -> Expr> {
+            fn nud_handler(&self) -> Option<fn(&mut Parser) -> Result<Expr>> {
                 match self {
                     #(#nud_handler_arms,)*
                 }
             }
 
-            fn stmt_handler(&self) -> Option<fn(&mut Parser) -> Stmt> {
+            fn stmt_handler(&self) -> Option<fn(&mut Parser) -> Result<Stmt>> {
                 match self {
                     #(#stmt_handler_arms,)*
                 }
