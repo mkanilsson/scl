@@ -54,6 +54,10 @@ impl Pratt for Token {
     fn nud_names() -> Vec<&'static str> {
         TokenKind::nud_names()
     }
+
+    fn name(&self) -> &'static str {
+        self.kind.name()
+    }
 }
 
 impl Token {
@@ -64,35 +68,49 @@ impl Token {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Pratt)]
 pub enum TokenKind {
+    #[name("number")]
     #[nud(Parser::parse_primary)]
     Number(u128),
 
     #[nud(Parser::parse_primary)]
+    #[name("identifier")]
     Identifier(String),
 
     #[stmt(Parser::parse_variable_declaration)]
     Let,
 
+    #[name("+")]
     #[led(BindingPower::Additive, Parser::parse_binary_expr)]
     Plus,
+
+    #[name("-")]
     #[led(BindingPower::Additive, Parser::parse_binary_expr)]
     Minus,
 
+    #[name("*")]
     #[led(BindingPower::Multiplicative, Parser::parse_binary_expr)]
     Star,
+    #[name("/")]
     #[led(BindingPower::Multiplicative, Parser::parse_binary_expr)]
     Slash,
 
+    #[name("=")]
     Equal,
+    #[name(";")]
     Semicolon,
 
+    #[name("{")]
     #[led(BindingPower::Multiplicative, Parser::parse_struct_instantation)]
     OpenCurly,
+    #[name("}")]
     CloseCurly,
 
+    #[name(":")]
     Colon,
+    #[name(",")]
     Comma,
 
+    #[name(".")]
     #[led(BindingPower::Member, Parser::parse_member_expr)]
     Dot,
 }

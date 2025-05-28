@@ -13,6 +13,10 @@ struct LedAttribute(syn::Expr, syn::Expr);
 #[deluxe(attributes(stmt))]
 struct StmtAttribute(syn::Expr);
 
+#[derive(deluxe::ExtractAttributes)]
+#[deluxe(attributes(name))]
+struct NameAttribute(String);
+
 fn metadata_derive_macro2(
     item: proc_macro2::TokenStream,
 ) -> deluxe::Result<proc_macro2::TokenStream> {
@@ -29,6 +33,7 @@ fn metadata_derive_macro2(
     let mut led_handler_arms = vec![];
     let mut nud_handler_arms = vec![];
     let mut stmt_handler_arms = vec![];
+    let mut name_arms = vec![];
     let mut nud_names = vec![];
 
     for mut variant in e.variants {
@@ -36,6 +41,7 @@ fn metadata_derive_macro2(
         let mut is_nud = false;
         let mut is_led = false;
         let mut is_stmt = false;
+        let mut is_name = false;
 
         for attr in &variant.attrs {
             if attr.path().is_ident("nud") {
@@ -44,6 +50,8 @@ fn metadata_derive_macro2(
                 is_led = true;
             } else if attr.path().is_ident("stmt") {
                 is_stmt = true;
+            } else if attr.path().is_ident("name") {
+                is_name = true;
             }
         }
 
@@ -71,6 +79,12 @@ fn metadata_derive_macro2(
             let attrs: StmtAttribute = deluxe::extract_attributes(&mut variant)?;
             stmt_handler = Some(attrs.0);
         }
+        let name = if is_name {
+            let attrs: NameAttribute = deluxe::extract_attributes(&mut variant)?;
+            attrs.0
+        } else {
+            variant.ident.to_string().to_lowercase()
+        };
 
         let pattern = match variant.fields {
             syn::Fields::Named(_) => quote::quote! { #ident{..} },
@@ -96,6 +110,7 @@ fn metadata_derive_macro2(
         led_handler_arms.push(optional_to_arm(&variant, led_handler));
         nud_handler_arms.push(optional_to_arm(&variant, nud_handler));
         stmt_handler_arms.push(optional_to_arm(&variant, stmt_handler));
+        name_arms.push(quote::quote! { Self::#pattern => #name });
     }
 
     // define impl variables
@@ -144,6 +159,12 @@ fn metadata_derive_macro2(
             fn nud_names() -> Vec<&'static str> {
                 vec![#(#nud_names,)*]
             }
+
+            fn name(&self) -> &'static str {
+                match self {
+                    #(#name_arms,)*
+                }
+            }
         }
     })
 }
@@ -164,7 +185,7 @@ fn optional_to_arm(variant: &syn::Variant, arm: Option<syn::Expr>) -> proc_macro
     }
 }
 
-#[proc_macro_derive(Pratt, attributes(nud, led, stmt))]
+#[proc_macro_derive(Pratt, attributes(nud, led, stmt, name))]
 pub fn pratt_derive_macro(item: TokenStream) -> TokenStream {
     metadata_derive_macro2(item.into()).unwrap().into()
 }

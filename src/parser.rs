@@ -127,7 +127,13 @@ impl Parser {
         let token = self.next();
 
         if std::mem::discriminant(&token.kind) != std::mem::discriminant(&expected) {
-            panic!("Expected '{expected:#?}' but got '{:#?}'", token.kind);
+            let got = match token.kind {
+                TokenKind::Number(n) => n.to_string(),
+                TokenKind::Identifier(ident) => ident.to_string(),
+                _ => token.kind.name().to_string(),
+            };
+
+            panic!("Expected '{}' but got '{}'", expected.name(), got);
         }
     }
 
@@ -135,7 +141,10 @@ impl Parser {
         let token = self.next();
         match token.kind {
             TokenKind::Identifier(ident) => ident,
-            _ => panic!("Expected identifier but got '{:#?}'", token.kind),
+            _ => panic!("Expected identifier but got '{}'", match token.kind {
+                TokenKind::Number(n) => n.to_string(),
+                kind => kind.name().to_string(),
+            }),
         }
     }
 
@@ -150,7 +159,7 @@ impl Parser {
     pub fn parse_struct_instantation(&mut self, lhs: Expr, bp: BindingPower) -> Expr {
         let ident = match lhs {
             Expr::Identifier(ident) => ident,
-            _ => panic!("Expected ident in struct instantation"),
+            _ => panic!("Expected struct name in struct instantation"),
         };
 
         let mut members = HashMap::new();

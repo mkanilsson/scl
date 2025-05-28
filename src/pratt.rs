@@ -16,4 +16,5 @@ pub trait Pratt {
     fn stmt_handler(&self) -> Option<fn(&mut Parser) -> Stmt>;
 
     fn binding_power(&self) -> Option<BindingPower>;
+    fn name(&self) -> &'static str;
 }
