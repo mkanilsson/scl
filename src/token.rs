@@ -67,6 +67,12 @@ pub enum TokenKind {
     #[name("identifier")]
     Identifier(String),
 
+    #[nud(Parser::parse_primary)]
+    #[name("(")]
+    OpenParen,
+    #[name(")")]
+    CloseParen,
+
     #[stmt(Parser::parse_variable_declaration)]
     Let,
 

@@ -104,6 +104,8 @@ impl Iterator for Lexer {
             '}' => Some(self.char(TokenKind::CloseCurly)),
             ':' => Some(self.char(TokenKind::Colon)),
             '.' => Some(self.char(TokenKind::Dot)),
+            '(' => Some(self.char(TokenKind::OpenParen)),
+            ')' => Some(self.char(TokenKind::CloseParen)),
             c if c.is_ascii_digit() => Some(self.read_number(c)),
             c if c.is_alphabetic() => Some(self.read_identifier(c)),
             c => panic!("Unknown token {c}"),
