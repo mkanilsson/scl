@@ -84,44 +84,18 @@ fn metadata_derive_macro2(
             quote::quote! { Self::#pattern => false }
         };
 
-        let led_arm;
-
-        if is_led {
-            led_arm = quote::quote! { Self::#pattern => true };
+        let led_arm = if is_led {
+            quote::quote! { Self::#pattern => true }
         } else {
-            led_arm = quote::quote! { Self::#pattern => false };
-        }
-
-        let bp_arm = if let Some(bp) = led_bp {
-            quote::quote! { Self::#pattern => Some(#bp) }
-        } else {
-            quote::quote! { Self::#pattern => None }
-        };
-
-        let led_handler_arm = if let Some(handler) = led_handler {
-            quote::quote! { Self::#pattern => Some(#handler) }
-        } else {
-            quote::quote! { Self::#pattern => None }
-        };
-
-        let nud_handler_arm = if let Some(handler) = nud_handler {
-            quote::quote! { Self::#pattern => Some(#handler) }
-        } else {
-            quote::quote! { Self::#pattern => None }
-        };
-
-        let stmt_handler_arm = if let Some(handler) = stmt_handler {
-            quote::quote! { Self::#pattern => Some(#handler) }
-        } else {
-            quote::quote! { Self::#pattern => None }
+            quote::quote! { Self::#pattern => false }
         };
 
         nud_arms.push(nud_arm);
         led_arms.push(led_arm);
-        bp_arms.push(bp_arm);
-        led_handler_arms.push(led_handler_arm);
-        nud_handler_arms.push(nud_handler_arm);
-        stmt_handler_arms.push(stmt_handler_arm);
+        bp_arms.push(optional_to_arm(&variant, led_bp));
+        led_handler_arms.push(optional_to_arm(&variant, led_handler));
+        nud_handler_arms.push(optional_to_arm(&variant, nud_handler));
+        stmt_handler_arms.push(optional_to_arm(&variant, stmt_handler));
     }
 
     // define impl variables
@@ -172,6 +146,22 @@ fn metadata_derive_macro2(
             }
         }
     })
+}
+
+fn optional_to_arm(variant: &syn::Variant, arm: Option<syn::Expr>) -> proc_macro2::TokenStream {
+    let ident = variant.ident.clone();
+
+    let pattern = match variant.fields {
+        syn::Fields::Named(_) => quote::quote! { #ident{..} },
+        syn::Fields::Unnamed(_) => quote::quote! { #ident(_) },
+        syn::Fields::Unit => quote::quote! { #ident },
+    };
+
+    if let Some(handler) = arm {
+        quote::quote! { Self::#pattern => Some(#handler) }
+    } else {
+        quote::quote! { Self::#pattern => None }
+    }
 }
 
 #[proc_macro_derive(Pratt, attributes(nud, led, stmt))]
