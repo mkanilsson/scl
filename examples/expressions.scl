@@ -1,0 +1,5 @@
+let y = SomeStruct {
+    x: 5,
+    y: Hello { thing: 5 }.5
+};
+
