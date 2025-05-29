@@ -60,7 +60,7 @@ impl Lexer {
     }
 
     fn read_identifier(&mut self, current: char) -> Token {
-        let start = self.position;
+        let start = self.position - 1;
         let mut string = String::from(current);
 
         while let Some(c) = self.peek() {
