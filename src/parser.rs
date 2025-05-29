@@ -108,6 +108,16 @@ impl Parser {
         })
     }
 
+    pub fn parse_return(&mut self) -> Result<Stmt> {
+        self.expect(TokenKind::Ret)?;
+        let expr = match self.peek().nud_handler() {
+            Some(_) => Some(self.parse_expr(BindingPower::Default)?),
+            None => None,
+        };
+
+        Ok(Stmt::Return { value: expr })
+    }
+
     pub fn parse_binary_expr(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
         let op = self.next();
         println!("Parse binop {op:#?}");

@@ -52,6 +52,7 @@ pub enum ExprKind {
 pub enum Stmt {
     Block { stmts: Vec<Stmt> },
     VariableDeclaration { name: Ident, value: Expr },
+    Return { value: Option<Expr> },
 }
 
 #[derive(Debug, Clone, Copy)]

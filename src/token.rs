@@ -110,6 +110,9 @@ pub enum TokenKind {
     #[name(".")]
     #[led(BindingPower::Member, Parser::parse_member_expr)]
     Dot,
+
+    #[stmt(Parser::parse_return)]
+    Ret,
 }
 
 impl TokenKind {

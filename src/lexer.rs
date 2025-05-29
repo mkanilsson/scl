@@ -75,6 +75,7 @@ impl Lexer {
         // Keywords
         let kind = match string.as_str() {
             "let" => TokenKind::Let,
+            "ret" => TokenKind::Ret,
             _ => TokenKind::Identifier(string),
         };
 
