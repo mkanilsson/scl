@@ -85,6 +85,28 @@ impl Lexer {
     fn char(&self, kind: TokenKind) -> Token {
         Token::new((self.position - 1..self.position).into(), kind)
     }
+
+    fn skip_to_newline(&mut self) {
+        while let Some(c) = self.peek() {
+            if c != '\n' {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn slash_or_comment(&mut self) -> Option<Token> {
+        let start = self.position - 1;
+
+        match self.peek()? {
+            '/' => {
+                self.skip_to_newline();
+                self.next()
+            }
+            _ => Some(self.char(TokenKind::Slash)),
+        }
+    }
 }
 
 impl Iterator for Lexer {
@@ -97,7 +119,7 @@ impl Iterator for Lexer {
             '+' => Some(self.char(TokenKind::Plus)),
             '-' => Some(self.char(TokenKind::Minus)),
             '*' => Some(self.char(TokenKind::Star)),
-            '/' => Some(self.char(TokenKind::Slash)),
+            '/' => self.slash_or_comment(),
             ';' => Some(self.char(TokenKind::Semicolon)),
             '=' => Some(self.char(TokenKind::Equal)),
             ',' => Some(self.char(TokenKind::Comma)),
