@@ -14,6 +14,21 @@ impl Expr {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Ident {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+impl Ident {
+    pub fn new(name: impl Into<String>, span: SourceSpan) -> Self {
+        Self {
+            name: name.into(),
+            span,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ExprKind {
     Number(u128),
@@ -25,18 +40,18 @@ pub enum ExprKind {
     },
     StructInstantiation {
         name: String,
-        members: HashMap<String, Expr>,
+        members: HashMap<Ident, Expr>,
     },
     MemberAccess {
         lhs: Box<Expr>,
-        member: String,
+        member: Ident,
     },
 }
 
 #[derive(Debug, Clone)]
 pub enum Stmt {
     Block { stmts: Vec<Stmt> },
-    VariableDeclaration { name: String, value: Expr },
+    VariableDeclaration { name: Ident, value: Expr },
 }
 
 #[derive(Debug, Clone, Copy)]

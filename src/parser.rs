@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::iter::Peekable;
 
 use miette::{NamedSource, SourceSpan};
 
-use crate::ast::parsed::{Expr, ExprKind, Stmt};
+use crate::ast::parsed::{Expr, ExprKind, Ident, Stmt};
 use crate::error::{Error, Result};
 use crate::helpers;
-use crate::lexer::{self, Lexer};
+use crate::lexer::Lexer;
 use crate::pratt::Pratt;
 use crate::token::{Token, TokenKind};
 
@@ -98,7 +97,7 @@ impl Parser {
 
     pub fn parse_variable_declaration(&mut self) -> Result<Stmt> {
         self.expect(TokenKind::Let)?;
-        let ident = self.expect_ident();
+        let ident = self.expect_ident()?;
 
         self.expect(TokenKind::Equal)?;
         let expr = self.parse_expr(BindingPower::Logical)?;
@@ -169,13 +168,18 @@ impl Parser {
         Ok(token)
     }
 
-    fn expect_ident(&mut self) -> String {
+    fn expect_ident(&mut self) -> Result<Ident> {
         let token = self.next();
         match token.kind {
-            TokenKind::Identifier(ident) => ident,
-            _ => panic!("Expected identifier but got '{}'", match token.kind {
-                TokenKind::Number(n) => n.to_string(),
-                kind => kind.name().to_string(),
+            TokenKind::Identifier(ident) => Ok(Ident::new(ident, token.span)),
+            _ => Err(Error::ExpectedButGot {
+                src: self.named_source(),
+                span: token.span,
+                expected: "identifier".to_string(),
+                got: match token.kind {
+                    TokenKind::Number(n) => n.to_string(),
+                    kind => kind.name().to_string(),
+                },
             }),
         }
     }
@@ -232,8 +236,8 @@ impl Parser {
         ))
     }
 
-    fn parse_struct_instantation_value(&mut self) -> Result<(String, Expr)> {
-        let name = self.expect_ident();
+    fn parse_struct_instantation_value(&mut self) -> Result<(Ident, Expr)> {
+        let name = self.expect_ident()?;
         self.expect(TokenKind::Colon)?;
         let expr = self.parse_expr(BindingPower::Logical)?;
         Ok((name, expr))
@@ -241,12 +245,15 @@ impl Parser {
 
     pub fn parse_member_expr(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
         self.expect(TokenKind::Dot)?;
-        let ident = self.expect_ident();
+        let ident = self.expect_ident()?;
 
-        // TODO: Change so expect_ident returns the span
-        Ok(Self::new_expr(lhs.span, lhs.span, ExprKind::MemberAccess {
-            lhs: Box::new(lhs),
-            member: ident,
-        }))
+        Ok(Self::new_expr(
+            lhs.span,
+            ident.span,
+            ExprKind::MemberAccess {
+                lhs: Box::new(lhs),
+                member: ident,
+            },
+        ))
     }
 }

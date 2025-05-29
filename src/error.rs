@@ -15,6 +15,17 @@ pub enum Error {
 
         expected: String,
     },
+    #[error("Expected '{expected}' but got '{got}'")]
+    ExpectedButGot {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("expected '{expected}'")]
+        span: SourceSpan,
+
+        expected: String,
+        got: String,
+    },
     #[error("Expected identifier before struct instantation")]
     IdentBeforeStructInstantation {
         #[source_code]
