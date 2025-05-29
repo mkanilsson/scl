@@ -1,5 +1,7 @@
-let y = SomeStruct {
-    x: (5 + 2) * 8,
-    y: Thing { thing: 5 }.thing
-};
+proc add(a: u32, b: u32) u32 {
+    ret a + b;
+}
 
+
+proc main() u32 {
+}

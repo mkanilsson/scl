@@ -64,7 +64,7 @@ impl Lexer {
         let mut string = String::from(current);
 
         while let Some(c) = self.peek() {
-            if c.is_alphabetic() || c == '$' {
+            if c.is_alphabetic() || c.is_numeric() || c == '$' {
                 string.push(c);
                 self.advance();
             } else {
@@ -76,6 +76,7 @@ impl Lexer {
         let kind = match string.as_str() {
             "let" => TokenKind::Let,
             "ret" => TokenKind::Ret,
+            "proc" => TokenKind::Proc,
             _ => TokenKind::Identifier(string),
         };
 

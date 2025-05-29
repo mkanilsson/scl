@@ -34,4 +34,12 @@ pub enum Error {
         #[label("here")]
         span: SourceSpan,
     },
+    #[error("Expected proc or struct definition")]
+    ExpectedProcOrStruct {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
 }

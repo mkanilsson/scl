@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 use miette::SourceSpan;
 
+use super::tajp::Type;
+
 #[derive(Debug, Clone)]
 pub struct Expr {
     pub span: SourceSpan,
@@ -61,4 +63,17 @@ pub enum BinOp {
     Subtract,
     Multiply,
     Divide,
+}
+
+#[derive(Debug, Clone)]
+pub struct TranslationUnit {
+    pub procs: Vec<ProcDefinition>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProcDefinition {
+    pub ident: Ident,
+    pub params: Vec<(Ident, Type)>,
+    pub return_type: Type,
+    pub stmts: Vec<Stmt>,
 }

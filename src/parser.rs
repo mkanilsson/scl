@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use miette::{NamedSource, SourceSpan};
 
-use crate::ast::parsed::{Expr, ExprKind, Ident, Stmt};
+use crate::ast::parsed::{Expr, ExprKind, Ident, ProcDefinition, Stmt, TranslationUnit};
+use crate::ast::tajp::Type;
 use crate::error::{Error, Result};
 use crate::helpers;
 use crate::lexer::Lexer;
@@ -58,14 +59,91 @@ impl Parser {
         self.tokens.get(self.i)
     }
 
-    pub fn parse(&mut self) -> Result<Stmt> {
+    pub fn parse(&mut self) -> Result<TranslationUnit> {
+        self.parse_translation_unit()
+    }
+
+    fn parse_translation_unit(&mut self) -> Result<TranslationUnit> {
+        let mut procs = vec![];
+
+        while let Some(c) = self.current() {
+            match c.kind {
+                TokenKind::Proc => procs.push(self.parse_proc_definition()?),
+                _ => {
+                    return Err(Error::ExpectedProcOrStruct {
+                        src: self.named_source(),
+                        span: c.span,
+                    });
+                }
+            }
+        }
+
+        Ok(TranslationUnit { procs })
+    }
+
+    fn parse_proc_definition(&mut self) -> Result<ProcDefinition> {
+        self.expect(TokenKind::Proc)?;
+        let ident = self.expect_ident()?;
+        self.expect(TokenKind::OpenParen)?;
+        let mut params = vec![];
+
+        while let Some(c) = self.current() {
+            if c.kind == TokenKind::CloseParen {
+                break;
+            }
+
+            params.push(self.parse_proc_definition_param()?);
+
+            if self.peek().kind != TokenKind::Comma {
+                break;
+            }
+
+            self.expect(TokenKind::Comma)?;
+        }
+
+        self.expect(TokenKind::CloseParen)?;
+
+        let return_type = self.parse_type()?;
+        let stmts = self.parse_block()?;
+
+        Ok(ProcDefinition {
+            ident,
+            params,
+            return_type,
+            stmts,
+        })
+    }
+
+    fn parse_proc_definition_param(&mut self) -> Result<(Ident, Type)> {
+        let ident = self.expect_ident()?;
+        self.expect(TokenKind::Colon)?;
+        let t = self.parse_type()?;
+
+        Ok((ident, t))
+    }
+
+    fn parse_type(&mut self) -> Result<Type> {
+        let ident = self.expect_ident()?;
+
+        Ok(Type::Named(ident))
+    }
+
+    fn parse_block(&mut self) -> Result<Vec<Stmt>> {
+        self.expect(TokenKind::OpenCurly)?;
+
         let mut stmts = vec![];
 
-        while self.current().is_some() {
+        while let Some(c) = self.current() {
+            if c.kind == TokenKind::CloseCurly {
+                break;
+            }
+
             stmts.push(self.parse_stmt()?);
         }
 
-        Ok(Stmt::Block { stmts })
+        self.expect(TokenKind::CloseCurly)?;
+
+        Ok(stmts)
     }
 
     fn parse_stmt(&mut self) -> Result<Stmt> {

@@ -113,6 +113,8 @@ pub enum TokenKind {
 
     #[stmt(Parser::parse_return)]
     Ret,
+
+    Proc,
 }
 
 impl TokenKind {
