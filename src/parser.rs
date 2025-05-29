@@ -158,7 +158,6 @@ impl Parser {
 
     pub fn parse_primary(&mut self) -> Result<Expr> {
         let token = self.next();
-        println!("Parse primary {token:#?}");
         let kind = match token.kind {
             TokenKind::Number(n) => ExprKind::Number(n),
             TokenKind::Identifier(name) => ExprKind::Identifier(name),
@@ -198,7 +197,6 @@ impl Parser {
 
     pub fn parse_binary_expr(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
         let op = self.next();
-        println!("Parse binop {op:#?}");
         let rhs = self.parse_expr(bp)?;
 
         Ok(Self::new_expr(lhs.span, rhs.span, ExprKind::BinOp {
@@ -243,7 +241,6 @@ impl Parser {
 
     fn expect(&mut self, expected: TokenKind) -> Result<Token> {
         let token = self.next();
-        println!("{token:#?}");
 
         if std::mem::discriminant(&token.kind) != std::mem::discriminant(&expected) {
             return Err(Error::UnexpectedToken {
