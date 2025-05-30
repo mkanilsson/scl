@@ -67,6 +67,7 @@ pub enum BinOp {
 
 #[derive(Debug, Clone)]
 pub struct TranslationUnit {
+    pub source: String,
     pub procs: Vec<ProcDefinition>,
 }
 

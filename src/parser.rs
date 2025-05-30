@@ -59,11 +59,11 @@ impl Parser {
         self.tokens.get(self.i)
     }
 
-    pub fn parse(&mut self) -> Result<TranslationUnit> {
+    pub fn parse(self) -> Result<TranslationUnit> {
         self.parse_translation_unit()
     }
 
-    fn parse_translation_unit(&mut self) -> Result<TranslationUnit> {
+    fn parse_translation_unit(mut self) -> Result<TranslationUnit> {
         let mut procs = vec![];
 
         while let Some(c) = self.current() {
@@ -78,7 +78,10 @@ impl Parser {
             }
         }
 
-        Ok(TranslationUnit { procs })
+        Ok(TranslationUnit {
+            procs,
+            source: self.content,
+        })
     }
 
     fn parse_proc_definition(&mut self) -> Result<ProcDefinition> {

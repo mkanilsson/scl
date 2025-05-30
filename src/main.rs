@@ -10,7 +10,7 @@ mod token;
 
 fn main() -> miette::Result<()> {
     let lexer = Lexer::new("examples/expressions.scl".into());
-    let mut parser = parser::Parser::new(lexer);
+    let parser = parser::Parser::new(lexer);
     let expr_or_error = parser.parse();
 
     match expr_or_error {
