@@ -42,4 +42,14 @@ pub enum Error {
         #[label("here")]
         span: SourceSpan,
     },
+    #[error("Unknown type '{type_name}'")]
+    UnknownType {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        type_name: String,
+    },
 }

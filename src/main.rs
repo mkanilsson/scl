@@ -1,4 +1,6 @@
+use error::Result;
 use lexer::Lexer;
+use typechecker::Checker;
 
 mod ast;
 mod error;
@@ -7,19 +9,27 @@ mod lexer;
 mod parser;
 mod pratt;
 mod token;
+mod typechecker;
 
 fn main() -> miette::Result<()> {
-    let lexer = Lexer::new("examples/expressions.scl".into());
-    let parser = parser::Parser::new(lexer);
-    let expr_or_error = parser.parse();
-
-    match expr_or_error {
-        Ok(expr) => println!("{expr:#?}"),
+    let something_or_error = run();
+    match something_or_error {
         Err(err) => {
             let me: miette::Error = err.into();
             return Err(me);
         }
+        _ => {}
     }
 
+    Ok(())
+}
+
+fn run() -> Result<()> {
+    let lexer = Lexer::new("examples/expressions.scl".into());
+    let parser = parser::Parser::new(lexer);
+    let unit = parser.parse()?;
+    let mut checker = Checker::new(unit);
+    let checked_unit = checker.check()?;
+    println!("{checked_unit:#?}");
     Ok(())
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::{Expr, ExprKind, Ident, ProcDefinition, Stmt, TranslationUnit};
-use crate::ast::tajp::Type;
+use crate::ast::tajp::{Type, TypeKind};
 use crate::error::{Error, Result};
 use crate::helpers;
 use crate::lexer::Lexer;
@@ -80,7 +80,7 @@ impl Parser {
 
         Ok(TranslationUnit {
             procs,
-            source: self.content,
+            source: NamedSource::new(self.file_name, self.content),
         })
     }
 
@@ -128,7 +128,7 @@ impl Parser {
     fn parse_type(&mut self) -> Result<Type> {
         let ident = self.expect_ident()?;
 
-        Ok(Type::Named(ident))
+        Ok(Type::new(ident.span, TypeKind::Named(ident)))
     }
 
     fn parse_block(&mut self) -> Result<Vec<Stmt>> {

@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
-use miette::SourceSpan;
+use miette::{NamedSource, SourceSpan};
 
 use super::tajp::Type;
 
@@ -16,7 +16,7 @@ impl Expr {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 pub struct Ident {
     pub name: String,
     pub span: SourceSpan,
@@ -31,6 +31,20 @@ impl Ident {
     }
 }
 
+impl PartialEq for Ident {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for Ident {}
+
+impl Hash for Ident {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum ExprKind {
     Number(u128),
@@ -42,6 +56,7 @@ pub enum ExprKind {
     },
     StructInstantiation {
         name: String,
+        // TODO: Change to a vec
         members: HashMap<Ident, Expr>,
     },
     MemberAccess {
@@ -67,7 +82,7 @@ pub enum BinOp {
 
 #[derive(Debug, Clone)]
 pub struct TranslationUnit {
-    pub source: String,
+    pub source: NamedSource<String>,
     pub procs: Vec<ProcDefinition>,
 }
 
