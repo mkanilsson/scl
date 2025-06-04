@@ -52,7 +52,16 @@ impl Checker {
             return_type,
         });
 
-        self.scope.add_to_scope(definition.ident.clone(), type_id);
+        if let Some((_, original)) = self.scope.find_with_original_span(&definition.ident) {
+            return Err(Error::ProcNameCollision {
+                src: self.unit.source.clone(),
+                original_span: original,
+                redefined_span: definition.ident.span,
+                name: definition.ident.name.clone(),
+            });
+        }
+
+        self.scope.add_to_scope(&definition.ident, type_id);
         Ok(())
     }
 }

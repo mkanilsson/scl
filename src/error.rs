@@ -52,4 +52,18 @@ pub enum Error {
 
         type_name: String,
     },
+
+    #[error("Proc named '{name}' has already been defined")]
+    ProcNameCollision {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("original defined here")]
+        original_span: SourceSpan,
+
+        #[label("and redefined here")]
+        redefined_span: SourceSpan,
+
+        name: String,
+    },
 }

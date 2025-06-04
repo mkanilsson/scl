@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use miette::SourceSpan;
+
 use crate::ast::parsed::Ident;
 
 use super::tajp::TypeId;
@@ -16,9 +18,9 @@ impl Scope {
         }
     }
 
-    pub fn add_to_scope(&mut self, ident: Ident, type_id: TypeId) {
+    pub fn add_to_scope(&mut self, ident: &Ident, type_id: TypeId) {
         let len = self.scope.len();
-        self.scope[len - 1].insert(ident, type_id);
+        self.scope[len - 1].insert(ident.clone(), type_id);
     }
 
     pub fn enter_scope(&mut self) -> ScopeGuard<'_> {
@@ -27,9 +29,14 @@ impl Scope {
     }
 
     pub fn find(&self, ident: &Ident) -> Option<TypeId> {
+        self.find_with_original_span(ident).map(|v| v.0)
+    }
+
+    pub fn find_with_original_span(&self, ident: &Ident) -> Option<(TypeId, SourceSpan)> {
         for scope in self.scope.iter().rev() {
             if scope.contains_key(ident) {
-                return Some(scope[ident]);
+                let kv = scope.get_key_value(ident).unwrap();
+                return Some((*kv.1, kv.0.span));
             }
         }
 
