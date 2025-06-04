@@ -31,5 +31,6 @@ fn run() -> Result<()> {
     let mut checker = Checker::new(unit);
     let checked_unit = checker.check()?;
     println!("{checked_unit:#?}");
+    println!("{checker:#?}");
     Ok(())
 }

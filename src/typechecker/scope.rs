@@ -4,6 +4,7 @@ use crate::ast::parsed::Ident;
 
 use super::tajp::TypeId;
 
+#[derive(Debug)]
 pub struct Scope {
     scope: Vec<HashMap<Ident, TypeId>>,
 }

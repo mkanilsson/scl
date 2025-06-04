@@ -1,6 +1,8 @@
+use std::fmt::Debug;
+
 use ast::CheckedTranslationUnit;
 use scope::Scope;
-use tajp::TypeCollection;
+use tajp::{Type, TypeCollection};
 
 use crate::{
     ast::parsed::{ProcDefinition, TranslationUnit},
@@ -30,19 +32,36 @@ impl Checker {
         let procs = self.unit.procs.clone();
 
         for proc in procs {
-            self.add_proc_types(&proc);
+            self.add_proc_types(&proc)?;
         }
 
-        todo!()
+        Ok(CheckedTranslationUnit { procs: vec![] })
     }
 
-    fn add_proc_types(&mut self, definition: &ProcDefinition) {
-        // let params = vec![];
+    fn add_proc_types(&mut self, definition: &ProcDefinition) -> Result<()> {
+        let mut params = vec![];
         for param in &definition.params {
-            todo!()
+            params.push(self.types.force_find(&self.unit.source, &param.1)?);
         }
 
-        todo!()
-        // self.scope.add_to_scope(definition.ident, type_id);
+        let return_type = self
+            .types
+            .force_find(&self.unit.source, &definition.return_type)?;
+        let type_id = self.types.register_type(Type::Proc {
+            params,
+            return_type,
+        });
+
+        self.scope.add_to_scope(definition.ident.clone(), type_id);
+        Ok(())
+    }
+}
+
+impl Debug for Checker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Checker")
+            .field("types", &self.types)
+            .field("scope", &self.scope)
+            .finish()
     }
 }

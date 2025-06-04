@@ -1,70 +1,96 @@
 use std::collections::HashMap;
 
-use miette::{NamedSource, SourceSpan};
+use miette::NamedSource;
 
-use crate::error::{Error, Result};
+use crate::{
+    ast,
+    error::{Error, Result},
+};
 
-pub const BOOL_TYPE_ID: TypeId = TypeId(0);
-pub const I32_TYPE_ID: TypeId = TypeId(1);
-pub const U32_TYPE_ID: TypeId = TypeId(2);
+pub const VOID_TYPE_ID: TypeId = TypeId(0);
+pub const BOOL_TYPE_ID: TypeId = TypeId(1);
+pub const I32_TYPE_ID: TypeId = TypeId(2);
+pub const U32_TYPE_ID: TypeId = TypeId(3);
 
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
+    Void,
     Bool,
     I32,
     U32,
-    Fn {
+    Proc {
         params: Vec<TypeId>,
-        return_type: Option<TypeId>,
+        return_type: TypeId,
     },
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TypeId(pub usize);
 
+impl From<usize> for TypeId {
+    fn from(value: usize) -> Self {
+        TypeId(value)
+    }
+}
+
+#[derive(Debug)]
 pub struct TypeCollection {
     types: Vec<Type>,
-    named: HashMap<String, TypeId>,
+    parsed: HashMap<ast::tajp::TypeKind, TypeId>,
 }
 
 impl TypeCollection {
     pub fn new() -> Self {
         Self {
-            types: vec![Type::Bool, Type::I32, Type::U32],
-            named: HashMap::new(),
+            types: vec![Type::Void, Type::Bool, Type::I32, Type::U32],
+            parsed: HashMap::new(),
         }
     }
 
-    pub fn force_find(
-        &self,
-        src: NamedSource<String>,
-        span: SourceSpan,
-        name: &str,
-    ) -> Result<TypeId> {
-        if let Some(found) = self.find(name) {
+    pub fn register_type(&mut self, t: Type) -> TypeId {
+        if let Some(existing) = self
+            .types
+            .iter()
+            .enumerate()
+            .find_map(|(i, existing)| if t == *existing { Some(i) } else { None })
+        {
+            return existing.into();
+        }
+
+        let id = self.types.len();
+        self.types.push(t);
+        id.into()
+    }
+
+    pub fn force_find(&self, src: &NamedSource<String>, t: &ast::tajp::Type) -> Result<TypeId> {
+        if let Some(found) = self.find(t) {
             Ok(found)
         } else {
             Err(Error::UnknownType {
-                src,
-                span,
-                type_name: name.to_string(),
+                src: src.clone(),
+                span: t.span,
+                type_name: t.kind.to_string(),
             })
         }
     }
 
-    pub fn find(&self, name: &str) -> Option<TypeId> {
-        if let Some(primative) = self.find_primative(name) {
+    pub fn find(&self, t: &ast::tajp::Type) -> Option<TypeId> {
+        if let Some(primative) = self.find_primative(t) {
             return Some(primative);
         }
 
-        self.named.get(name).copied()
+        self.parsed.get(&t.kind).copied()
     }
 
-    fn find_primative(&self, name: &str) -> Option<TypeId> {
-        Some(match name {
-            "bool" => BOOL_TYPE_ID,
-            "i32" => I32_TYPE_ID,
-            "u32" => U32_TYPE_ID,
-            _ => return None,
-        })
+    fn find_primative(&self, t: &ast::tajp::Type) -> Option<TypeId> {
+        match &t.kind {
+            ast::tajp::TypeKind::Named(ident) => Some(match ident.name.as_str() {
+                "void" => VOID_TYPE_ID,
+                "bool" => BOOL_TYPE_ID,
+                "i32" => I32_TYPE_ID,
+                "u32" => U32_TYPE_ID,
+                _ => return None,
+            }),
+        }
     }
 }
