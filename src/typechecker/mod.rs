@@ -10,12 +10,12 @@ use crate::{
     error::{Error, Result},
 };
 
-mod ast;
+pub mod ast;
 mod scope;
-mod tajp;
+pub mod tajp;
 
 pub struct Checker {
-    types: TypeCollection,
+    pub types: TypeCollection,
     unit: TranslationUnit,
     scope: Scope,
 }
@@ -96,8 +96,10 @@ impl Checker {
         println!("params: {:#?}", proc.params);
         println!("definition: {:#?}", definition.0);
 
+        let mut params = vec![];
         for param in proc.params.iter().map(|p| &p.0).zip(definition.0) {
             self.scope.add_to_scope(param.0, param.1);
+            params.push((param.0.name.clone(), param.1));
         }
 
         let mut stmts = vec![];
@@ -108,7 +110,13 @@ impl Checker {
 
         self.scope.exit();
 
-        Ok(CheckedProc { type_id, stmts })
+        Ok(CheckedProc {
+            type_id,
+            stmts,
+            name: proc.ident.name.clone(),
+            params,
+            return_type: definition.1,
+        })
     }
 
     fn typecheck_stmt(
@@ -184,24 +192,28 @@ impl Checker {
                 if let Some(wanted) = wanted {
                     match wanted.0 {
                         U32_TYPE_ID => {
-                            self.verify_number::<u32>(value.as_str(), expr.span, U32_TYPE_ID)?;
+                            let value =
+                                self.verify_number::<u32>(value.as_str(), expr.span, U32_TYPE_ID)?;
                             Ok(CheckedExpr {
                                 type_id: U32_TYPE_ID,
-                                kind: ast::CheckedExprKind::Number(value.clone()),
+                                kind: ast::CheckedExprKind::Number(value as u64),
                             })
                         }
                         I32_TYPE_ID | _ => {
-                            self.verify_number::<i32>(value.as_str(), expr.span, I32_TYPE_ID)?;
+                            let value =
+                                self.verify_number::<i32>(value.as_str(), expr.span, I32_TYPE_ID)?;
                             Ok(CheckedExpr {
                                 type_id: I32_TYPE_ID,
-                                kind: ast::CheckedExprKind::Number(value.clone()),
+                                kind: ast::CheckedExprKind::Number(value as u64),
                             })
                         }
                     }
                 } else {
+                    let value =
+                        self.verify_number::<i32>(value.as_str(), expr.span, U32_TYPE_ID)?;
                     Ok(CheckedExpr {
                         type_id: I32_TYPE_ID,
-                        kind: ast::CheckedExprKind::Number(value.clone()),
+                        kind: ast::CheckedExprKind::Number(value as u64),
                     })
                 }
             }
@@ -214,16 +226,17 @@ impl Checker {
         value: &str,
         span: SourceSpan,
         type_id: TypeId,
-    ) -> Result<()> {
-        if value.parse::<T>().is_err() {
-            return Err(Error::InvalidNumber {
+    ) -> Result<T> {
+        if let Ok(value) = value.parse::<T>() {
+            Ok(value)
+        } else {
+            Err(Error::InvalidNumber {
                 src: self.unit.source.clone(),
                 span,
                 value: value.to_string(),
                 type_name: self.types.name_of(type_id),
-            });
+            })
         }
-        Ok(())
     }
 }
 

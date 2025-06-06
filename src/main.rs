@@ -1,8 +1,10 @@
+use codegen::Codegen;
 use error::Result;
 use lexer::Lexer;
 use typechecker::Checker;
 
 mod ast;
+mod codegen;
 mod error;
 mod helpers;
 mod lexer;
@@ -28,6 +30,9 @@ fn run() -> Result<()> {
     let mut checker = Checker::new(unit);
     let checked_unit = checker.check()?;
     println!("{checked_unit:#?}");
-    println!("{checker:#?}");
+
+    let mut codegener = Codegen::new(checked_unit, checker.types);
+    println!("{}", codegener.generate());
+
     Ok(())
 }

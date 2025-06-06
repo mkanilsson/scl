@@ -136,4 +136,15 @@ impl TypeCollection {
     pub fn name_of(&self, type_id: TypeId) -> String {
         self.types.get(type_id.0).unwrap().to_string(self)
     }
+
+    pub fn qbe_type_of<'a>(&self, type_id: TypeId) -> qbe::Type<'a> {
+        let definition = self.get_definition(type_id);
+
+        match definition {
+            Type::Bool => qbe::Type::Byte,
+            Type::I32 | Type::U32 => qbe::Type::Word,
+            Type::Proc { .. } => qbe::Type::Long,
+            Type::Void => unreachable!(),
+        }
+    }
 }

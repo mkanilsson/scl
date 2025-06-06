@@ -7,8 +7,11 @@ pub struct CheckedTranslationUnit {
 
 #[derive(Debug, Clone)]
 pub struct CheckedProc {
+    pub name: String,
     pub type_id: TypeId,
     pub stmts: Vec<CheckedStmt>,
+    pub params: Vec<(String, TypeId)>,
+    pub return_type: TypeId,
 }
 
 #[derive(Debug, Clone)]
@@ -25,5 +28,5 @@ pub struct CheckedExpr {
 #[derive(Debug, Clone)]
 pub enum CheckedExprKind {
     Identifier(String),
-    Number(String),
+    Number(u64),
 }
