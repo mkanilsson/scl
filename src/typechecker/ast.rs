@@ -25,4 +25,5 @@ pub struct CheckedExpr {
 #[derive(Debug, Clone)]
 pub enum CheckedExprKind {
     Identifier(String),
+    Number(String),
 }

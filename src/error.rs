@@ -121,4 +121,15 @@ pub enum Error {
 
         ident: String,
     },
+    #[error("'{value}' is not a valid '{type_name}'")]
+    InvalidNumber {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        value: String,
+        type_name: String,
+    },
 }
