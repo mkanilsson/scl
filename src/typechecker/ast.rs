@@ -17,6 +17,7 @@ pub struct CheckedProc {
 #[derive(Debug, Clone)]
 pub enum CheckedStmt {
     Return { value: Option<CheckedExpr> },
+    VariableDeclaration { name: String, value: CheckedExpr },
 }
 
 #[derive(Debug, Clone)]

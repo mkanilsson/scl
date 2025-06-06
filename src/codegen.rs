@@ -1,4 +1,4 @@
-use qbe::{Block, Function, Instr, Linkage, Module, Value};
+use qbe::{Block, Function, Instr, Linkage, Module, Type, Value};
 
 use crate::typechecker::{
     ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit},
@@ -25,7 +25,7 @@ impl Codegen {
         format!("{}", module)
     }
 
-    fn codegen_proc(&self, module: &mut Module, proc: &CheckedProc) {
+    fn codegen_proc<'a>(&'a self, module: &mut Module<'a>, proc: &CheckedProc) {
         let params = proc
             .params
             .iter()
@@ -48,22 +48,43 @@ impl Codegen {
         module.add_function(func);
     }
 
-    fn codegen_stmt(&self, stmt: &CheckedStmt, block: &mut Block) {
+    fn codegen_stmt<'a>(&'a self, stmt: &CheckedStmt, block: &mut Block<'a>) {
         match stmt {
             CheckedStmt::Return { value } => self.codegen_return_stmt(value, block),
+            CheckedStmt::VariableDeclaration { name, value } => {
+                self.codegen_variable_declaration_stmt(name, value, block)
+            }
         }
     }
 
     fn codegen_return_stmt(&self, value: &Option<CheckedExpr>, block: &mut Block) {
-        let qbe_value = value.as_ref().map(|expr| self.codegen_expr(expr));
+        let qbe_value = value.as_ref().map(|expr| self.codegen_expr(expr).1);
 
         block.add_instr(Instr::Ret(qbe_value));
     }
 
-    fn codegen_expr(&self, expr: &CheckedExpr) -> Value {
-        match &expr.kind {
+    fn codegen_variable_declaration_stmt<'a>(
+        &'a self,
+        name: &str,
+        value: &CheckedExpr,
+        block: &mut Block<'a>,
+    ) {
+        let expr = self.codegen_expr(value);
+        block.assign_instr(
+            Value::Temporary(name.to_string()),
+            expr.0,
+            Instr::Copy(expr.1),
+        );
+    }
+
+    fn codegen_expr(&self, expr: &CheckedExpr) -> (Type, Value) {
+        let value = match &expr.kind {
             CheckedExprKind::Identifier(name) => Value::Temporary(name.clone()),
             CheckedExprKind::Number(value) => Value::Const(*value),
-        }
+        };
+
+        let t = self.types.qbe_type_of(expr.type_id);
+
+        (t, value)
     }
 }

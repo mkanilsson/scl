@@ -123,6 +123,9 @@ impl Checker {
     ) -> Result<CheckedStmt> {
         match &stmt.kind {
             StmtKind::Return { value } => self.typecheck_return_stmt(return_type, stmt.span, value),
+            StmtKind::VariableDeclaration { name, value } => {
+                self.typecheck_variable_declaration_stmt(name, value)
+            }
             stmt => todo!("typecheck_stmt: {}", stmt),
         }
     }
@@ -167,6 +170,20 @@ impl Checker {
                 Ok(CheckedStmt::Return { value: None })
             }
         }
+    }
+
+    fn typecheck_variable_declaration_stmt(
+        &mut self,
+        ident: &Ident,
+        expr: &Expr,
+    ) -> Result<CheckedStmt> {
+        let expr = self.typecheck_expr(expr, None)?;
+        self.scope.add_to_scope(ident, expr.type_id);
+
+        Ok(CheckedStmt::VariableDeclaration {
+            name: ident.name.clone(),
+            value: expr,
+        })
     }
 
     fn typecheck_expr(

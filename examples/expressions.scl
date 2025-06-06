@@ -1,7 +1,4 @@
-proc add() u32 {
-    ret 10;
-}
-
-proc main() u32 {
-    ret 10;
+proc main() i32 {
+    let b = 25;
+    ret b;
 }
