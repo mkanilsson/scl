@@ -168,6 +168,7 @@ impl Parser {
         let kind = match token.kind {
             TokenKind::Number(n) => ExprKind::Number(n),
             TokenKind::Identifier(name) => ExprKind::Identifier(name),
+            TokenKind::String(value) => ExprKind::String(value),
             TokenKind::OpenParen => {
                 let expr = self.parse_expr(BindingPower::Default)?;
                 let last = self.expect(TokenKind::CloseParen)?;

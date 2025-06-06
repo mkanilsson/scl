@@ -68,6 +68,10 @@ pub enum TokenKind {
     Identifier(String),
 
     #[nud(Parser::parse_primary)]
+    #[name("string")]
+    String(String),
+
+    #[nud(Parser::parse_primary)]
     #[name("(")]
     OpenParen,
     #[name(")")]

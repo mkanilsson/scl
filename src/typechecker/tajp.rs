@@ -11,6 +11,7 @@ pub const VOID_TYPE_ID: TypeId = TypeId(0);
 pub const BOOL_TYPE_ID: TypeId = TypeId(1);
 pub const I32_TYPE_ID: TypeId = TypeId(2);
 pub const U32_TYPE_ID: TypeId = TypeId(3);
+pub const STRING_TYPE_ID: TypeId = TypeId(4);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
@@ -18,6 +19,7 @@ pub enum Type {
     Bool,
     I32,
     U32,
+    String,
     Proc {
         params: Vec<TypeId>,
         return_type: TypeId,
@@ -48,6 +50,7 @@ impl Type {
             Type::Bool => "bool".into(),
             Type::I32 => "i32".into(),
             Type::U32 => "u32".into(),
+            Type::String => "string".into(),
             Type::Proc {
                 params,
                 return_type,
@@ -84,7 +87,7 @@ pub struct TypeCollection {
 impl TypeCollection {
     pub fn new() -> Self {
         Self {
-            types: vec![Type::Void, Type::Bool, Type::I32, Type::U32],
+            types: vec![Type::Void, Type::Bool, Type::I32, Type::U32, Type::String],
             parsed: HashMap::new(),
         }
     }
@@ -131,6 +134,7 @@ impl TypeCollection {
                 "bool" => BOOL_TYPE_ID,
                 "i32" => I32_TYPE_ID,
                 "u32" => U32_TYPE_ID,
+                "string" => STRING_TYPE_ID,
                 _ => return None,
             }),
         }
@@ -154,6 +158,7 @@ impl TypeCollection {
         match definition {
             Type::Bool => qbe::Type::Byte,
             Type::I32 | Type::U32 => qbe::Type::Word,
+            Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
             Type::Void => unreachable!(),
         }

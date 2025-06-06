@@ -80,6 +80,20 @@ impl Lexer {
         Token::new((start..self.position).into(), kind)
     }
 
+    fn read_string(&mut self) -> Token {
+        let start = self.position - 1;
+        let mut string = String::new();
+        while let Some(c) = self.advance() {
+            if c == '"' {
+                break;
+            }
+
+            string.push(c);
+        }
+
+        Token::new((start..self.position).into(), TokenKind::String(string))
+    }
+
     fn char(&self, kind: TokenKind) -> Token {
         Token::new((self.position - 1..self.position).into(), kind)
     }
@@ -127,6 +141,7 @@ impl Iterator for Lexer {
             '.' => Some(self.char(TokenKind::Dot)),
             '(' => Some(self.char(TokenKind::OpenParen)),
             ')' => Some(self.char(TokenKind::CloseParen)),
+            '"' => Some(self.read_string()),
             c if c.is_ascii_digit() => Some(self.read_number(c)),
             c if c.is_alphabetic() => Some(self.read_identifier(c)),
             c => panic!("Unknown token {c}"),

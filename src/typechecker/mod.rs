@@ -3,7 +3,7 @@ use std::{fmt::Debug, str::FromStr};
 use ast::{CheckedExpr, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::SourceSpan;
 use scope::Scope;
-use tajp::{I32_TYPE_ID, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID};
+use tajp::{I32_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID};
 
 use crate::{
     ast::parsed::{BinOp, Expr, ExprKind, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit},
@@ -232,6 +232,10 @@ impl Checker {
                 }
             }
             ExprKind::BinOp { lhs, op, rhs } => self.typecheck_binop_expr(lhs, *op, rhs, wanted),
+            ExprKind::String(value) => Ok(CheckedExpr {
+                type_id: STRING_TYPE_ID,
+                kind: ast::CheckedExprKind::String(value.clone()),
+            }),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }

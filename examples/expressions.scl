@@ -1,3 +1,4 @@
 proc main() i32 {
+    let str = "Hello world";
     ret 34 + (15 * 2 + 5);
 }

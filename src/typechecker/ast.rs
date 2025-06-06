@@ -34,6 +34,7 @@ pub struct CheckedExpr {
 pub enum CheckedExprKind {
     Identifier(String),
     Number(u64),
+    String(String),
     BinOp {
         lhs: Box<CheckedExpr>,
         op: BinOp,
