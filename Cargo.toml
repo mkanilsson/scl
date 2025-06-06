@@ -6,4 +6,5 @@ edition = "2024"
 [dependencies]
 miette = { version = "7.6.0", features = ["fancy"] }
 pratt-derive = { path = "pratt-derive" }
+strum = { version = "0.27.1", features = ["derive"] }
 thiserror = "2.0.12"

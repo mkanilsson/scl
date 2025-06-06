@@ -24,6 +24,41 @@ pub enum Type {
     },
 }
 
+impl Type {
+    pub fn as_proc(self) -> (Vec<TypeId>, TypeId) {
+        match self {
+            Type::Proc {
+                params,
+                return_type,
+            } => (params, return_type),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn to_string(&self, collection: &TypeCollection) -> String {
+        match self {
+            Type::Void => "void".into(),
+            Type::Bool => "bool".into(),
+            Type::I32 => "i32".into(),
+            Type::U32 => "u32".into(),
+            Type::Proc {
+                params,
+                return_type,
+            } => {
+                let params = params
+                    .iter()
+                    .map(|param| collection.name_of(*param))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                let return_type = collection.name_of(*return_type);
+
+                format!("proc ({params}) {return_type}")
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TypeId(pub usize);
 
@@ -92,5 +127,13 @@ impl TypeCollection {
                 _ => return None,
             }),
         }
+    }
+
+    pub fn get_definition(&self, type_id: TypeId) -> Type {
+        self.types.get(type_id.0).unwrap().clone()
+    }
+
+    pub fn name_of(&self, type_id: TypeId) -> String {
+        self.types.get(type_id.0).unwrap().to_string(self)
     }
 }

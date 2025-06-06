@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
-use miette::SourceSpan;
+use miette::{NamedSource, SourceSpan};
 
-use crate::ast::parsed::Ident;
+use crate::{
+    ast::parsed::Ident,
+    error::{Error, Result},
+};
 
 use super::tajp::TypeId;
 
@@ -21,15 +24,29 @@ impl Scope {
     pub fn add_to_scope(&mut self, ident: &Ident, type_id: TypeId) {
         let len = self.scope.len();
         self.scope[len - 1].insert(ident.clone(), type_id);
+        println!("Adding {} to scope with type: {}", ident.name, type_id.0);
     }
 
-    pub fn enter_scope(&mut self) -> ScopeGuard<'_> {
+    pub fn enter(&mut self) {
         self.scope.push(HashMap::new());
-        ScopeGuard { scope: self }
+    }
+
+    pub fn exit(&mut self) {
+        self.scope.pop().unwrap();
     }
 
     pub fn find(&self, ident: &Ident) -> Option<TypeId> {
         self.find_with_original_span(ident).map(|v| v.0)
+    }
+
+    pub fn force_find(&self, source: &NamedSource<String>, ident: &Ident) -> Result<TypeId> {
+        self.find_with_original_span(ident)
+            .map(|v| v.0)
+            .ok_or(Error::UnknownIdent {
+                src: source.clone(),
+                span: ident.span,
+                ident: ident.name.clone(),
+            })
     }
 
     pub fn find_with_original_span(&self, ident: &Ident) -> Option<(TypeId, SourceSpan)> {
@@ -41,15 +58,5 @@ impl Scope {
         }
 
         None
-    }
-}
-
-pub struct ScopeGuard<'a> {
-    scope: &'a mut Scope,
-}
-
-impl Drop for ScopeGuard<'_> {
-    fn drop(&mut self) {
-        self.scope.scope.pop();
     }
 }

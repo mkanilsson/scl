@@ -1,6 +1,7 @@
 use std::{collections::HashMap, hash::Hash};
 
 use miette::{NamedSource, SourceSpan};
+use strum::Display;
 
 use super::tajp::Type;
 
@@ -29,6 +30,13 @@ impl Ident {
             span,
         }
     }
+
+    pub fn from_string(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            span: (0..0).into(),
+        }
+    }
 }
 
 impl PartialEq for Ident {
@@ -45,7 +53,7 @@ impl Hash for Ident {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Display)]
 pub enum ExprKind {
     Number(u128),
     Identifier(String),
@@ -66,7 +74,19 @@ pub enum ExprKind {
 }
 
 #[derive(Debug, Clone)]
-pub enum Stmt {
+pub struct Stmt {
+    pub span: SourceSpan,
+    pub kind: StmtKind,
+}
+
+impl Stmt {
+    pub fn new(span: SourceSpan, kind: StmtKind) -> Self {
+        Self { span, kind }
+    }
+}
+
+#[derive(Debug, Clone, Display)]
+pub enum StmtKind {
     Block { stmts: Vec<Stmt> },
     VariableDeclaration { name: Ident, value: Expr },
     Return { value: Option<Expr> },

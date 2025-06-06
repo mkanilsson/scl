@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use miette::{NamedSource, SourceSpan};
 
-use crate::ast::parsed::{Expr, ExprKind, Ident, ProcDefinition, Stmt, TranslationUnit};
+use crate::ast::parsed::{Expr, ExprKind, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit};
 use crate::ast::tajp::{Type, TypeKind};
 use crate::error::{Error, Result};
 use crate::helpers;
@@ -53,6 +53,10 @@ impl Parser {
 
     fn new_expr(first: SourceSpan, last: SourceSpan, kind: ExprKind) -> Expr {
         Expr::new(Self::span_from_first_and_last(first, last), kind)
+    }
+
+    fn new_stmt(first: SourceSpan, last: SourceSpan, kind: StmtKind) -> Stmt {
+        Stmt::new(Self::span_from_first_and_last(first, last), kind)
     }
 
     pub fn current(&self) -> Option<&Token> {
@@ -176,37 +180,55 @@ impl Parser {
     }
 
     pub fn parse_variable_declaration(&mut self) -> Result<Stmt> {
-        self.expect(TokenKind::Let)?;
+        let start = self.expect(TokenKind::Let)?;
         let ident = self.expect_ident()?;
 
         self.expect(TokenKind::Equal)?;
         let expr = self.parse_expr(BindingPower::Logical)?;
 
-        Ok(Stmt::VariableDeclaration {
-            name: ident,
-            value: expr,
-        })
+        Ok(Self::new_stmt(
+            start.span,
+            expr.span,
+            StmtKind::VariableDeclaration {
+                name: ident,
+                value: expr,
+            },
+        ))
     }
 
     pub fn parse_return(&mut self) -> Result<Stmt> {
-        self.expect(TokenKind::Ret)?;
+        let start = self.expect(TokenKind::Ret)?;
         let expr = match self.peek().nud_handler() {
             Some(_) => Some(self.parse_expr(BindingPower::Default)?),
             None => None,
         };
 
-        Ok(Stmt::Return { value: expr })
+        let last = if let Some(expr) = &expr {
+            expr.span
+        } else {
+            start.span
+        };
+
+        Ok(Self::new_stmt(
+            start.span,
+            last,
+            StmtKind::Return { value: expr },
+        ))
     }
 
     pub fn parse_binary_expr(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
         let op = self.next();
         let rhs = self.parse_expr(bp)?;
 
-        Ok(Self::new_expr(lhs.span, rhs.span, ExprKind::BinOp {
-            lhs: Box::new(lhs),
-            op: op.binop().unwrap(),
-            rhs: Box::new(rhs),
-        }))
+        Ok(Self::new_expr(
+            lhs.span,
+            rhs.span,
+            ExprKind::BinOp {
+                lhs: Box::new(lhs),
+                op: op.binop().unwrap(),
+                rhs: Box::new(rhs),
+            },
+        ))
     }
     pub fn parse_expr(&mut self, bp: BindingPower) -> Result<Expr> {
         let current = self.peek();
