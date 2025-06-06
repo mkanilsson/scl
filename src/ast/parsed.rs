@@ -92,7 +92,7 @@ pub enum StmtKind {
     Return { value: Option<Expr> },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Display)]
 pub enum BinOp {
     Add,
     Subtract,

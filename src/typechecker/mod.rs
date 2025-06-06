@@ -6,7 +6,7 @@ use scope::Scope;
 use tajp::{I32_TYPE_ID, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID};
 
 use crate::{
-    ast::parsed::{Expr, ExprKind, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit},
+    ast::parsed::{BinOp, Expr, ExprKind, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit},
     error::{Error, Result},
 };
 
@@ -231,7 +231,54 @@ impl Checker {
                     })
                 }
             }
+            ExprKind::BinOp { lhs, op, rhs } => self.typecheck_binop_expr(lhs, *op, rhs, wanted),
             kind => todo!("typecheck_expr: {}", kind),
+        }
+    }
+
+    fn typecheck_binop_expr(
+        &mut self,
+        lhs: &Expr,
+        op: BinOp,
+        rhs: &Expr,
+        wanted: Option<(TypeId, SourceSpan)>,
+    ) -> Result<CheckedExpr> {
+        let checked_lhs = self.typecheck_expr(lhs, wanted)?;
+        let checked_rhs = self.typecheck_expr(rhs, wanted)?;
+
+        self.expect_number(&checked_lhs, lhs.span)?;
+        self.expect_number(&checked_rhs, rhs.span)?;
+
+        if checked_lhs.type_id != checked_rhs.type_id {
+            return Err(Error::BinOpSidesMismatch {
+                src: self.unit.source.clone(),
+                lhs_span: lhs.span,
+                rhs_span: rhs.span,
+                lhs_type_name: self.types.name_of(checked_lhs.type_id),
+                rhs_type_name: self.types.name_of(checked_rhs.type_id),
+            });
+        }
+
+        Ok(CheckedExpr {
+            type_id: checked_lhs.type_id,
+            kind: ast::CheckedExprKind::BinOp {
+                lhs: Box::new(checked_lhs),
+                op,
+                rhs: Box::new(checked_rhs),
+            },
+        })
+    }
+
+    fn expect_number(&self, expr: &CheckedExpr, span: SourceSpan) -> Result<()> {
+        if !self.types.is_number(expr.type_id) {
+            Err(Error::ExpectedButGot {
+                src: self.unit.source.clone(),
+                span,
+                expected: "number".to_string(),
+                got: self.types.name_of(expr.type_id),
+            })
+        } else {
+            Ok(())
         }
     }
 

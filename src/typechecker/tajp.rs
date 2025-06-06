@@ -35,6 +35,13 @@ impl Type {
         }
     }
 
+    pub fn is_number(&self) -> bool {
+        match self {
+            Type::I32 | Type::U32 => true,
+            _ => false,
+        }
+    }
+
     pub fn to_string(&self, collection: &TypeCollection) -> String {
         match self {
             Type::Void => "void".into(),
@@ -135,6 +142,10 @@ impl TypeCollection {
 
     pub fn name_of(&self, type_id: TypeId) -> String {
         self.types.get(type_id.0).unwrap().to_string(self)
+    }
+
+    pub fn is_number(&self, type_id: TypeId) -> bool {
+        self.get_definition(type_id).is_number()
     }
 
     pub fn qbe_type_of<'a>(&self, type_id: TypeId) -> qbe::Type<'a> {

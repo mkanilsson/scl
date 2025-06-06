@@ -1,8 +1,11 @@
 use qbe::{Block, Function, Instr, Linkage, Module, Type, Value};
 
-use crate::typechecker::{
-    ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit},
-    tajp::{TypeCollection, VOID_TYPE_ID},
+use crate::{
+    ast::parsed::BinOp,
+    typechecker::{
+        ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit},
+        tajp::{TypeCollection, VOID_TYPE_ID},
+    },
 };
 
 pub struct Codegen {
@@ -57,8 +60,8 @@ impl Codegen {
         }
     }
 
-    fn codegen_return_stmt(&self, value: &Option<CheckedExpr>, block: &mut Block) {
-        let qbe_value = value.as_ref().map(|expr| self.codegen_expr(expr).1);
+    fn codegen_return_stmt<'a>(&'a self, value: &Option<CheckedExpr>, block: &mut Block<'a>) {
+        let qbe_value = value.as_ref().map(|expr| self.codegen_expr(expr, block).1);
 
         block.add_instr(Instr::Ret(qbe_value));
     }
@@ -69,7 +72,7 @@ impl Codegen {
         value: &CheckedExpr,
         block: &mut Block<'a>,
     ) {
-        let expr = self.codegen_expr(value);
+        let expr = self.codegen_expr(value, block);
         block.assign_instr(
             Value::Temporary(name.to_string()),
             expr.0,
@@ -77,14 +80,52 @@ impl Codegen {
         );
     }
 
-    fn codegen_expr(&self, expr: &CheckedExpr) -> (Type, Value) {
-        let value = match &expr.kind {
-            CheckedExprKind::Identifier(name) => Value::Temporary(name.clone()),
-            CheckedExprKind::Number(value) => Value::Const(*value),
+    fn codegen_expr<'a>(&'a self, expr: &CheckedExpr, block: &mut Block<'a>) -> (Type<'a>, Value) {
+        #[allow(unreachable_patterns)]
+        match &expr.kind {
+            CheckedExprKind::Identifier(name) => self.codegen_identifier_expr(expr, name),
+            CheckedExprKind::Number(value) => self.codegen_number_expr(expr, *value),
+            CheckedExprKind::BinOp { lhs, op, rhs } => {
+                self.codegen_binop_expr(lhs, *op, rhs, block)
+            }
+            kind => todo!("codegen_expr: {}", kind),
+        }
+    }
+
+    fn codegen_identifier_expr(&self, expr: &CheckedExpr, name: &str) -> (Type, Value) {
+        (
+            self.types.qbe_type_of(expr.type_id),
+            Value::Temporary(name.to_string()),
+        )
+    }
+
+    fn codegen_number_expr(&self, expr: &CheckedExpr, value: u64) -> (Type, Value) {
+        (self.types.qbe_type_of(expr.type_id), Value::Const(value))
+    }
+
+    fn codegen_binop_expr<'a>(
+        &'a self,
+        lhs: &CheckedExpr,
+        op: BinOp,
+        rhs: &CheckedExpr,
+        block: &mut Block<'a>,
+    ) -> (Type<'a>, Value) {
+        let generated_lhs = self.codegen_expr(lhs, block);
+        let generated_rhs = self.codegen_expr(rhs, block);
+
+        let binop_result = Value::Temporary("binop_temp".to_string());
+
+        #[allow(unreachable_patterns)]
+        let inst = match op {
+            BinOp::Add => Instr::Add(generated_lhs.1, generated_rhs.1),
+            BinOp::Multiply => Instr::Mul(generated_lhs.1, generated_rhs.1),
+            BinOp::Subtract => Instr::Sub(generated_lhs.1, generated_rhs.1),
+            BinOp::Divide => Instr::Div(generated_lhs.1, generated_rhs.1),
+            op => todo!("codegen_binop_expr: {}", op),
         };
 
-        let t = self.types.qbe_type_of(expr.type_id);
+        block.assign_instr(binop_result.clone(), generated_lhs.0.clone(), inst);
 
-        (t, value)
+        (generated_lhs.0, binop_result)
     }
 }

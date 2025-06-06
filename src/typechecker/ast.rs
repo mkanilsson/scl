@@ -1,3 +1,7 @@
+use strum::Display;
+
+use crate::ast::parsed::BinOp;
+
 use super::tajp::TypeId;
 
 #[derive(Debug, Clone)]
@@ -26,8 +30,13 @@ pub struct CheckedExpr {
     pub kind: CheckedExprKind,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Display)]
 pub enum CheckedExprKind {
     Identifier(String),
     Number(u64),
+    BinOp {
+        lhs: Box<CheckedExpr>,
+        op: BinOp,
+        rhs: Box<CheckedExpr>,
+    },
 }

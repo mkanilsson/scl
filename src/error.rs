@@ -132,4 +132,18 @@ pub enum Error {
         value: String,
         type_name: String,
     },
+    #[error("BinOp sides don't match")]
+    BinOpSidesMismatch {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("this evaluates to '{lhs_type_name}'")]
+        lhs_span: SourceSpan,
+
+        #[label("and this evaluates to '{rhs_type_name}'")]
+        rhs_span: SourceSpan,
+
+        lhs_type_name: String,
+        rhs_type_name: String,
+    },
 }
