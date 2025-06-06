@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use codegen::Codegen;
 use error::Result;
 use lexer::Lexer;
@@ -32,7 +34,42 @@ fn run() -> Result<()> {
     println!("{checked_unit:#?}");
 
     let mut codegener = Codegen::new(checked_unit, checker.types);
-    println!("{}", codegener.generate());
+    let code = codegener.generate();
+
+    std::fs::create_dir_all("out/").unwrap();
+    std::fs::write("out/a.ssa", code).unwrap();
+
+    // Compile to asm
+    let qbe_cmd = Command::new("qbe")
+        .arg("-o")
+        .arg("out/a.S")
+        .arg("out/a.ssa")
+        .output()
+        .unwrap();
+
+    if !qbe_cmd.status.success() {
+        println!("qbe failed");
+        println!("stderr:\n{}", String::from_utf8_lossy(&qbe_cmd.stderr));
+        println!("stdout:\n{}", String::from_utf8_lossy(&qbe_cmd.stdout));
+
+        return Ok(());
+    }
+
+    // Compile to machinecode
+    let gcc_cmd = Command::new("gcc")
+        .arg("-o")
+        .arg("out/a.out")
+        .arg("out/a.S")
+        .output()
+        .unwrap();
+
+    if !gcc_cmd.status.success() {
+        println!("gcc failed");
+        println!("stderr:\n{}", String::from_utf8_lossy(&gcc_cmd.stderr));
+        println!("stdout:\n{}", String::from_utf8_lossy(&gcc_cmd.stdout));
+
+        return Ok(());
+    }
 
     Ok(())
 }
