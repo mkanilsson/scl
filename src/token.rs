@@ -61,7 +61,7 @@ impl Token {
 pub enum TokenKind {
     #[name("number")]
     #[nud(Parser::parse_primary)]
-    Number(u128),
+    Number(String),
 
     #[nud(Parser::parse_primary)]
     #[name("identifier")]

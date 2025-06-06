@@ -53,10 +53,7 @@ impl Lexer {
             }
         }
 
-        Token::new(
-            (start..self.position).into(),
-            TokenKind::Number(string.parse().unwrap()),
-        )
+        Token::new((start..self.position).into(), TokenKind::Number(string))
     }
 
     fn read_identifier(&mut self, current: char) -> Token {

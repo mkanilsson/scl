@@ -55,7 +55,7 @@ impl Hash for Ident {
 
 #[derive(Debug, Clone, Display)]
 pub enum ExprKind {
-    Number(u128),
+    Number(String),
     Identifier(String),
     BinOp {
         lhs: Box<Expr>,
