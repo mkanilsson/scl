@@ -13,12 +13,9 @@ mod typechecker;
 
 fn main() -> miette::Result<()> {
     let something_or_error = run();
-    match something_or_error {
-        Err(err) => {
-            let me: miette::Error = err.into();
-            return Err(me);
-        }
-        _ => {}
+    if let Err(err) = something_or_error {
+        let me: miette::Error = err.into();
+        return Err(me);
     }
 
     Ok(())

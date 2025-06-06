@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::id};
+use std::path::PathBuf;
 
 use crate::token::{Token, TokenKind};
 
@@ -23,7 +23,7 @@ impl Lexer {
 
     fn advance(&mut self) -> Option<char> {
         let next = self.peek();
-        if let Some(_) = next {
+        if next.is_some() {
             self.position += 1;
         }
 

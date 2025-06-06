@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::fmt::Debug;
 
 use ast::{CheckedExpr, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::SourceSpan;
@@ -33,7 +33,7 @@ impl Checker {
         let procs = self.unit.procs.clone();
 
         for proc in &procs {
-            self.add_proc_types(&proc)?;
+            self.add_proc_types(proc)?;
         }
 
         let mut checked_procs = vec![];
@@ -103,7 +103,7 @@ impl Checker {
         let mut stmts = vec![];
 
         for stmt in &proc.stmts {
-            stmts.push(self.typecheck_stmt((definition.1.clone(), proc.return_type.span), &stmt)?);
+            stmts.push(self.typecheck_stmt((definition.1, proc.return_type.span), stmt)?);
         }
 
         self.scope.exit();
@@ -131,16 +131,6 @@ impl Checker {
         span: SourceSpan,
         value: &Option<Expr>,
     ) -> Result<CheckedStmt> {
-        if return_type.0 == VOID_TYPE_ID {
-            if let Some(value) = value {
-                return Err(Error::ReturnShouldntHaveValue {
-                    src: self.unit.source.clone(),
-                    span: value.span,
-                });
-            } else {
-            }
-        }
-
         match value {
             Some(value) => {
                 if return_type.0 == VOID_TYPE_ID {
@@ -183,8 +173,6 @@ impl Checker {
                 let type_id = self
                     .scope
                     .force_find(&self.unit.source, &Ident::from_string(ident))?;
-
-                println!("identifier: {}: {}", ident, type_id.0);
 
                 Ok(CheckedExpr {
                     type_id,
