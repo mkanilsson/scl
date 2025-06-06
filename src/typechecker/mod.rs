@@ -93,9 +93,6 @@ impl Checker {
 
         self.scope.enter();
 
-        println!("params: {:#?}", proc.params);
-        println!("definition: {:#?}", definition.0);
-
         let mut params = vec![];
         for param in proc.params.iter().map(|p| &p.0).zip(definition.0) {
             self.scope.add_to_scope(param.0, param.1);

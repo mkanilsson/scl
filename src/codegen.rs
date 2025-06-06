@@ -55,11 +55,7 @@ impl Codegen {
     }
 
     fn codegen_return_stmt(&self, value: &Option<CheckedExpr>, block: &mut Block) {
-        let qbe_value = if let Some(expr) = value {
-            Some(self.codegen_expr(expr))
-        } else {
-            None
-        };
+        let qbe_value = value.as_ref().map(|expr| self.codegen_expr(expr));
 
         block.add_instr(Instr::Ret(qbe_value));
     }

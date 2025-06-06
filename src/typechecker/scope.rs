@@ -24,7 +24,6 @@ impl Scope {
     pub fn add_to_scope(&mut self, ident: &Ident, type_id: TypeId) {
         let len = self.scope.len();
         self.scope[len - 1].insert(ident.clone(), type_id);
-        println!("Adding {} to scope with type: {}", ident.name, type_id.0);
     }
 
     pub fn enter(&mut self) {
