@@ -22,7 +22,7 @@ impl Lexer {
     }
 
     fn peek_n(&self, n: usize) -> Option<char> {
-        self.content[self.position..].chars().skip(n).next()
+        self.content[self.position..].chars().nth(n)
     }
 
     fn advance(&mut self) -> Option<char> {
@@ -116,8 +116,6 @@ impl Lexer {
     }
 
     fn slash_or_comment(&mut self) -> Option<Token> {
-        let start = self.position - 1;
-
         match self.peek()? {
             '/' => {
                 self.skip_to_newline();
@@ -132,19 +130,21 @@ impl Lexer {
         let next = self.peek();
         let after_that = self.peek_n(1);
 
-        if next.is_some() && after_that.is_some() {
-            if next.unwrap() == '.' && after_that.unwrap() == '.' {
-                self.advance();
-                self.advance();
+        if next.is_some()
+            && after_that.is_some()
+            && next.unwrap() == '.'
+            && after_that.unwrap() == '.'
+        {
+            self.advance();
+            self.advance();
 
-                return Some(Token::new(
-                    (start..self.position).into(),
-                    TokenKind::DotDotDot,
-                ));
-            }
+            return Some(Token::new(
+                (start..self.position).into(),
+                TokenKind::DotDotDot,
+            ));
         }
 
-        return Some(self.char(TokenKind::Dot));
+        Some(self.char(TokenKind::Dot))
     }
 
     fn equal_or_compare(&mut self) -> Option<Token> {

@@ -300,22 +300,8 @@ impl Parser {
     pub fn parse_call(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
         self.expect(TokenKind::OpenParen)?;
 
-        let mut params = vec![];
-
-        loop {
-            if self.peek().kind == TokenKind::CloseParen {
-                break;
-            }
-
-            params.push(self.parse_expr(BindingPower::Default)?);
-
-            if self.peek().kind != TokenKind::Comma {
-                break;
-            }
-
-            self.expect(TokenKind::Comma)?;
-        }
-
+        let params =
+            self.parse_commma_separated_exprs(TokenKind::CloseParen, BindingPower::Logical)?;
         let last = self.expect(TokenKind::CloseParen)?;
 
         Ok(Self::new_expr(
@@ -333,14 +319,21 @@ impl Parser {
         wrapper: TokenKind,
         min_bp: BindingPower,
     ) -> Result<Vec<Expr>> {
-        let mut params = vec![];
+        self.parse_commma_separated(wrapper, |parser| parser.parse_expr(min_bp))
+    }
+
+    fn parse_commma_separated<T, F>(&mut self, wrapper: TokenKind, mut func: F) -> Result<Vec<T>>
+    where
+        F: FnMut(&mut Self) -> Result<T>,
+    {
+        let mut values = vec![];
 
         loop {
             if self.peek().kind == wrapper {
                 break;
             }
 
-            params.push(self.parse_expr(min_bp)?);
+            values.push(func(self)?);
 
             if self.peek().kind != TokenKind::Comma {
                 break;
@@ -349,7 +342,7 @@ impl Parser {
             self.expect(TokenKind::Comma)?;
         }
 
-        Ok(params)
+        Ok(values)
     }
 
     pub fn parse_expr(&mut self, bp: BindingPower) -> Result<Expr> {
@@ -437,24 +430,11 @@ impl Parser {
             }
         };
 
-        let mut members = HashMap::new();
-
         self.expect(TokenKind::OpenCurly)?;
 
-        loop {
-            if self.peek().kind == TokenKind::CloseCurly {
-                break;
-            }
-
-            let value = self.parse_struct_instantation_value()?;
-            members.insert(value.0, value.1);
-
-            if self.peek().kind != TokenKind::Comma {
-                break;
-            }
-
-            self.expect(TokenKind::Comma)?;
-        }
+        let members = self.parse_commma_separated(TokenKind::CloseCurly, |parser| {
+            parser.parse_struct_instantation_value()
+        })?;
 
         let last = self.expect(TokenKind::CloseCurly)?;
 

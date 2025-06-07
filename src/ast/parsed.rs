@@ -67,8 +67,7 @@ pub enum ExprKind {
     },
     StructInstantiation {
         name: String,
-        // TODO: Change to a vec
-        members: HashMap<Ident, Expr>,
+        members: Vec<(Ident, Expr)>,
     },
     MemberAccess {
         lhs: Box<Expr>,

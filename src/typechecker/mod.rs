@@ -98,7 +98,7 @@ impl Checker {
     fn add_extern_proc_types(&mut self, definition: &ExternProcDefinition) -> Result<()> {
         let mut params: Vec<TypeId> = vec![];
         for param_type in &definition.params {
-            let type_id = self.types.force_find(&self.unit.source, &param_type)?;
+            let type_id = self.types.force_find(&self.unit.source, param_type)?;
             params.push(type_id);
         }
 
@@ -444,11 +444,11 @@ impl Checker {
                 })
             }
             name => {
-                return Err(Error::UnknownBuiltin {
+                Err(Error::UnknownBuiltin {
                     src: self.unit.source.clone(),
                     span: expr.span,
                     name: name.to_string(),
-                });
+                })
             }
         }
     }
