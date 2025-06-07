@@ -1,6 +1,6 @@
 use std::{fmt::Debug, str::FromStr};
 
-use ast::{CheckedExpr, CheckedProc, CheckedStmt, CheckedTranslationUnit};
+use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::SourceSpan;
 use scope::Scope;
 use tajp::{I32_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID};
@@ -165,6 +165,10 @@ impl Checker {
             StmtKind::VariableDeclaration { name, value } => {
                 self.typecheck_variable_declaration_stmt(name, value)
             }
+            StmtKind::Expr(expr) => {
+                let expr = self.typecheck_expr(expr, None)?;
+                Ok(CheckedStmt::Expr(expr))
+            }
             stmt => todo!("typecheck_stmt: {}", stmt),
         }
     }
@@ -275,6 +279,7 @@ impl Checker {
                 type_id: STRING_TYPE_ID,
                 kind: ast::CheckedExprKind::String(value.clone()),
             }),
+            ExprKind::Call { expr, params } => self.typecheck_call_expr(expr, params, wanted),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -308,6 +313,64 @@ impl Checker {
                 lhs: Box::new(checked_lhs),
                 op,
                 rhs: Box::new(checked_rhs),
+            },
+        })
+    }
+
+    fn typecheck_call_expr(
+        &mut self,
+        expr: &Expr,
+        params: &Vec<Expr>,
+        wanted: Option<(TypeId, SourceSpan)>,
+    ) -> Result<CheckedExpr> {
+        let checked_expr = self.typecheck_expr(expr, wanted)?;
+
+        let ident = match checked_expr.kind {
+            CheckedExprKind::Identifier(name) => name,
+            _ => todo!("Indirect calls"),
+        };
+
+        let proc_type = self
+            .types
+            .get_definition(
+                self.scope
+                    .force_find_from_string(&self.unit.source, &ident)?,
+            )
+            .as_proc();
+
+        if params.len() < proc_type.0.len() || (params.len() > proc_type.0.len() && !proc_type.2) {
+            return Err(Error::ProcCallParamCountMismatch {
+                src: self.unit.source.clone(),
+                span: expr.span,
+                expected: proc_type.0.len(),
+                got: params.len(),
+                variadic: proc_type.2,
+            });
+        }
+
+        let mut params = params.clone();
+        let non_variadic_params = params.drain(0..proc_type.0.len()).zip(&proc_type.0);
+
+        let mut checked_params = vec![];
+        for param in non_variadic_params {
+            // TODO: Get the location of the suspected span or allow the span to be optional
+            checked_params.push(self.typecheck_expr(&param.0, Some((*param.1, (0..0).into())))?);
+        }
+
+        for param in &params {
+            checked_params.push(self.typecheck_expr(param, None)?);
+        }
+
+        Ok(CheckedExpr {
+            type_id: proc_type.1,
+            kind: CheckedExprKind::DirectCall {
+                name: ident,
+                params: checked_params,
+                variadic_after: if proc_type.2 {
+                    Some(proc_type.0.len() as u64)
+                } else {
+                    None
+                },
             },
         })
     }

@@ -59,12 +59,22 @@ impl Codegen {
         module.add_function(func);
     }
 
-    fn codegen_stmt<'a>(&'a self, stmt: &CheckedStmt, block: &mut Block<'a>, module: &mut Module) {
+    fn codegen_stmt<'a>(
+        &'a self,
+        stmt: &CheckedStmt,
+        block: &mut Block<'a>,
+        module: &mut Module<'a>,
+    ) {
+        #[allow(unreachable_patterns)]
         match stmt {
             CheckedStmt::Return { value } => self.codegen_return_stmt(value, block, module),
             CheckedStmt::VariableDeclaration { name, value } => {
                 self.codegen_variable_declaration_stmt(name, value, block, module)
             }
+            CheckedStmt::Expr(expr) => {
+                self.codegen_expr(expr, block, module);
+            }
+            stmt => todo!("codegen_stmt: {}", stmt),
         }
     }
 
@@ -72,7 +82,7 @@ impl Codegen {
         &'a self,
         value: &Option<CheckedExpr>,
         block: &mut Block<'a>,
-        module: &mut Module,
+        module: &mut Module<'a>,
     ) {
         let qbe_value = value
             .as_ref()
@@ -86,7 +96,7 @@ impl Codegen {
         name: &str,
         value: &CheckedExpr,
         block: &mut Block<'a>,
-        module: &mut Module,
+        module: &mut Module<'a>,
     ) {
         let expr = self.codegen_expr(value, block, module);
         block.assign_instr(
@@ -100,7 +110,7 @@ impl Codegen {
         &'a self,
         expr: &CheckedExpr,
         block: &mut Block<'a>,
-        module: &mut Module,
+        module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         #[allow(unreachable_patterns)]
         match &expr.kind {
@@ -110,6 +120,11 @@ impl Codegen {
             CheckedExprKind::BinOp { lhs, op, rhs } => {
                 self.codegen_binop_expr(lhs, *op, rhs, block, module)
             }
+            CheckedExprKind::DirectCall {
+                name,
+                params,
+                variadic_after,
+            } => self.codegen_direct_call_expr(expr, name, params, *variadic_after, block, module),
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -146,13 +161,41 @@ impl Codegen {
         (self.types.qbe_type_of(expr.type_id), Value::Global(name))
     }
 
+    fn codegen_direct_call_expr<'a>(
+        &'a self,
+        expr: &CheckedExpr,
+        name: &str,
+        params: &Vec<CheckedExpr>,
+        variadic_after: Option<u64>,
+        block: &mut Block<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        // TODO: Find a way to garantee name collision
+        let result_value = Value::Temporary(format!("{name}_return_value"));
+        let result_type = self.types.qbe_type_of(expr.type_id);
+
+        let mut generated_params = vec![];
+
+        for param in params {
+            generated_params.push(self.codegen_expr(param, block, module));
+        }
+
+        block.assign_instr(
+            result_value.clone(),
+            result_type.clone(),
+            Instr::Call(name.to_string(), generated_params, variadic_after),
+        );
+
+        (result_type, result_value)
+    }
+
     fn codegen_binop_expr<'a>(
         &'a self,
         lhs: &CheckedExpr,
         op: BinOp,
         rhs: &CheckedExpr,
         block: &mut Block<'a>,
-        module: &mut Module,
+        module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         let generated_lhs = self.codegen_expr(lhs, block, module);
         let generated_rhs = self.codegen_expr(rhs, block, module);

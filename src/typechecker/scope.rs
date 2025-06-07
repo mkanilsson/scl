@@ -48,6 +48,14 @@ impl Scope {
             })
     }
 
+    pub fn force_find_from_string(
+        &self,
+        source: &NamedSource<String>,
+        ident: &str,
+    ) -> Result<TypeId> {
+        self.force_find(source, &Ident::new(ident.to_string(), (0..0).into()))
+    }
+
     pub fn find_with_original_span(&self, ident: &Ident) -> Option<(TypeId, SourceSpan)> {
         for scope in self.scope.iter().rev() {
             if scope.contains_key(ident) {

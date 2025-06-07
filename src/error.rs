@@ -146,4 +146,21 @@ pub enum Error {
         lhs_type_name: String,
         rhs_type_name: String,
     },
+    #[error(
+        "Proc expects {}{expected} argument{} but got {got}",
+        if *variadic { "at least " } else { "" },
+        if *expected != 1 { "s" } else { "" }
+    )]
+    ProcCallParamCountMismatch {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        expected: usize,
+        got: usize,
+
+        variadic: bool,
+    },
 }

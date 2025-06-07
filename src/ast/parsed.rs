@@ -72,6 +72,10 @@ pub enum ExprKind {
         lhs: Box<Expr>,
         member: Ident,
     },
+    Call {
+        expr: Box<Expr>,
+        params: Vec<Expr>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +95,7 @@ pub enum StmtKind {
     Block { stmts: Vec<Stmt> },
     VariableDeclaration { name: Ident, value: Expr },
     Return { value: Option<Expr> },
+    Expr(Expr),
 }
 
 #[derive(Debug, Clone, Copy, Display)]

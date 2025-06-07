@@ -18,10 +18,11 @@ pub struct CheckedProc {
     pub return_type: TypeId,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Display)]
 pub enum CheckedStmt {
     Return { value: Option<CheckedExpr> },
     VariableDeclaration { name: String, value: CheckedExpr },
+    Expr(CheckedExpr),
 }
 
 #[derive(Debug, Clone)]
@@ -39,5 +40,10 @@ pub enum CheckedExprKind {
         lhs: Box<CheckedExpr>,
         op: BinOp,
         rhs: Box<CheckedExpr>,
+    },
+    DirectCall {
+        name: String,
+        params: Vec<CheckedExpr>,
+        variadic_after: Option<u64>,
     },
 }

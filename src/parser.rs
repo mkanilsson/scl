@@ -202,11 +202,14 @@ impl Parser {
     }
 
     fn parse_stmt(&mut self) -> Result<Stmt> {
-        let Some(stmt_fn) = self.peek().stmt_handler() else {
-            todo!("Good error reporting for token not being a stmt beginner token thingy");
+        let stmt = if let Some(stmt_fn) = self.peek().stmt_handler() {
+            stmt_fn(self)?
+        } else {
+            let expr = self.parse_expr(BindingPower::Default)?;
+            println!("{:#?}", expr);
+            Stmt::new(expr.span, StmtKind::Expr(expr))
         };
 
-        let stmt = stmt_fn(self)?;
         self.expect(TokenKind::Semicolon)?;
         Ok(stmt)
     }
@@ -279,6 +282,38 @@ impl Parser {
             },
         ))
     }
+
+    pub fn parse_call(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
+        self.expect(TokenKind::OpenParen)?;
+
+        let mut params = vec![];
+
+        loop {
+            if self.peek().kind == TokenKind::CloseParen {
+                break;
+            }
+
+            params.push(self.parse_expr(BindingPower::Default)?);
+
+            if self.peek().kind != TokenKind::Comma {
+                break;
+            }
+
+            self.expect(TokenKind::Comma)?;
+        }
+
+        let last = self.expect(TokenKind::CloseParen)?;
+
+        Ok(Self::new_expr(
+            lhs.span,
+            last.span,
+            ExprKind::Call {
+                expr: Box::new(lhs),
+                params,
+            },
+        ))
+    }
+
     pub fn parse_expr(&mut self, bp: BindingPower) -> Result<Expr> {
         let current = self.peek();
 

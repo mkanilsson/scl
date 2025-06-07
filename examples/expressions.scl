@@ -1,6 +1,7 @@
-extern proc printf(string, ...) void
+extern proc printf(string, ...) i32
 
 proc main() i32 {
-    let str = "Hello world";
-    ret 34 + (15 * 2 + 5);
+    let str = "Value: %d\n";
+    printf(str, 10 + 15 * 2);
+    ret 0;
 }
