@@ -79,6 +79,8 @@ impl Lexer {
             "ret" => TokenKind::Ret,
             "proc" => TokenKind::Proc,
             "extern" => TokenKind::Extern,
+            "true" => TokenKind::True,
+            "false" => TokenKind::False,
             _ => TokenKind::Identifier(string),
         };
 

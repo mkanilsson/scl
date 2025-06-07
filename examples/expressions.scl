@@ -3,5 +3,6 @@ extern proc printf(string, ...) i32
 proc main() i32 {
     let str = "Value: %d\n";
     printf(str, 10 + 15 * 2);
+    printf("true = %d, false = %d\n", true, false);
     ret 0;
 }

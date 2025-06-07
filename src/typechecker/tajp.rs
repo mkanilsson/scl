@@ -164,7 +164,7 @@ impl TypeCollection {
         let definition = self.get_definition(type_id);
 
         match definition {
-            Type::Bool => qbe::Type::Byte,
+            Type::Bool => qbe::Type::Word,
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,

@@ -58,6 +58,7 @@ pub enum ExprKind {
     Number(String),
     Identifier(String),
     String(String),
+    Bool(bool),
     BinOp {
         lhs: Box<Expr>,
         op: BinOp,
