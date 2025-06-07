@@ -18,7 +18,11 @@ impl Lexer {
     }
 
     fn peek(&self) -> Option<char> {
-        self.content[self.position..].chars().next()
+        self.peek_n(0)
+    }
+
+    fn peek_n(&self, n: usize) -> Option<char> {
+        self.content[self.position..].chars().skip(n).next()
     }
 
     fn advance(&mut self) -> Option<char> {
@@ -74,6 +78,7 @@ impl Lexer {
             "let" => TokenKind::Let,
             "ret" => TokenKind::Ret,
             "proc" => TokenKind::Proc,
+            "extern" => TokenKind::Extern,
             _ => TokenKind::Identifier(string),
         };
 
@@ -119,6 +124,26 @@ impl Lexer {
             _ => Some(self.char(TokenKind::Slash)),
         }
     }
+
+    fn dot_or_dotdotdot(&mut self) -> Option<Token> {
+        let start = self.position - 1;
+        let next = self.peek();
+        let after_that = self.peek_n(1);
+
+        if next.is_some() && after_that.is_some() {
+            if next.unwrap() == '.' && after_that.unwrap() == '.' {
+                self.advance();
+                self.advance();
+
+                return Some(Token::new(
+                    (start..self.position).into(),
+                    TokenKind::DotDotDot,
+                ));
+            }
+        }
+
+        return Some(self.char(TokenKind::Dot));
+    }
 }
 
 impl Iterator for Lexer {
@@ -138,7 +163,7 @@ impl Iterator for Lexer {
             '{' => Some(self.char(TokenKind::OpenCurly)),
             '}' => Some(self.char(TokenKind::CloseCurly)),
             ':' => Some(self.char(TokenKind::Colon)),
-            '.' => Some(self.char(TokenKind::Dot)),
+            '.' => self.dot_or_dotdotdot(),
             '(' => Some(self.char(TokenKind::OpenParen)),
             ')' => Some(self.char(TokenKind::CloseParen)),
             '"' => Some(self.read_string()),

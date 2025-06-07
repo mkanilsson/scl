@@ -23,16 +23,18 @@ pub enum Type {
     Proc {
         params: Vec<TypeId>,
         return_type: TypeId,
+        variadic: bool,
     },
 }
 
 impl Type {
-    pub fn as_proc(self) -> (Vec<TypeId>, TypeId) {
+    pub fn as_proc(self) -> (Vec<TypeId>, TypeId, bool) {
         match self {
             Type::Proc {
                 params,
                 return_type,
-            } => (params, return_type),
+                variadic,
+            } => (params, return_type, variadic),
             _ => unreachable!(),
         }
     }
@@ -54,12 +56,18 @@ impl Type {
             Type::Proc {
                 params,
                 return_type,
+                variadic,
             } => {
-                let params = params
+                let mut params = params
                     .iter()
                     .map(|param| collection.name_of(*param))
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                    .collect::<Vec<_>>();
+
+                if *variadic {
+                    params.push("...".to_string());
+                }
+
+                let params = params.join(", ");
 
                 let return_type = collection.name_of(*return_type);
 

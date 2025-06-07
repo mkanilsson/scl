@@ -1,4 +1,5 @@
 use miette::SourceSpan;
+use strum::Display;
 
 use crate::ast::parsed::{BinOp, Expr, Stmt};
 use crate::error::Result;
@@ -57,7 +58,7 @@ impl Token {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Pratt)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Pratt, Display)]
 pub enum TokenKind {
     #[name("number")]
     #[nud(Parser::parse_primary)]
@@ -115,10 +116,14 @@ pub enum TokenKind {
     #[led(BindingPower::Member, Parser::parse_member_expr)]
     Dot,
 
+    #[name("...")]
+    DotDotDot,
+
     #[stmt(Parser::parse_return)]
     Ret,
 
     Proc,
+    Extern,
 }
 
 impl TokenKind {

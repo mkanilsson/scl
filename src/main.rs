@@ -29,9 +29,11 @@ fn run() -> Result<()> {
     let lexer = Lexer::new("examples/expressions.scl".into());
     let parser = parser::Parser::new(lexer);
     let unit = parser.parse()?;
+    println!("{unit:#?}");
     let mut checker = Checker::new(unit);
     let checked_unit = checker.check()?;
     println!("{checked_unit:#?}");
+    println!("{checker:#?}");
 
     let mut codegener = Codegen::new(checked_unit, checker.types);
     let code = codegener.generate();

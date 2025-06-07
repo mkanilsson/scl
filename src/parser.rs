@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use miette::{NamedSource, SourceSpan};
 
-use crate::ast::parsed::{Expr, ExprKind, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit};
+use crate::ast::parsed::{
+    Expr, ExprKind, ExternProcDefinition, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit,
+};
 use crate::ast::tajp::{Type, TypeKind};
 use crate::error::{Error, Result};
 use crate::helpers;
@@ -69,12 +71,14 @@ impl Parser {
 
     fn parse_translation_unit(mut self) -> Result<TranslationUnit> {
         let mut procs = vec![];
+        let mut extern_procs = vec![];
 
         while let Some(c) = self.current() {
-            match c.kind {
+            match &c.kind {
                 TokenKind::Proc => procs.push(self.parse_proc_definition()?),
+                TokenKind::Extern => extern_procs.push(self.parse_extern_proc_definition()?),
                 _ => {
-                    return Err(Error::ExpectedProcOrStruct {
+                    return Err(Error::ExpectedProcStructExtern {
                         src: self.named_source(),
                         span: c.span,
                     });
@@ -84,6 +88,7 @@ impl Parser {
 
         Ok(TranslationUnit {
             procs,
+            extern_procs,
             source: NamedSource::new(self.file_name, self.content),
         })
     }
@@ -118,6 +123,49 @@ impl Parser {
             params,
             return_type,
             stmts,
+        })
+    }
+
+    fn parse_extern_proc_definition(&mut self) -> Result<ExternProcDefinition> {
+        self.expect(TokenKind::Extern)?;
+        self.expect(TokenKind::Proc)?;
+        let ident = self.expect_ident()?;
+        self.expect(TokenKind::OpenParen)?;
+        let mut params = vec![];
+
+        let mut variadic = false;
+        while let Some(c) = self.current() {
+            if c.kind == TokenKind::CloseParen {
+                break;
+            }
+
+            if self.peek().kind == TokenKind::DotDotDot {
+                self.next();
+                variadic = true;
+                if self.peek().kind == TokenKind::Comma {
+                    self.expect(TokenKind::Comma)?;
+                }
+                break;
+            }
+
+            params.push(self.parse_type()?);
+
+            if self.peek().kind != TokenKind::Comma {
+                break;
+            }
+
+            self.expect(TokenKind::Comma)?;
+        }
+
+        self.expect(TokenKind::CloseParen)?;
+
+        let return_type = self.parse_type()?;
+
+        Ok(ExternProcDefinition {
+            ident,
+            params,
+            return_type,
+            variadic,
         })
     }
 

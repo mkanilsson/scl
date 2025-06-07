@@ -105,6 +105,7 @@ pub enum BinOp {
 pub struct TranslationUnit {
     pub source: NamedSource<String>,
     pub procs: Vec<ProcDefinition>,
+    pub extern_procs: Vec<ExternProcDefinition>,
 }
 
 #[derive(Debug, Clone)]
@@ -113,4 +114,12 @@ pub struct ProcDefinition {
     pub params: Vec<(Ident, Type)>,
     pub return_type: Type,
     pub stmts: Vec<Stmt>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExternProcDefinition {
+    pub ident: Ident,
+    pub params: Vec<Type>,
+    pub return_type: Type,
+    pub variadic: bool,
 }

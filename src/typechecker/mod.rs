@@ -6,7 +6,10 @@ use scope::Scope;
 use tajp::{I32_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID};
 
 use crate::{
-    ast::parsed::{BinOp, Expr, ExprKind, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit},
+    ast::parsed::{
+        BinOp, Expr, ExprKind, ExternProcDefinition, Ident, ProcDefinition, Stmt, StmtKind,
+        TranslationUnit,
+    },
     error::{Error, Result},
 };
 
@@ -30,8 +33,13 @@ impl Checker {
     }
 
     pub fn check(&mut self) -> Result<CheckedTranslationUnit> {
-        let procs = self.unit.procs.clone();
+        let extern_procs = self.unit.extern_procs.clone();
 
+        for extern_proc in extern_procs {
+            self.add_extern_proc_types(&extern_proc)?;
+        }
+
+        let procs = self.unit.procs.clone();
         for proc in &procs {
             self.add_proc_types(proc)?;
         }
@@ -68,6 +76,37 @@ impl Checker {
         let type_id = self.types.register_type(Type::Proc {
             params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
             return_type,
+            variadic: false,
+        });
+
+        if let Some((_, original)) = self.scope.find_with_original_span(&definition.ident) {
+            return Err(Error::ProcNameCollision {
+                src: self.unit.source.clone(),
+                original_span: original,
+                redefined_span: definition.ident.span,
+                name: definition.ident.name.clone(),
+            });
+        }
+
+        self.scope.add_to_scope(&definition.ident, type_id);
+        Ok(())
+    }
+
+    fn add_extern_proc_types(&mut self, definition: &ExternProcDefinition) -> Result<()> {
+        let mut params: Vec<TypeId> = vec![];
+        for param_type in &definition.params {
+            let type_id = self.types.force_find(&self.unit.source, &param_type)?;
+            params.push(type_id);
+        }
+
+        let return_type = self
+            .types
+            .force_find(&self.unit.source, &definition.return_type)?;
+
+        let type_id = self.types.register_type(Type::Proc {
+            params: params.clone(),
+            return_type,
+            variadic: definition.variadic,
         });
 
         if let Some((_, original)) = self.scope.find_with_original_span(&definition.ident) {
