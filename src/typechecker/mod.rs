@@ -238,7 +238,7 @@ impl Checker {
             ExprKind::Identifier(ident) => {
                 let type_id = self
                     .scope
-                    .force_find(&self.unit.source, &Ident::from_string(ident))?;
+                    .force_find(&self.unit.source, &Ident::new(ident, expr.span))?;
 
                 Ok(CheckedExpr {
                     type_id,
