@@ -301,9 +301,6 @@ impl Checker {
         let checked_lhs = self.typecheck_expr(lhs, wanted)?;
         let checked_rhs = self.typecheck_expr(rhs, wanted)?;
 
-        self.expect_number(&checked_lhs, lhs.span)?;
-        self.expect_number(&checked_rhs, rhs.span)?;
-
         if checked_lhs.type_id != checked_rhs.type_id {
             return Err(Error::BinOpSidesMismatch {
                 src: self.unit.source.clone(),
@@ -314,8 +311,45 @@ impl Checker {
             });
         }
 
+        match op {
+            BinOp::Divide | BinOp::Multiply | BinOp::Add | BinOp::Subtract => {
+                self.typecheck_other_binop_expr(lhs, checked_lhs, op, rhs, checked_rhs)
+            }
+            BinOp::Equal | BinOp::NotEqual => {
+                self.typecheck_boolable_binop_expr(checked_lhs, op, checked_rhs)
+            }
+        }
+    }
+
+    fn typecheck_other_binop_expr(
+        &mut self,
+        lhs: &Expr,
+        checked_lhs: CheckedExpr,
+        op: BinOp,
+        rhs: &Expr,
+        checked_rhs: CheckedExpr,
+    ) -> Result<CheckedExpr> {
+        self.expect_number(&checked_lhs, lhs.span)?;
+        self.expect_number(&checked_rhs, rhs.span)?;
+
         Ok(CheckedExpr {
             type_id: checked_lhs.type_id,
+            kind: ast::CheckedExprKind::BinOp {
+                lhs: Box::new(checked_lhs),
+                op,
+                rhs: Box::new(checked_rhs),
+            },
+        })
+    }
+
+    fn typecheck_boolable_binop_expr(
+        &mut self,
+        checked_lhs: CheckedExpr,
+        op: BinOp,
+        checked_rhs: CheckedExpr,
+    ) -> Result<CheckedExpr> {
+        Ok(CheckedExpr {
+            type_id: BOOL_TYPE_ID,
             kind: ast::CheckedExprKind::BinOp {
                 lhs: Box::new(checked_lhs),
                 op,

@@ -105,6 +105,8 @@ pub enum BinOp {
     Subtract,
     Multiply,
     Divide,
+    Equal,
+    NotEqual,
 }
 
 #[derive(Debug, Clone)]

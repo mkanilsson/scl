@@ -108,6 +108,14 @@ pub enum TokenKind {
     #[name(";")]
     Semicolon,
 
+    #[led(BindingPower::Relational, Parser::parse_binary_expr)]
+    #[name("==")]
+    EqualEqual,
+
+    #[led(BindingPower::Relational, Parser::parse_binary_expr)]
+    #[name("!=")]
+    ExclamationEqual,
+
     #[name("{")]
     #[led(BindingPower::Multiplicative, Parser::parse_struct_instantation)]
     OpenCurly,
@@ -140,6 +148,8 @@ impl TokenKind {
             TokenKind::Minus => BinOp::Subtract,
             TokenKind::Star => BinOp::Multiply,
             TokenKind::Slash => BinOp::Divide,
+            TokenKind::EqualEqual => BinOp::Equal,
+            TokenKind::ExclamationEqual => BinOp::NotEqual,
             _ => return None,
         })
     }

@@ -146,6 +146,35 @@ impl Lexer {
 
         return Some(self.char(TokenKind::Dot));
     }
+
+    fn equal_or_compare(&mut self) -> Option<Token> {
+        let start = self.position - 1;
+
+        if let Some('=') = self.peek() {
+            self.advance();
+            Some(Token::new(
+                (start..self.position).into(),
+                TokenKind::EqualEqual,
+            ))
+        } else {
+            Some(self.char(TokenKind::Equal))
+        }
+    }
+
+    fn read_exclamation_equal(&mut self) -> Option<Token> {
+        let start = self.position - 1;
+
+        if let Some('=') = self.peek() {
+            self.advance();
+            Some(Token::new(
+                (start..self.position).into(),
+                TokenKind::ExclamationEqual,
+            ))
+        } else {
+            // TODO: Find a way to handle errors
+            panic!("! not followed by =, no token to generate")
+        }
+    }
 }
 
 impl Iterator for Lexer {
@@ -160,7 +189,7 @@ impl Iterator for Lexer {
             '*' => Some(self.char(TokenKind::Star)),
             '/' => self.slash_or_comment(),
             ';' => Some(self.char(TokenKind::Semicolon)),
-            '=' => Some(self.char(TokenKind::Equal)),
+            '=' => self.equal_or_compare(),
             ',' => Some(self.char(TokenKind::Comma)),
             '{' => Some(self.char(TokenKind::OpenCurly)),
             '}' => Some(self.char(TokenKind::CloseCurly)),
@@ -169,6 +198,7 @@ impl Iterator for Lexer {
             '(' => Some(self.char(TokenKind::OpenParen)),
             ')' => Some(self.char(TokenKind::CloseParen)),
             '"' => Some(self.read_string()),
+            '!' => self.read_exclamation_equal(),
             c if c.is_ascii_digit() => Some(self.read_number(c)),
             c if c.is_alphabetic() => Some(self.read_identifier(c)),
             c => panic!("Unknown token {c}"),

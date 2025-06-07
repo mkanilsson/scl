@@ -197,6 +197,19 @@ impl Codegen {
             BinOp::Multiply => Instr::Mul(generated_lhs.1, generated_rhs.1),
             BinOp::Subtract => Instr::Sub(generated_lhs.1, generated_rhs.1),
             BinOp::Divide => Instr::Div(generated_lhs.1, generated_rhs.1),
+            compare => {
+                let op = match compare {
+                    BinOp::Equal => qbe::Cmp::Eq,
+                    BinOp::NotEqual => qbe::Cmp::Ne,
+                    _ => unreachable!(),
+                };
+                Instr::Cmp(
+                    generated_lhs.0.clone(),
+                    op,
+                    generated_lhs.1,
+                    generated_rhs.1,
+                )
+            }
             op => todo!("codegen_binop_expr: {}", op),
         };
 
