@@ -39,13 +39,13 @@ fn run() -> Result<()> {
     let code = codegener.generate();
 
     std::fs::create_dir_all("out/").unwrap();
-    std::fs::write("out/a.ssa", code).unwrap();
+    std::fs::write("out/a.qbe", code).unwrap();
 
     // Compile to asm
     let qbe_cmd = Command::new("qbe")
         .arg("-o")
         .arg("out/a.S")
-        .arg("out/a.ssa")
+        .arg("out/a.qbe")
         .output()
         .unwrap();
 
