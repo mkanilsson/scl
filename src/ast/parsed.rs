@@ -59,6 +59,7 @@ pub enum ExprKind {
     Identifier(String),
     String(String),
     Bool(bool),
+    Builtin(String, Vec<Expr>),
     BinOp {
         lhs: Box<Expr>,
         op: BinOp,

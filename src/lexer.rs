@@ -175,6 +175,22 @@ impl Lexer {
             panic!("! not followed by =, no token to generate")
         }
     }
+
+    fn read_builtin(&mut self) -> Token {
+        let start = self.position - 1;
+        let mut string = String::new();
+
+        while let Some(c) = self.peek() {
+            if c.is_alphabetic() || c.is_numeric() || c == '$' || c == '_' {
+                string.push(c);
+                self.advance();
+            } else {
+                break;
+            }
+        }
+
+        Token::new((start..self.position).into(), TokenKind::Builtin(string))
+    }
 }
 
 impl Iterator for Lexer {
@@ -199,6 +215,7 @@ impl Iterator for Lexer {
             ')' => Some(self.char(TokenKind::CloseParen)),
             '"' => Some(self.read_string()),
             '!' => self.read_exclamation_equal(),
+            '@' => Some(self.read_builtin()),
             c if c.is_ascii_digit() => Some(self.read_number(c)),
             c if c.is_alphabetic() => Some(self.read_identifier(c)),
             c => panic!("Unknown token {c}"),

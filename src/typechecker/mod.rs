@@ -287,6 +287,7 @@ impl Checker {
                 type_id: BOOL_TYPE_ID,
                 kind: ast::CheckedExprKind::Number(if *value { 1 } else { 0 }),
             }),
+            ExprKind::Builtin(name, params) => self.typecheck_builtin_expr(expr, name, params),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -414,6 +415,42 @@ impl Checker {
                 },
             },
         })
+    }
+
+    fn typecheck_builtin_expr(
+        &mut self,
+        expr: &Expr,
+        name: &str,
+        params: &Vec<Expr>,
+    ) -> Result<CheckedExpr> {
+        match name {
+            "type_name" => {
+                if params.len() != 1 {
+                    return Err(Error::BuiltinParamCountMismatch {
+                        src: self.unit.source.clone(),
+                        span: expr.span,
+                        name: name.to_string(),
+                        expected: 1,
+                        got: params.len(),
+                        variadic: false,
+                    });
+                }
+
+                let checked_param = self.typecheck_expr(&params[0], None)?;
+
+                Ok(CheckedExpr {
+                    type_id: STRING_TYPE_ID,
+                    kind: CheckedExprKind::String(self.types.name_of(checked_param.type_id)),
+                })
+            }
+            name => {
+                return Err(Error::UnknownBuiltin {
+                    src: self.unit.source.clone(),
+                    span: expr.span,
+                    name: name.to_string(),
+                });
+            }
+        }
     }
 
     fn expect_number(&self, expr: &CheckedExpr, span: SourceSpan) -> Result<()> {

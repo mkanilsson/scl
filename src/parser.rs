@@ -227,6 +227,18 @@ impl Parser {
                 let last = self.expect(TokenKind::CloseParen)?;
                 return Ok(Self::new_expr(token.span, last.span, expr.kind));
             }
+            TokenKind::Builtin(name) => {
+                self.expect(TokenKind::OpenParen)?;
+                let params =
+                    self.parse_commma_separated_exprs(TokenKind::OpenParen, BindingPower::Logical)?;
+                let last = self.expect(TokenKind::CloseParen)?;
+
+                return Ok(Self::new_expr(
+                    token.span,
+                    last.span,
+                    ExprKind::Builtin(name, params),
+                ));
+            }
             _ => unreachable!(),
         };
 
@@ -314,6 +326,30 @@ impl Parser {
                 params,
             },
         ))
+    }
+
+    fn parse_commma_separated_exprs(
+        &mut self,
+        wrapper: TokenKind,
+        min_bp: BindingPower,
+    ) -> Result<Vec<Expr>> {
+        let mut params = vec![];
+
+        loop {
+            if self.peek().kind == wrapper {
+                break;
+            }
+
+            params.push(self.parse_expr(min_bp)?);
+
+            if self.peek().kind != TokenKind::Comma {
+                break;
+            }
+
+            self.expect(TokenKind::Comma)?;
+        }
+
+        Ok(params)
     }
 
     pub fn parse_expr(&mut self, bp: BindingPower) -> Result<Expr> {

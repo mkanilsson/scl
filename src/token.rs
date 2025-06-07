@@ -73,6 +73,10 @@ pub enum TokenKind {
     String(String),
 
     #[nud(Parser::parse_primary)]
+    #[name("identifier")]
+    Builtin(String),
+
+    #[nud(Parser::parse_primary)]
     True,
 
     #[nud(Parser::parse_primary)]

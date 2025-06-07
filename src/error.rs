@@ -163,4 +163,32 @@ pub enum Error {
 
         variadic: bool,
     },
+    #[error("Unknown builtin '{name}'")]
+    UnknownBuiltin {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        name: String,
+    },
+    #[error(
+        "Builtin '{name}' expects {}{expected} argument{} but got {got}",
+        if *variadic { "at least " } else { "" },
+        if *expected != 1 { "s" } else { "" }
+    )]
+    BuiltinParamCountMismatch {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+        name: String,
+
+        expected: usize,
+        got: usize,
+
+        variadic: bool,
+    },
 }
