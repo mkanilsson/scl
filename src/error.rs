@@ -191,4 +191,17 @@ pub enum Error {
 
         variadic: bool,
     },
+    #[error("Struct field named '{name}' has already been defined")]
+    StructFieldNameCollision {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("original defined here")]
+        original_span: SourceSpan,
+
+        #[label("and redefined here")]
+        redefined_span: SourceSpan,
+
+        name: String,
+    },
 }

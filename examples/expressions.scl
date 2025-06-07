@@ -1,7 +1,13 @@
 extern proc printf(string, ...) i32
 
+struct Vec {
+    x: u32,
+    y: u32
+}
+
 proc main() i32 {
     let str = "Value: %d\n";
+
     printf(str, 10 + 15 * 2 != 40);
     printf("true = %d, false = %d\n", true, false);
     printf("str is %s\n", @type_name(str));

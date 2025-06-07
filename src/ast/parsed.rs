@@ -114,6 +114,7 @@ pub struct TranslationUnit {
     pub source: NamedSource<String>,
     pub procs: Vec<ProcDefinition>,
     pub extern_procs: Vec<ExternProcDefinition>,
+    pub structs: Vec<StructDefinition>,
 }
 
 #[derive(Debug, Clone)]
@@ -130,4 +131,10 @@ pub struct ExternProcDefinition {
     pub params: Vec<Type>,
     pub return_type: Type,
     pub variadic: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct StructDefinition {
+    pub ident: Ident,
+    pub fields: Vec<(Ident, Type)>,
 }

@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::{
-    Expr, ExprKind, ExternProcDefinition, Ident, ProcDefinition, Stmt, StmtKind, TranslationUnit,
+    Expr, ExprKind, ExternProcDefinition, Ident, ProcDefinition, Stmt, StmtKind, StructDefinition,
+    TranslationUnit,
 };
 use crate::ast::tajp::{Type, TypeKind};
 use crate::error::{Error, Result};
@@ -72,11 +73,13 @@ impl Parser {
     fn parse_translation_unit(mut self) -> Result<TranslationUnit> {
         let mut procs = vec![];
         let mut extern_procs = vec![];
+        let mut structs = vec![];
 
         while let Some(c) = self.current() {
             match &c.kind {
                 TokenKind::Proc => procs.push(self.parse_proc_definition()?),
                 TokenKind::Extern => extern_procs.push(self.parse_extern_proc_definition()?),
+                TokenKind::Struct => structs.push(self.parse_struct_definition()?),
                 _ => {
                     return Err(Error::ExpectedProcStructExtern {
                         src: self.named_source(),
@@ -89,6 +92,7 @@ impl Parser {
         Ok(TranslationUnit {
             procs,
             extern_procs,
+            structs,
             source: NamedSource::new(self.file_name, self.content),
         })
     }
@@ -167,6 +171,26 @@ impl Parser {
             return_type,
             variadic,
         })
+    }
+
+    fn parse_struct_definition(&mut self) -> Result<StructDefinition> {
+        self.expect(TokenKind::Struct)?;
+        let ident = self.expect_ident()?;
+
+        self.expect(TokenKind::OpenCurly)?;
+        let fields = self.parse_commma_separated(TokenKind::CloseCurly, |parser| {
+            parser.parse_struct_definition_field()
+        })?;
+        self.expect(TokenKind::CloseCurly)?;
+
+        Ok(StructDefinition { ident, fields })
+    }
+
+    fn parse_struct_definition_field(&mut self) -> Result<(Ident, Type)> {
+        let name = self.expect_ident()?;
+        self.expect(TokenKind::Colon)?;
+        let t = self.parse_type()?;
+        Ok((name, t))
     }
 
     fn parse_proc_definition_param(&mut self) -> Result<(Ident, Type)> {

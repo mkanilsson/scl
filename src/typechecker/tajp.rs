@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use miette::NamedSource;
 
 use crate::{
-    ast,
+    ast::{self, parsed::Ident},
     error::{Error, Result},
 };
 
@@ -15,6 +15,7 @@ pub const STRING_TYPE_ID: TypeId = TypeId(4);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
+    UndefinedStruct,
     Void,
     Bool,
     I32,
@@ -24,6 +25,10 @@ pub enum Type {
         params: Vec<TypeId>,
         return_type: TypeId,
         variadic: bool,
+    },
+    Struct {
+        name: Ident,
+        fields: Vec<(Ident, TypeId)>,
     },
 }
 
@@ -73,6 +78,16 @@ impl Type {
 
                 format!("proc ({params}) {return_type}")
             }
+            Type::Struct { name, fields } => {
+                let fields = fields
+                    .iter()
+                    .map(|field| format!("{}: {}", field.0.name, collection.name_of(field.1)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                format!("struct {} {{ {fields} }}", name.name)
+            }
+            Type::UndefinedStruct => unreachable!(),
         }
     }
 }
@@ -113,6 +128,14 @@ impl TypeCollection {
         let id = self.types.len();
         self.types.push(t);
         id.into()
+    }
+
+    pub fn register_undefined_struct(&mut self, ident: &Ident) -> TypeId {
+        let type_id = self.register_type(Type::UndefinedStruct);
+        self.parsed
+            .insert(ast::tajp::TypeKind::Named(ident.clone()), type_id);
+
+        type_id
     }
 
     pub fn force_find(&self, src: &NamedSource<String>, t: &ast::tajp::Type) -> Result<TypeId> {
@@ -160,6 +183,11 @@ impl TypeCollection {
         self.get_definition(type_id).is_number()
     }
 
+    pub fn define_struct(&mut self, type_id: TypeId, s: Type) {
+        assert_eq!(self.types[type_id.0], Type::UndefinedStruct);
+        self.types[type_id.0] = s;
+    }
+
     pub fn qbe_type_of<'a>(&self, type_id: TypeId) -> qbe::Type<'a> {
         let definition = self.get_definition(type_id);
 
@@ -168,7 +196,9 @@ impl TypeCollection {
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
+            Type::Struct { .. } => todo!(),
             Type::Void => unreachable!(),
+            Type::UndefinedStruct => unreachable!(),
         }
     }
 }

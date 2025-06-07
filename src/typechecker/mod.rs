@@ -11,7 +11,7 @@ use tajp::{
 use crate::{
     ast::parsed::{
         BinOp, Expr, ExprKind, ExternProcDefinition, Ident, ProcDefinition, Stmt, StmtKind,
-        TranslationUnit,
+        StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
 };
@@ -36,6 +36,20 @@ impl Checker {
     }
 
     pub fn check(&mut self) -> Result<CheckedTranslationUnit> {
+        let structs = self.unit.structs.clone();
+
+        let mut struct_and_type_ids = vec![];
+        for s in structs {
+            let type_id = self.add_struct_names(&s)?;
+            struct_and_type_ids.push((s, type_id));
+        }
+
+        for s in struct_and_type_ids {
+            self.define_struct(&s.0, s.1)?;
+        }
+
+        // TODO: Detect recursive structs
+
         let extern_procs = self.unit.extern_procs.clone();
 
         for extern_proc in extern_procs {
@@ -92,6 +106,39 @@ impl Checker {
         }
 
         self.scope.add_to_scope(&definition.ident, type_id);
+        Ok(())
+    }
+
+    fn add_struct_names(&mut self, s: &StructDefinition) -> Result<TypeId> {
+        let type_id = self.types.register_undefined_struct(&s.ident);
+        self.scope.add_to_scope(&s.ident, type_id);
+        Ok(type_id)
+    }
+
+    fn define_struct(&mut self, s: &StructDefinition, type_id: TypeId) -> Result<()> {
+        let mut fields: Vec<(Ident, TypeId)> = vec![];
+        for field in &s.fields {
+            if let Some(original) = fields.iter().find(|p| p.0.name == field.0.name) {
+                return Err(Error::StructFieldNameCollision {
+                    src: self.unit.source.clone(),
+                    original_span: original.0.span,
+                    redefined_span: field.0.span,
+                    name: field.0.name.clone(),
+                });
+            }
+
+            let type_id = self.types.force_find(&self.unit.source, &field.1)?;
+            fields.push((field.0.clone(), type_id));
+        }
+
+        self.types.define_struct(
+            type_id,
+            Type::Struct {
+                name: s.ident.clone(),
+                fields,
+            },
+        );
+
         Ok(())
     }
 
@@ -443,13 +490,11 @@ impl Checker {
                     kind: CheckedExprKind::String(self.types.name_of(checked_param.type_id)),
                 })
             }
-            name => {
-                Err(Error::UnknownBuiltin {
-                    src: self.unit.source.clone(),
-                    span: expr.span,
-                    name: name.to_string(),
-                })
-            }
+            name => Err(Error::UnknownBuiltin {
+                src: self.unit.source.clone(),
+                span: expr.span,
+                name: name.to_string(),
+            }),
         }
     }
 

@@ -143,6 +143,7 @@ pub enum TokenKind {
 
     Proc,
     Extern,
+    Struct,
 }
 
 impl TokenKind {
