@@ -1,5 +1,4 @@
-use std::sync::Mutex;
-
+use nanoid::nanoid;
 use qbe::{Block, DataDef, DataItem, Function, Instr, Linkage, Module, Type, Value};
 
 use crate::{
@@ -9,12 +8,6 @@ use crate::{
         tajp::{TypeCollection, VOID_TYPE_ID},
     },
 };
-
-use lazy_static::lazy_static;
-
-lazy_static! {
-    static ref STR_COUNTER: Mutex<u64> = Mutex::new(0);
-}
 
 pub struct Codegen {
     unit: CheckedTranslationUnit,
@@ -151,10 +144,7 @@ impl Codegen {
             (Type::Byte, DataItem::Const(0)),
         ];
 
-        let mut str_counter = STR_COUNTER.lock().unwrap();
-        *str_counter += 1;
-
-        let name = format!("str{str_counter}");
+        let name = format!("str_{}", self.unique_tag());
 
         module.add_data(DataDef::new(Linkage::private(), name.clone(), None, items));
 
@@ -170,8 +160,7 @@ impl Codegen {
         block: &mut Block<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        // TODO: Find a way to garantee name collision
-        let result_value = Value::Temporary(format!("{name}_return_value"));
+        let result_value = Value::Temporary(format!("{name}_return_value_{}", self.unique_tag()));
         let result_type = self.types.qbe_type_of(expr.type_id);
 
         let mut generated_params = vec![];
@@ -200,7 +189,7 @@ impl Codegen {
         let generated_lhs = self.codegen_expr(lhs, block, module);
         let generated_rhs = self.codegen_expr(rhs, block, module);
 
-        let binop_result = Value::Temporary("binop_temp".to_string());
+        let binop_result = Value::Temporary(format!("binop_{}", self.unique_tag()));
 
         #[allow(unreachable_patterns)]
         let inst = match op {
@@ -214,5 +203,9 @@ impl Codegen {
         block.assign_instr(binop_result.clone(), generated_lhs.0.clone(), inst);
 
         (generated_lhs.0, binop_result)
+    }
+
+    fn unique_tag(&self) -> String {
+        nanoid!(10).replace("-", "_")
     }
 }
