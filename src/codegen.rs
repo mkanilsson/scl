@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use nanoid::nanoid;
 use qbe::{Block, DataDef, DataItem, Function, Instr, Linkage, Module, Type, Value};
 
@@ -24,6 +22,8 @@ impl Codegen {
     pub fn generate(&mut self) -> String {
         let mut module = Module::new();
 
+        // TODO: Sort order after usage since qbe requires
+        //       it to be specified in the order of usage
         for type_id in &self.types.structs {
             let s = self.types.qbe_type_def_of(*type_id);
 
@@ -266,7 +266,7 @@ impl Codegen {
             Type::Long,
             Instr::Add(
                 generated_lhs.1.clone(),
-                Value::Const(field_layout.offset.clone() as u64),
+                Value::Const(field_layout.offset as u64),
             ),
         );
 

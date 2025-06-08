@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use miette::{NamedSource, SourceSpan};
 use strum::Display;

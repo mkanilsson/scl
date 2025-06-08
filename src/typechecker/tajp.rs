@@ -231,7 +231,7 @@ impl TypeCollection {
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
-            Type::Struct { .. } => qbe::Type::Aggregate(&self.qbe_type_def_of(type_id)),
+            Type::Struct { .. } => qbe::Type::Aggregate(self.qbe_type_def_of(type_id)),
             Type::Void => unreachable!(),
             Type::UndefinedStruct => unreachable!(),
         }
@@ -288,12 +288,12 @@ impl TypeCollection {
         match definition {
             Type::I32 | Type::Bool | Type::U32 | Type::String | Type::Proc { .. } => {
                 MemoryLayout::new(
-                    self.size_of_definition(&definition),
-                    self.alignment_of_definition(&definition),
+                    self.size_of_definition(definition),
+                    self.alignment_of_definition(definition),
                     None,
                 )
             }
-            Type::Struct { name: _, fields } => self.memory_layout_of_struct(&fields),
+            Type::Struct { name: _, fields } => self.memory_layout_of_struct(fields),
             Type::Void | Type::UndefinedStruct => unreachable!(),
         }
     }

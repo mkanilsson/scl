@@ -287,7 +287,7 @@ impl Checker {
     ) -> Result<CheckedExpr> {
         match &expr.kind {
             ExprKind::Identifier(ident) => {
-                let type_id = self.scope.force_find(&self.unit.source, &ident)?;
+                let type_id = self.scope.force_find(&self.unit.source, ident)?;
 
                 Ok(CheckedExpr {
                     type_id,
@@ -338,7 +338,7 @@ impl Checker {
                 self.typecheck_struct_instantiation_expr(expr, name, members)
             }
             ExprKind::MemberAccess { lhs, member } => {
-                self.typecheck_member_access_expr(lhs, &member)
+                self.typecheck_member_access_expr(lhs, member)
             }
             kind => todo!("typecheck_expr: {}", kind),
         }
@@ -575,7 +575,7 @@ impl Checker {
             let mut missing_fields = vec![];
 
             for known_fields in &s.1 {
-                if let None = checked_fields.iter().find(|c| c.0 == known_fields.0) {
+                if !checked_fields.iter().any(|c| c.0 == known_fields.0) {
                     missing_fields.push(format!("'{}'", known_fields.0.name));
                 }
             }
