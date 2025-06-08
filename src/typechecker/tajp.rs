@@ -86,15 +86,7 @@ impl Type {
 
                 format!("proc ({params}) {return_type}")
             }
-            Type::Struct { name, fields } => {
-                let fields = fields
-                    .iter()
-                    .map(|field| format!("{}: {}", field.0.name, collection.name_of(field.1)))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-
-                format!("struct {} {{ {fields} }}", name.name)
-            }
+            Type::Struct { name, fields: _ } => name.name.clone(),
             Type::UndefinedStruct => unreachable!(),
         }
     }
