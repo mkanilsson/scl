@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashSet, fmt::Debug, str::FromStr};
+use std::{fmt::Debug, str::FromStr};
 
 use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::SourceSpan;
@@ -337,6 +337,9 @@ impl Checker {
             ExprKind::StructInstantiation { name, members } => {
                 self.typecheck_struct_instantiation_expr(expr, name, members)
             }
+            ExprKind::MemberAccess { lhs, member } => {
+                self.typecheck_member_access_expr(lhs, &member)
+            }
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -589,6 +592,38 @@ impl Checker {
                     .drain(0..)
                     .map(|f| (f.0.name.clone(), f.1))
                     .collect(),
+            },
+        })
+    }
+
+    fn typecheck_member_access_expr(&mut self, lhs: &Expr, member: &Ident) -> Result<CheckedExpr> {
+        let checked_lhs = self.typecheck_expr(lhs, None)?;
+
+        let definition = self.types.get_definition(checked_lhs.type_id);
+        if !definition.is_struct() {
+            return Err(Error::MemberAccessNotAStruct {
+                src: self.unit.source.clone(),
+                span: lhs.span,
+                got: self.types.name_of(checked_lhs.type_id),
+            });
+        }
+
+        let definition = definition.as_struct();
+
+        let Some(field) = definition.1.iter().find(|f| f.0 == *member) else {
+            return Err(Error::MemberAccessUnknownField {
+                src: self.unit.source.clone(),
+                span: member.span,
+                struct_name: self.types.name_of(checked_lhs.type_id),
+                field_name: member.name.clone(),
+            });
+        };
+
+        Ok(CheckedExpr {
+            type_id: field.1,
+            kind: CheckedExprKind::MemberAccess {
+                lhs: Box::new(checked_lhs),
+                name: field.0.name.clone(),
             },
         })
     }

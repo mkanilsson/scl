@@ -10,13 +10,7 @@ proc main() i32 {
         x: 34,
         y: 35
     };
-
-    let str = "Value: %d\n";
-
-    printf(str, 10 + 15 * 2 != 40);
-    printf("true = %d, false = %d\n", true, false);
-    printf("str is %s\n", @type_name(str));
-    printf("true is %s\n", @type_name(true));
-
+    
+    printf("x: %d", v.x);
     ret 0;
 }

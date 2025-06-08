@@ -50,4 +50,8 @@ pub enum CheckedExprKind {
         name: String,
         fields: Vec<(String, CheckedExpr)>,
     },
+    MemberAccess {
+        lhs: Box<CheckedExpr>,
+        name: String,
+    },
 }

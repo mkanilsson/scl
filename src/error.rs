@@ -261,4 +261,25 @@ pub enum Error {
         expected: String,
         got: String,
     },
+    #[error("'{got}' is not a struct")]
+    MemberAccessNotAStruct {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        got: String,
+    },
+    #[error("'{struct_name}' has no field '{field_name}'")]
+    MemberAccessUnknownField {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        struct_name: String,
+        field_name: String,
+    },
 }
