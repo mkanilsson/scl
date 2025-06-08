@@ -446,9 +446,20 @@ impl Checker {
         let non_variadic_params = params.drain(0..proc_type.0.len()).zip(&proc_type.0);
 
         let mut checked_params = vec![];
-        for param in non_variadic_params {
+        for (param, expected_type) in non_variadic_params {
             // TODO: Get the location of the suspected span or allow the span to be optional
-            checked_params.push(self.typecheck_expr(&param.0, Some((*param.1, (0..0).into())))?);
+            let checked_expr =
+                self.typecheck_expr(&param, Some((*expected_type, (0..0).into())))?;
+            if checked_expr.type_id != *expected_type {
+                return Err(Error::ProcCallParamTypeMismatch {
+                    src: self.unit.source.clone(),
+                    span: param.span,
+                    expected: self.types.name_of(*expected_type),
+                    got: self.types.name_of(checked_expr.type_id),
+                });
+            }
+
+            checked_params.push(checked_expr);
         }
 
         for param in &params {

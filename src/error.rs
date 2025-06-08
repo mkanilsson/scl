@@ -163,6 +163,17 @@ pub enum Error {
 
         variadic: bool,
     },
+    #[error("Proc param expected to be '{expected}' but got '{got}'")]
+    ProcCallParamTypeMismatch {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        expected: String,
+        got: String,
+    },
     #[error("Unknown builtin '{name}'")]
     UnknownBuiltin {
         #[source_code]
