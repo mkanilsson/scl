@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use nanoid::nanoid;
 use qbe::{Block, DataDef, DataItem, Function, Instr, Linkage, Module, Type, Value};
 
@@ -21,6 +23,12 @@ impl Codegen {
 
     pub fn generate(&mut self) -> String {
         let mut module = Module::new();
+
+        for type_id in &self.types.structs {
+            let s = self.types.qbe_type_def_of(*type_id);
+
+            module.add_type(s.clone());
+        }
 
         for proc in &self.unit.procs {
             self.codegen_proc(proc, &mut module);
@@ -118,6 +126,9 @@ impl Codegen {
                 params,
                 variadic_after,
             } => self.codegen_direct_call_expr(expr, name, params, *variadic_after, block, module),
+            CheckedExprKind::StructInstantiation { name, fields } => {
+                self.codegen_struct_instantation_expr(expr, name, fields, block, module)
+            }
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -176,6 +187,59 @@ impl Codegen {
         );
 
         (result_type, result_value)
+    }
+
+    fn codegen_struct_instantation_expr<'a>(
+        &'a self,
+        expr: &CheckedExpr,
+        name: &str,
+        fields: &Vec<(String, CheckedExpr)>,
+        block: &mut Block<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let memory_layout = self.types.memory_layout_of(expr.type_id);
+
+        let instr = match memory_layout.alignment {
+            1 | 2 => todo!(),
+            4 => Instr::Alloc4(memory_layout.size as u32),
+            8 => Instr::Alloc8(memory_layout.size as u64),
+            16 => Instr::Alloc16(memory_layout.size as u128),
+            _ => unreachable!(),
+        };
+
+        let value_name = format!("struct_instantiation_{}", self.unique_tag());
+        let struct_value = Value::Temporary(value_name);
+        block.assign_instr(struct_value.clone(), Type::Long, instr);
+
+        let fields_offsets = memory_layout.fields.expect("Struct to have fields");
+
+        for field in fields {
+            // TODO: Copy from other struct
+            let expr = self.codegen_expr(&field.1, block, module);
+
+            // Get offset
+            let offset_value = Value::Temporary(format!("offset_{}", self.unique_tag()));
+            let field_layout = fields_offsets.get(&field.0).unwrap();
+
+            block.add_comment(format!(
+                "Store value into {name}.{} (offset: {})",
+                field.0, field_layout.offset
+            ));
+            block.assign_instr(
+                offset_value.clone(),
+                Type::Long,
+                Instr::Add(
+                    struct_value.clone(),
+                    Value::Const(field_layout.offset as u64),
+                ),
+            );
+
+            // TODO: Copy struct fields if there is a nested struct
+            // Store value
+            block.add_instr(Instr::Store(expr.0, expr.1, offset_value));
+        }
+
+        (Type::Long, struct_value)
     }
 
     fn codegen_binop_expr<'a>(

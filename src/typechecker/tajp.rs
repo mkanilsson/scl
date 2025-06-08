@@ -100,7 +100,7 @@ impl Type {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TypeId(pub usize);
 
 impl From<usize> for TypeId {
@@ -113,6 +113,7 @@ impl From<usize> for TypeId {
 pub struct TypeCollection {
     types: Vec<Type>,
     parsed: HashMap<ast::tajp::TypeKind, TypeId>,
+    pub structs: Vec<TypeId>,
 }
 
 impl TypeCollection {
@@ -120,6 +121,7 @@ impl TypeCollection {
         Self {
             types: vec![Type::Void, Type::Bool, Type::I32, Type::U32, Type::String],
             parsed: HashMap::new(),
+            structs: vec![],
         }
     }
 
@@ -139,7 +141,9 @@ impl TypeCollection {
     }
 
     pub fn register_undefined_struct(&mut self, ident: &Ident) -> TypeId {
-        let type_id = self.register_type(Type::UndefinedStruct);
+        let type_id = self.types.len();
+        self.types.push(Type::UndefinedStruct);
+        let type_id = type_id.into();
         self.parsed
             .insert(ast::tajp::TypeKind::Named(ident.clone()), type_id);
 
@@ -201,6 +205,22 @@ impl TypeCollection {
     pub fn define_struct(&mut self, type_id: TypeId, s: Type) {
         assert_eq!(self.types[type_id.0], Type::UndefinedStruct);
         self.types[type_id.0] = s;
+        self.structs.push(type_id);
+    }
+
+    pub fn qbe_type_def_of<'a>(&self, type_id: TypeId) -> &'static qbe::TypeDef<'a> {
+        let definition = self.get_definition(type_id);
+
+        // What am i suppose to do here when the reference needs to point into the module
+        // but then module gets locked becuase it's borrowed as mutable
+        Box::leak(Box::new(match definition {
+            Type::Struct { name, fields } => qbe::TypeDef {
+                align: None,
+                items: fields.iter().map(|f| (self.qbe_type_of(f.1), 0)).collect(),
+                name: name.name.clone(),
+            },
+            _ => unreachable!(),
+        }))
     }
 
     pub fn qbe_type_of<'a>(&self, type_id: TypeId) -> qbe::Type<'a> {
@@ -211,9 +231,132 @@ impl TypeCollection {
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
-            Type::Struct { .. } => todo!(),
+            Type::Struct { .. } => qbe::Type::Aggregate(&self.qbe_type_def_of(type_id)),
             Type::Void => unreachable!(),
             Type::UndefinedStruct => unreachable!(),
         }
+    }
+
+    pub fn alignment_of(&self, type_id: TypeId) -> usize {
+        let definition = self.get_definition(type_id);
+        self.alignment_of_definition(&definition)
+    }
+
+    fn alignment_of_definition(&self, definition: &Type) -> usize {
+        match definition {
+            Type::Bool => std::mem::align_of::<bool>(),
+            Type::I32 => std::mem::align_of::<i32>(),
+            Type::U32 => std::mem::align_of::<u32>(),
+            Type::String => std::mem::align_of::<&str>(),
+            Type::Proc { .. } => std::mem::align_of::<fn() -> ()>(),
+            Type::Struct { name: _, fields } => fields
+                .iter()
+                .map(|f| self.alignment_of(f.1))
+                .max()
+                .unwrap_or(0),
+            Type::Void | Type::UndefinedStruct => unreachable!(),
+        }
+    }
+
+    pub fn size_of(&self, type_id: TypeId) -> usize {
+        let definition = self.get_definition(type_id);
+        self.size_of_definition(&definition)
+    }
+
+    fn size_of_definition(&self, definition: &Type) -> usize {
+        match definition {
+            Type::Bool => std::mem::size_of::<bool>(),
+            Type::I32 => std::mem::size_of::<i32>(),
+            Type::U32 => std::mem::size_of::<u32>(),
+            Type::String => std::mem::size_of::<usize>(),
+            Type::Proc { .. } => std::mem::size_of::<usize>(),
+            Type::Struct { name: _, fields } => self.size_of_struct(fields),
+            Type::Void | Type::UndefinedStruct => unreachable!(),
+        }
+    }
+
+    fn size_of_struct(&self, fields: &Vec<(Ident, TypeId)>) -> usize {
+        self.memory_layout_of_struct(fields).size
+    }
+
+    pub fn memory_layout_of(&self, type_id: TypeId) -> MemoryLayout {
+        let definition = self.get_definition(type_id);
+        self.memory_layout_of_definition(&definition)
+    }
+
+    fn memory_layout_of_definition(&self, definition: &Type) -> MemoryLayout {
+        match definition {
+            Type::I32 | Type::Bool | Type::U32 | Type::String | Type::Proc { .. } => {
+                MemoryLayout::new(
+                    self.size_of_definition(&definition),
+                    self.alignment_of_definition(&definition),
+                    None,
+                )
+            }
+            Type::Struct { name: _, fields } => self.memory_layout_of_struct(&fields),
+            Type::Void | Type::UndefinedStruct => unreachable!(),
+        }
+    }
+
+    fn memory_layout_of_struct(&self, fields: &Vec<(Ident, TypeId)>) -> MemoryLayout {
+        let mut offset = 0;
+
+        let mut largest_alignment = 0;
+
+        let mut layout_fields = HashMap::new();
+
+        for field in fields {
+            let layout = self.memory_layout_of(field.1);
+
+            offset = self.round_up_to_alignment(offset, layout.alignment);
+
+            layout_fields.insert(field.0.name.clone(), FieldLayout::new(offset));
+
+            offset += layout.size;
+
+            if layout.alignment > largest_alignment {
+                largest_alignment = layout.alignment;
+            }
+        }
+
+        MemoryLayout::new(
+            self.round_up_to_alignment(offset, largest_alignment),
+            largest_alignment,
+            Some(layout_fields),
+        )
+    }
+
+    fn round_up_to_alignment(&self, value: usize, alignment: usize) -> usize {
+        (value + (alignment - 1)) & !(alignment - 1)
+    }
+}
+
+pub struct MemoryLayout {
+    pub size: usize,
+    pub alignment: usize,
+    pub fields: Option<HashMap<String, FieldLayout>>,
+}
+
+impl MemoryLayout {
+    pub fn new(
+        size: usize,
+        alignment: usize,
+        fields: Option<HashMap<String, FieldLayout>>,
+    ) -> Self {
+        Self {
+            size,
+            alignment,
+            fields,
+        }
+    }
+}
+
+pub struct FieldLayout {
+    pub offset: usize,
+}
+
+impl FieldLayout {
+    pub fn new(offset: usize) -> Self {
+        Self { offset }
     }
 }

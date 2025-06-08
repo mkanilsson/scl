@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt::Debug, str::FromStr};
+use std::{any::Any, collections::HashSet, fmt::Debug, str::FromStr};
 
 use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::SourceSpan;
@@ -41,7 +41,7 @@ impl Checker {
 
         let mut struct_and_type_ids = vec![];
         for s in structs {
-            let type_id = self.add_struct_names(&s)?;
+            let type_id = self.add_struct_name(&s)?;
             struct_and_type_ids.push((s, type_id));
         }
 
@@ -110,7 +110,7 @@ impl Checker {
         Ok(())
     }
 
-    fn add_struct_names(&mut self, s: &StructDefinition) -> Result<TypeId> {
+    fn add_struct_name(&mut self, s: &StructDefinition) -> Result<TypeId> {
         let type_id = self.types.register_undefined_struct(&s.ident);
         self.scope.add_to_scope(&s.ident, type_id);
         Ok(type_id)

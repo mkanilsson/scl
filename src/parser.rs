@@ -230,7 +230,6 @@ impl Parser {
             stmt_fn(self)?
         } else {
             let expr = self.parse_expr(BindingPower::Default)?;
-            println!("{:#?}", expr);
             Stmt::new(expr.span, StmtKind::Expr(expr))
         };
 
