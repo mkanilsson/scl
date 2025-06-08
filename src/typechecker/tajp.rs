@@ -276,7 +276,7 @@ impl TypeCollection {
         self.memory_layout_of_definition(&definition)
     }
 
-    fn memory_layout_of_definition(&self, definition: &Type) -> MemoryLayout {
+    pub fn memory_layout_of_definition(&self, definition: &Type) -> MemoryLayout {
         match definition {
             Type::I32 | Type::Bool | Type::U32 | Type::String | Type::Proc { .. } => {
                 MemoryLayout::new(
@@ -302,7 +302,10 @@ impl TypeCollection {
 
             offset = self.round_up_to_alignment(offset, layout.alignment);
 
-            layout_fields.insert(field.0.name.clone(), FieldLayout::new(offset));
+            layout_fields.insert(
+                field.0.name.clone(),
+                FieldLayout::new(offset, layout.size, layout.alignment),
+            );
 
             offset += layout.size;
 
@@ -323,9 +326,11 @@ impl TypeCollection {
     }
 }
 
+#[derive(Clone)]
 pub struct MemoryLayout {
     pub size: usize,
     pub alignment: usize,
+    // TODO: Handle nested structs
     pub fields: Option<HashMap<String, FieldLayout>>,
 }
 
@@ -343,12 +348,19 @@ impl MemoryLayout {
     }
 }
 
+#[derive(Clone)]
 pub struct FieldLayout {
     pub offset: usize,
+    pub size: usize,
+    pub alignment: usize,
 }
 
 impl FieldLayout {
-    pub fn new(offset: usize) -> Self {
-        Self { offset }
+    pub fn new(offset: usize, size: usize, alignment: usize) -> Self {
+        Self {
+            offset,
+            size,
+            alignment,
+        }
     }
 }

@@ -5,7 +5,7 @@ use crate::{
     ast::parsed::BinOp,
     typechecker::{
         ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit},
-        tajp::{TypeCollection, VOID_TYPE_ID},
+        tajp::{MemoryLayout, TypeCollection, VOID_TYPE_ID},
     },
 };
 
@@ -174,7 +174,8 @@ impl Codegen {
         block: &mut Block<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let result_value = Value::Temporary(format!("{name}_return_value_{}", self.unique_tag()));
+        let mut result_value =
+            Value::Temporary(format!("{name}_return_value_{}", self.unique_tag()));
         let result_type = self.types.qbe_type_of(expr.type_id);
 
         let mut generated_params = vec![];
@@ -189,6 +190,15 @@ impl Codegen {
             Instr::Call(name.to_string(), generated_params, variadic_after),
         );
 
+        let definition = self.types.get_definition(expr.type_id);
+        if definition.is_struct() {
+            let memory_layout = self.types.memory_layout_of_definition(&definition);
+            let struct_storage = self.allocate(&memory_layout, block);
+
+            self.copy_struct_fields(&memory_layout, &struct_storage, &result_value, block);
+            result_value = struct_storage;
+        }
+
         (result_type, result_value)
     }
 
@@ -202,18 +212,7 @@ impl Codegen {
     ) -> (Type<'a>, Value) {
         let memory_layout = self.types.memory_layout_of(expr.type_id);
 
-        let instr = match memory_layout.alignment {
-            1 | 2 => todo!(),
-            4 => Instr::Alloc4(memory_layout.size as u32),
-            8 => Instr::Alloc8(memory_layout.size as u64),
-            16 => Instr::Alloc16(memory_layout.size as u128),
-            _ => unreachable!(),
-        };
-
-        let value_name = format!("struct_instantiation_{}", self.unique_tag());
-        let struct_value = Value::Temporary(value_name);
-        block.assign_instr(struct_value.clone(), Type::Long, instr);
-
+        let struct_value = self.allocate(&memory_layout, block);
         let fields_offsets = memory_layout.fields.expect("Struct to have fields");
 
         for field in fields {
@@ -320,6 +319,70 @@ impl Codegen {
         block.assign_instr(binop_result.clone(), generated_lhs.0.clone(), inst);
 
         (generated_lhs.0, binop_result)
+    }
+
+    fn allocate<'a>(&'a self, memory_layout: &MemoryLayout, block: &mut Block<'a>) -> Value {
+        let instr = match memory_layout.alignment {
+            1 | 2 => todo!(),
+            4 => Instr::Alloc4(memory_layout.size as u32),
+            8 => Instr::Alloc8(memory_layout.size as u64),
+            16 => Instr::Alloc16(memory_layout.size as u128),
+            _ => unreachable!(),
+        };
+
+        let value_name = format!("allocated_{}", self.unique_tag());
+        let value = Value::Temporary(value_name);
+        block.assign_instr(value.clone(), Type::Long, instr);
+
+        value
+    }
+
+    fn copy_struct_fields<'a>(
+        &'a self,
+        memory_layout: &MemoryLayout,
+        destination: &Value,
+        base: &Value,
+        block: &mut Block<'a>,
+    ) {
+        let offset_value = Value::Temporary(format!("copy_offset_{}", self.unique_tag()));
+        let store_value = Value::Temporary(format!("store_offset_{}", self.unique_tag()));
+        let fields = memory_layout.fields.as_ref().unwrap();
+
+        for field in fields {
+            block.add_comment(format!(
+                "Copy from {} to {} with offset {}",
+                base, destination, field.1.offset
+            ));
+
+            let offset = Value::Const(field.1.offset as u64);
+            block.assign_instr(
+                offset_value.clone(),
+                Type::Long,
+                Instr::Add(base.clone(), offset.clone()),
+            );
+
+            block.assign_instr(
+                store_value.clone(),
+                Type::Long,
+                Instr::Add(destination.clone(), offset),
+            );
+
+            block.add_instr(Instr::Store(
+                self.size_to_type(field.1.size),
+                store_value.clone(),
+                offset_value.clone(),
+            ));
+        }
+    }
+
+    fn size_to_type(&self, size: usize) -> Type {
+        match size {
+            1 => Type::Byte,
+            2 => Type::Halfword,
+            4 => Type::Word,
+            8 => Type::Long,
+            _ => unreachable!(),
+        }
     }
 
     fn unique_tag(&self) -> String {

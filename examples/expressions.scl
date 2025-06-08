@@ -1,16 +1,30 @@
 extern proc printf(string, ...) i32
 
+struct Name {
+    name: string
+}
+
 struct Vec {
     x: u32,
-    y: u32
+}
+
+proc vecadd(v1: Vec, v2: Vec) Vec {
+    ret Vec {
+        x: v1.x + v2.x,
+    };
 }
 
 proc main() i32 {
     let v = Vec {
-        x: 34,
-        y: 35
+        x: 15,
     };
-    
-    printf("x: %d\n", v.y + v.x);
+
+    let v2 = Vec {
+        x: 45,
+    };
+
+    let result = vecadd(v, v2);
+
+    printf("%d\n", result.x);
     ret 0;
 }
