@@ -129,6 +129,9 @@ impl Codegen {
             CheckedExprKind::StructInstantiation { name, fields } => {
                 self.codegen_struct_instantation_expr(expr, name, fields, block, module)
             }
+            CheckedExprKind::MemberAccess { lhs, name } => {
+                self.codegen_member_access_expr(expr, lhs, name, block, module)
+            }
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -236,10 +239,47 @@ impl Codegen {
 
             // TODO: Copy struct fields if there is a nested struct
             // Store value
-            block.add_instr(Instr::Store(expr.0, expr.1, offset_value));
+            block.add_instr(Instr::Store(expr.0, offset_value, expr.1));
         }
 
         (Type::Long, struct_value)
+    }
+
+    fn codegen_member_access_expr<'a>(
+        &'a self,
+        expr: &CheckedExpr,
+        lhs: &CheckedExpr,
+        name: &str,
+        block: &mut Block<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let memory_layout = self.types.memory_layout_of(lhs.type_id);
+        let fields = memory_layout.fields.unwrap();
+        let field_layout = fields.get(name).unwrap();
+
+        let generated_lhs = self.codegen_expr(lhs, block, module);
+
+        let offset_value = Value::Temporary(format!("offset_{}", self.unique_tag()));
+
+        block.assign_instr(
+            offset_value.clone(),
+            Type::Long,
+            Instr::Add(
+                generated_lhs.1.clone(),
+                Value::Const(field_layout.offset.clone() as u64),
+            ),
+        );
+
+        let result_value = Value::Temporary(format!("member_access_{}", self.unique_tag()));
+        let result_type = self.types.qbe_type_of(expr.type_id);
+
+        block.assign_instr(
+            result_value.clone(),
+            result_type.clone(),
+            Instr::Load(result_type.clone(), offset_value),
+        );
+
+        (result_type, result_value)
     }
 
     fn codegen_binop_expr<'a>(

@@ -11,6 +11,6 @@ proc main() i32 {
         y: 35
     };
     
-    printf("x: %d", v.x);
+    printf("x: %d\n", v.y + v.x);
     ret 0;
 }
