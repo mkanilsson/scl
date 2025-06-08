@@ -241,7 +241,7 @@ impl Codegen {
             block.add_instr(Instr::Store(expr.0, offset_value, expr.1));
         }
 
-        (Type::Long, struct_value)
+        (self.types.qbe_type_of(expr.type_id), struct_value)
     }
 
     fn codegen_member_access_expr<'a>(
