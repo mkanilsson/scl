@@ -46,4 +46,8 @@ pub enum CheckedExprKind {
         params: Vec<CheckedExpr>,
         variadic_after: Option<u64>,
     },
+    StructInstantiation {
+        name: String,
+        fields: Vec<(String, CheckedExpr)>,
+    },
 }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use miette::NamedSource;
+use strum::EnumIs;
 
 use crate::{
     ast::{self, parsed::Ident},
@@ -13,7 +14,7 @@ pub const I32_TYPE_ID: TypeId = TypeId(2);
 pub const U32_TYPE_ID: TypeId = TypeId(3);
 pub const STRING_TYPE_ID: TypeId = TypeId(4);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum Type {
     UndefinedStruct,
     Void,
@@ -40,6 +41,13 @@ impl Type {
                 return_type,
                 variadic,
             } => (params, return_type, variadic),
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn as_struct(self) -> (Ident, Vec<(Ident, TypeId)>) {
+        match self {
+            Type::Struct { name, fields } => (name, fields),
             _ => unreachable!(),
         }
     }
@@ -156,6 +164,13 @@ impl TypeCollection {
         }
 
         self.parsed.get(&t.kind).copied()
+    }
+
+    pub fn force_find_by_name(&self, src: &NamedSource<String>, name: &Ident) -> Result<TypeId> {
+        self.force_find(
+            src,
+            &ast::tajp::Type::new(name.span, ast::tajp::TypeKind::Named(name.clone())),
+        )
     }
 
     fn find_primative(&self, t: &ast::tajp::Type) -> Option<TypeId> {

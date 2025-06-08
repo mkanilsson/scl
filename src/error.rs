@@ -204,4 +204,61 @@ pub enum Error {
 
         name: String,
     },
+    #[error("Trying to instantiate a non struct type")]
+    StructInstantiationOnNonStruct {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
+    #[error("Struct '{struct_name}' has no field '{field_name}'")]
+    StructInstantiationFieldDoesntExist {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        struct_name: String,
+        field_name: String,
+    },
+    #[error("Field '{field_name}' has already been declared")]
+    StructInstantiationFieldAlreadyDeclared {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("original declaration here")]
+        original_span: SourceSpan,
+
+        #[label("and redeclared here")]
+        redefined_span: SourceSpan,
+
+        field_name: String,
+    },
+    #[error("Struct '{struct_name}' require field{} {fields}", if *multiple { "s" } else { "" })]
+    StructInstantiationMissingFields {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        struct_name: String,
+        fields: String,
+        multiple: bool,
+    },
+    #[error("'{struct_name}.{field_name}' expects '{expected}' but got '{got}'")]
+    StructInstantiationFieldTypeMismatch {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        struct_name: String,
+        field_name: String,
+        expected: String,
+        got: String,
+    },
 }

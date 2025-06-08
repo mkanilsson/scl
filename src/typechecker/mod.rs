@@ -1,4 +1,4 @@
-use std::{fmt::Debug, str::FromStr};
+use std::{collections::HashSet, fmt::Debug, str::FromStr};
 
 use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::SourceSpan;
@@ -14,6 +14,7 @@ use crate::{
         StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
+    helpers::string_join_with_and,
 };
 
 pub mod ast;
@@ -286,13 +287,11 @@ impl Checker {
     ) -> Result<CheckedExpr> {
         match &expr.kind {
             ExprKind::Identifier(ident) => {
-                let type_id = self
-                    .scope
-                    .force_find(&self.unit.source, &Ident::new(ident, expr.span))?;
+                let type_id = self.scope.force_find(&self.unit.source, &ident)?;
 
                 Ok(CheckedExpr {
                     type_id,
-                    kind: ast::CheckedExprKind::Identifier(ident.clone()),
+                    kind: ast::CheckedExprKind::Identifier(ident.name.clone()),
                 })
             }
             ExprKind::Number(value) => {
@@ -335,6 +334,9 @@ impl Checker {
                 kind: ast::CheckedExprKind::Number(if *value { 1 } else { 0 }),
             }),
             ExprKind::Builtin(name, params) => self.typecheck_builtin_expr(expr, name, params),
+            ExprKind::StructInstantiation { name, members } => {
+                self.typecheck_struct_instantiation_expr(expr, name, members)
+            }
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -496,6 +498,99 @@ impl Checker {
                 name: name.to_string(),
             }),
         }
+    }
+
+    fn typecheck_struct_instantiation_expr(
+        &mut self,
+        expr: &Expr,
+        name: &Ident,
+        fields: &Vec<(Ident, Expr)>,
+    ) -> Result<CheckedExpr> {
+        let struct_type_id = self.types.force_find_by_name(&self.unit.source, name)?;
+
+        let definition = self.types.get_definition(struct_type_id);
+        if !definition.is_struct() {
+            return Err(Error::StructInstantiationOnNonStruct {
+                src: self.unit.source.clone(),
+                span: name.span,
+            });
+        }
+
+        let s = definition.as_struct();
+
+        let mut checked_fields: Vec<(Ident, CheckedExpr)> = vec![];
+
+        for field in fields {
+            let defined_field = s.1.iter().find(|f| f.0 == field.0);
+            let Some(defined_field) = defined_field else {
+                return Err(Error::StructInstantiationFieldDoesntExist {
+                    src: self.unit.source.clone(),
+                    span: field.0.span,
+                    struct_name: name.name.clone(),
+                    field_name: field.0.name.clone(),
+                });
+            };
+
+            if let Some(existing_field) = checked_fields.iter().find(|f| f.0 == field.0) {
+                return Err(Error::StructInstantiationFieldAlreadyDeclared {
+                    src: self.unit.source.clone(),
+                    original_span: existing_field.0.span,
+                    redefined_span: field.0.span,
+                    field_name: field.0.name.clone(),
+                });
+            }
+
+            let checked_expr =
+                self.typecheck_expr(&field.1, Some((defined_field.1, defined_field.0.span)))?;
+
+            if checked_expr.type_id != defined_field.1 {
+                return Err(Error::StructInstantiationFieldTypeMismatch {
+                    src: self.unit.source.clone(),
+                    span: field.1.span,
+                    struct_name: name.name.clone(),
+                    field_name: field.0.name.clone(),
+                    expected: self.types.name_of(defined_field.1),
+                    got: self.types.name_of(checked_expr.type_id),
+                });
+            }
+
+            checked_fields.push((field.0.clone(), checked_expr));
+        }
+
+        if checked_fields.len() != s.1.len() {
+            let mut missing_fields = vec![];
+
+            for known_fields in &s.1 {
+                if let None = checked_fields.iter().find(|c| c.0 == known_fields.0) {
+                    missing_fields.push(format!("'{}'", known_fields.0.name));
+                }
+            }
+
+            return Err(Error::StructInstantiationMissingFields {
+                src: self.unit.source.clone(),
+                span: expr.span,
+                struct_name: name.name.clone(),
+                fields: string_join_with_and(
+                    missing_fields
+                        .iter()
+                        .map(|f| f.as_str())
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                ),
+                multiple: missing_fields.len() > 1,
+            });
+        }
+
+        Ok(CheckedExpr {
+            type_id: struct_type_id,
+            kind: CheckedExprKind::StructInstantiation {
+                name: name.name.clone(),
+                fields: checked_fields
+                    .drain(0..)
+                    .map(|f| (f.0.name.clone(), f.1))
+                    .collect(),
+            },
+        })
     }
 
     fn expect_number(&self, expr: &CheckedExpr, span: SourceSpan) -> Result<()> {

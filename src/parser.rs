@@ -242,7 +242,7 @@ impl Parser {
         let token = self.next();
         let kind = match token.kind {
             TokenKind::Number(n) => ExprKind::Number(n),
-            TokenKind::Identifier(name) => ExprKind::Identifier(name),
+            TokenKind::Identifier(name) => ExprKind::Identifier(Ident::new(name, token.span)),
             TokenKind::String(value) => ExprKind::String(value),
             TokenKind::True => ExprKind::Bool(true),
             TokenKind::False => ExprKind::Bool(false),

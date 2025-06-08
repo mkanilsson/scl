@@ -6,6 +6,11 @@ struct Vec {
 }
 
 proc main() i32 {
+    let v = Vec {
+        x: 34,
+        y: 35
+    };
+
     let str = "Value: %d\n";
 
     printf(str, 10 + 15 * 2 != 40);

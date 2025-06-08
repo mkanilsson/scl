@@ -56,7 +56,7 @@ impl Hash for Ident {
 #[derive(Debug, Clone, Display)]
 pub enum ExprKind {
     Number(String),
-    Identifier(String),
+    Identifier(Ident),
     String(String),
     Bool(bool),
     Builtin(String, Vec<Expr>),
@@ -66,7 +66,7 @@ pub enum ExprKind {
         rhs: Box<Expr>,
     },
     StructInstantiation {
-        name: String,
+        name: Ident,
         members: Vec<(Ident, Expr)>,
     },
     MemberAccess {
