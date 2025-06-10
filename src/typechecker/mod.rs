@@ -1,7 +1,7 @@
 use std::{fmt::Debug, str::FromStr};
 
 use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
-use miette::SourceSpan;
+use miette::{NamedSource, SourceSpan};
 use scope::Scope;
 use tajp::{
     BOOL_TYPE_ID, I32_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId, U32_TYPE_ID,
@@ -15,6 +15,7 @@ use crate::{
     },
     error::{Error, Result},
     helpers::string_join_with_and,
+    package::ParsedPackage,
 };
 
 pub mod ast;
@@ -23,74 +24,87 @@ pub mod tajp;
 
 pub struct Checker {
     pub types: TypeCollection,
-    unit: TranslationUnit,
     scope: Scope,
 }
 
+struct CheckerContext<'a> {
+    unit: TranslationUnit,
+    source: &'a NamedSource<String>,
+}
+
 impl Checker {
-    pub fn new(unit: TranslationUnit) -> Self {
+    pub fn new() -> Self {
         Self {
             types: TypeCollection::new(),
-            unit,
             scope: Scope::new(),
         }
     }
 
-    pub fn check(&mut self) -> Result<CheckedTranslationUnit> {
-        let structs = self.unit.structs.clone();
-
-        let mut struct_and_type_ids = vec![];
-        for s in structs {
-            let type_id = self.add_struct_name(&s)?;
-            struct_and_type_ids.push((s, type_id));
-        }
-
-        for s in struct_and_type_ids {
-            self.define_struct(&s.0, s.1)?;
-        }
-
-        // TODO: Detect recursive structs
-
-        let extern_procs = self.unit.extern_procs.clone();
-
-        for extern_proc in extern_procs {
-            self.add_extern_proc_types(&extern_proc)?;
-        }
-
-        let procs = self.unit.procs.clone();
-        for proc in &procs {
-            self.add_proc_types(proc)?;
-        }
-
-        let mut checked_procs = vec![];
-        for proc in procs {
-            checked_procs.push(self.typecheck_proc(&proc)?);
-        }
-
-        Ok(CheckedTranslationUnit {
-            procs: checked_procs,
-        })
+    pub fn add_package(&mut self, package: &ParsedPackage) -> Result<()> {
+        // Declare structs
+        // Declare functions
+        // Resolve imports
+        // Define structs
+        // Define functions
+        // Return some sort of package id, that can be used when using names later on
+        todo!()
     }
 
-    fn add_proc_types(&mut self, definition: &ProcDefinition) -> Result<()> {
+    // pub fn check(&mut self) -> Result<CheckedTranslationUnit> {
+    //     let structs = self.unit.structs.clone();
+    //
+    //     let mut struct_and_type_ids = vec![];
+    //     for s in structs {
+    //         let type_id = self.add_struct_name(&s)?;
+    //         struct_and_type_ids.push((s, type_id));
+    //     }
+    //
+    //     for s in struct_and_type_ids {
+    //         self.define_struct(&s.0, s.1)?;
+    //     }
+    //
+    //     // TODO: Detect recursive structs
+    //
+    //     let extern_procs = self.unit.extern_procs.clone();
+    //
+    //     for extern_proc in extern_procs {
+    //         self.add_extern_proc_types(&extern_proc)?;
+    //     }
+    //
+    //     let procs = self.unit.procs.clone();
+    //     for proc in &procs {
+    //         self.add_proc_types(proc)?;
+    //     }
+    //
+    //     let mut checked_procs = vec![];
+    //     for proc in procs {
+    //         checked_procs.push(self.typecheck_proc(&proc)?);
+    //     }
+    //
+    //     Ok(CheckedTranslationUnit {
+    //         procs: checked_procs,
+    //     })
+    // }
+
+    fn add_proc_types(&mut self, definition: &ProcDefinition, ctx: &CheckerContext) -> Result<()> {
         let mut params: Vec<(Ident, TypeId)> = vec![];
         for param in &definition.params {
             if let Some(original) = params.iter().find(|p| p.0.name == param.0.name) {
                 return Err(Error::ProcParmNameCollision {
-                    src: self.unit.source.clone(),
+                    src: ctx.source.clone(),
                     original_span: original.0.span,
                     redefined_span: param.0.span,
                     name: param.0.name.clone(),
                 });
             }
 
-            let type_id = self.types.force_find(&self.unit.source, &param.1)?;
+            let type_id = self.types.force_find(ctx.source, &param.1)?;
             params.push((param.0.clone(), type_id));
         }
 
         let return_type = self
             .types
-            .force_find(&self.unit.source, &definition.return_type)?;
+            .force_find(&ctx.source, &definition.return_type)?;
         let type_id = self.types.register_type(Type::Proc {
             params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
             return_type,
@@ -99,7 +113,7 @@ impl Checker {
 
         if let Some((_, original)) = self.scope.find_with_original_span(&definition.ident) {
             return Err(Error::ProcNameCollision {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 original_span: original,
                 redefined_span: definition.ident.span,
                 name: definition.ident.name.clone(),
@@ -116,19 +130,24 @@ impl Checker {
         Ok(type_id)
     }
 
-    fn define_struct(&mut self, s: &StructDefinition, type_id: TypeId) -> Result<()> {
+    fn define_struct(
+        &mut self,
+        s: &StructDefinition,
+        type_id: TypeId,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
         let mut fields: Vec<(Ident, TypeId)> = vec![];
         for field in &s.fields {
             if let Some(original) = fields.iter().find(|p| p.0.name == field.0.name) {
                 return Err(Error::StructFieldNameCollision {
-                    src: self.unit.source.clone(),
+                    src: ctx.source.clone(),
                     original_span: original.0.span,
                     redefined_span: field.0.span,
                     name: field.0.name.clone(),
                 });
             }
 
-            let type_id = self.types.force_find(&self.unit.source, &field.1)?;
+            let type_id = self.types.force_find(ctx.source, &field.1)?;
             fields.push((field.0.clone(), type_id));
         }
 
@@ -143,16 +162,18 @@ impl Checker {
         Ok(())
     }
 
-    fn add_extern_proc_types(&mut self, definition: &ExternProcDefinition) -> Result<()> {
+    fn add_extern_proc_types(
+        &mut self,
+        definition: &ExternProcDefinition,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
         let mut params: Vec<TypeId> = vec![];
         for param_type in &definition.params {
-            let type_id = self.types.force_find(&self.unit.source, param_type)?;
+            let type_id = self.types.force_find(ctx.source, param_type)?;
             params.push(type_id);
         }
 
-        let return_type = self
-            .types
-            .force_find(&self.unit.source, &definition.return_type)?;
+        let return_type = self.types.force_find(ctx.source, &definition.return_type)?;
 
         let type_id = self.types.register_type(Type::Proc {
             params: params.clone(),
@@ -162,7 +183,7 @@ impl Checker {
 
         if let Some((_, original)) = self.scope.find_with_original_span(&definition.ident) {
             return Err(Error::ProcNameCollision {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 original_span: original,
                 redefined_span: definition.ident.span,
                 name: definition.ident.name.clone(),
@@ -173,7 +194,11 @@ impl Checker {
         Ok(())
     }
 
-    fn typecheck_proc(&mut self, proc: &ProcDefinition) -> Result<CheckedProc> {
+    fn typecheck_proc(
+        &mut self,
+        proc: &ProcDefinition,
+        ctx: &CheckerContext,
+    ) -> Result<CheckedProc> {
         let type_id = self
             .scope
             .find(&proc.ident)
@@ -192,7 +217,7 @@ impl Checker {
         let mut stmts = vec![];
 
         for stmt in &proc.stmts {
-            stmts.push(self.typecheck_stmt((definition.1, proc.return_type.span), stmt)?);
+            stmts.push(self.typecheck_stmt((definition.1, proc.return_type.span), stmt, ctx)?);
         }
 
         self.scope.exit();
@@ -210,14 +235,17 @@ impl Checker {
         &mut self,
         return_type: (TypeId, SourceSpan),
         stmt: &Stmt,
+        ctx: &CheckerContext,
     ) -> Result<CheckedStmt> {
         match &stmt.kind {
-            StmtKind::Return { value } => self.typecheck_return_stmt(return_type, stmt.span, value),
+            StmtKind::Return { value } => {
+                self.typecheck_return_stmt(return_type, stmt.span, value, ctx)
+            }
             StmtKind::VariableDeclaration { name, value } => {
-                self.typecheck_variable_declaration_stmt(name, value)
+                self.typecheck_variable_declaration_stmt(name, value, ctx)
             }
             StmtKind::Expr(expr) => {
-                let expr = self.typecheck_expr(expr, None)?;
+                let expr = self.typecheck_expr(expr, None, ctx)?;
                 Ok(CheckedStmt::Expr(expr))
             }
             stmt => todo!("typecheck_stmt: {}", stmt),
@@ -229,21 +257,22 @@ impl Checker {
         return_type: (TypeId, SourceSpan),
         span: SourceSpan,
         value: &Option<Expr>,
+        ctx: &CheckerContext,
     ) -> Result<CheckedStmt> {
         match value {
             Some(value) => {
                 if return_type.0 == VOID_TYPE_ID {
                     return Err(Error::ReturnShouldntHaveValue {
-                        src: self.unit.source.clone(),
+                        src: ctx.source.clone(),
                         span: value.span,
                     });
                 }
 
-                let expr = self.typecheck_expr(value, Some(return_type))?;
+                let expr = self.typecheck_expr(value, Some(return_type), ctx)?;
 
                 if expr.type_id != return_type.0 {
                     return Err(Error::ReturnValueDoesntMatch {
-                        src: self.unit.source.clone(),
+                        src: ctx.source.clone(),
                         return_type_span: return_type.1,
                         expr_span: value.span,
                         return_type: self.types.name_of(return_type.0),
@@ -255,7 +284,7 @@ impl Checker {
             None => {
                 if return_type.0 != VOID_TYPE_ID {
                     return Err(Error::ReturnShouldHaveValue {
-                        src: self.unit.source.clone(),
+                        src: ctx.source.clone(),
                         span,
                         name: self.types.name_of(return_type.0),
                     });
@@ -270,8 +299,9 @@ impl Checker {
         &mut self,
         ident: &Ident,
         expr: &Expr,
+        ctx: &CheckerContext,
     ) -> Result<CheckedStmt> {
-        let expr = self.typecheck_expr(expr, None)?;
+        let expr = self.typecheck_expr(expr, None, ctx)?;
         self.scope.add_to_scope(ident, expr.type_id);
 
         Ok(CheckedStmt::VariableDeclaration {
@@ -284,10 +314,11 @@ impl Checker {
         &mut self,
         expr: &Expr,
         wanted: Option<(TypeId, SourceSpan)>,
+        ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
         match &expr.kind {
             ExprKind::Identifier(ident) => {
-                let type_id = self.scope.force_find(&self.unit.source, ident)?;
+                let type_id = self.scope.force_find(ctx.source, ident)?;
 
                 Ok(CheckedExpr {
                     type_id,
@@ -298,16 +329,24 @@ impl Checker {
                 if let Some(wanted) = wanted {
                     match wanted.0 {
                         U32_TYPE_ID => {
-                            let value =
-                                self.verify_number::<u32>(value.as_str(), expr.span, U32_TYPE_ID)?;
+                            let value = self.verify_number::<u32>(
+                                value.as_str(),
+                                expr.span,
+                                U32_TYPE_ID,
+                                ctx,
+                            )?;
                             Ok(CheckedExpr {
                                 type_id: U32_TYPE_ID,
                                 kind: ast::CheckedExprKind::Number(value as u64),
                             })
                         }
                         I32_TYPE_ID | _ => {
-                            let value =
-                                self.verify_number::<i32>(value.as_str(), expr.span, I32_TYPE_ID)?;
+                            let value = self.verify_number::<i32>(
+                                value.as_str(),
+                                expr.span,
+                                I32_TYPE_ID,
+                                ctx,
+                            )?;
                             Ok(CheckedExpr {
                                 type_id: I32_TYPE_ID,
                                 kind: ast::CheckedExprKind::Number(value as u64),
@@ -316,29 +355,31 @@ impl Checker {
                     }
                 } else {
                     let value =
-                        self.verify_number::<i32>(value.as_str(), expr.span, U32_TYPE_ID)?;
+                        self.verify_number::<i32>(value.as_str(), expr.span, U32_TYPE_ID, ctx)?;
                     Ok(CheckedExpr {
                         type_id: I32_TYPE_ID,
                         kind: ast::CheckedExprKind::Number(value as u64),
                     })
                 }
             }
-            ExprKind::BinOp { lhs, op, rhs } => self.typecheck_binop_expr(lhs, *op, rhs, wanted),
+            ExprKind::BinOp { lhs, op, rhs } => {
+                self.typecheck_binop_expr(lhs, *op, rhs, wanted, ctx)
+            }
             ExprKind::String(value) => Ok(CheckedExpr {
                 type_id: STRING_TYPE_ID,
                 kind: ast::CheckedExprKind::String(value.clone()),
             }),
-            ExprKind::Call { expr, params } => self.typecheck_call_expr(expr, params, wanted),
+            ExprKind::Call { expr, params } => self.typecheck_call_expr(expr, params, wanted, ctx),
             ExprKind::Bool(value) => Ok(CheckedExpr {
                 type_id: BOOL_TYPE_ID,
                 kind: ast::CheckedExprKind::Number(if *value { 1 } else { 0 }),
             }),
-            ExprKind::Builtin(name, params) => self.typecheck_builtin_expr(expr, name, params),
+            ExprKind::Builtin(name, params) => self.typecheck_builtin_expr(expr, name, params, ctx),
             ExprKind::StructInstantiation { name, members } => {
-                self.typecheck_struct_instantiation_expr(expr, name, members)
+                self.typecheck_struct_instantiation_expr(expr, name, members, ctx)
             }
             ExprKind::MemberAccess { lhs, member } => {
-                self.typecheck_member_access_expr(lhs, member)
+                self.typecheck_member_access_expr(lhs, member, ctx)
             }
             kind => todo!("typecheck_expr: {}", kind),
         }
@@ -350,13 +391,14 @@ impl Checker {
         op: BinOp,
         rhs: &Expr,
         wanted: Option<(TypeId, SourceSpan)>,
+        ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, wanted)?;
-        let checked_rhs = self.typecheck_expr(rhs, wanted)?;
+        let checked_lhs = self.typecheck_expr(lhs, wanted, ctx)?;
+        let checked_rhs = self.typecheck_expr(rhs, wanted, ctx)?;
 
         if checked_lhs.type_id != checked_rhs.type_id {
             return Err(Error::BinOpSidesMismatch {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 lhs_span: lhs.span,
                 rhs_span: rhs.span,
                 lhs_type_name: self.types.name_of(checked_lhs.type_id),
@@ -366,7 +408,7 @@ impl Checker {
 
         match op {
             BinOp::Divide | BinOp::Multiply | BinOp::Add | BinOp::Subtract => {
-                self.typecheck_other_binop_expr(lhs, checked_lhs, op, rhs, checked_rhs)
+                self.typecheck_other_binop_expr(lhs, checked_lhs, op, rhs, checked_rhs, ctx)
             }
             BinOp::Equal | BinOp::NotEqual => {
                 self.typecheck_boolable_binop_expr(checked_lhs, op, checked_rhs)
@@ -381,9 +423,10 @@ impl Checker {
         op: BinOp,
         rhs: &Expr,
         checked_rhs: CheckedExpr,
+        ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        self.expect_number(&checked_lhs, lhs.span)?;
-        self.expect_number(&checked_rhs, rhs.span)?;
+        self.expect_number(&checked_lhs, lhs.span, ctx)?;
+        self.expect_number(&checked_rhs, rhs.span, ctx)?;
 
         Ok(CheckedExpr {
             type_id: checked_lhs.type_id,
@@ -416,8 +459,9 @@ impl Checker {
         expr: &Expr,
         params: &Vec<Expr>,
         wanted: Option<(TypeId, SourceSpan)>,
+        ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let checked_expr = self.typecheck_expr(expr, wanted)?;
+        let checked_expr = self.typecheck_expr(expr, wanted, ctx)?;
 
         let ident = match checked_expr.kind {
             CheckedExprKind::Identifier(name) => name,
@@ -426,15 +470,12 @@ impl Checker {
 
         let proc_type = self
             .types
-            .get_definition(
-                self.scope
-                    .force_find_from_string(&self.unit.source, &ident)?,
-            )
+            .get_definition(self.scope.force_find_from_string(ctx.source, &ident)?)
             .as_proc();
 
         if params.len() < proc_type.0.len() || (params.len() > proc_type.0.len() && !proc_type.2) {
             return Err(Error::ProcCallParamCountMismatch {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span: expr.span,
                 expected: proc_type.0.len(),
                 got: params.len(),
@@ -449,10 +490,10 @@ impl Checker {
         for (param, expected_type) in non_variadic_params {
             // TODO: Get the location of the suspected span or allow the span to be optional
             let checked_expr =
-                self.typecheck_expr(&param, Some((*expected_type, (0..0).into())))?;
+                self.typecheck_expr(&param, Some((*expected_type, (0..0).into())), ctx)?;
             if checked_expr.type_id != *expected_type {
                 return Err(Error::ProcCallParamTypeMismatch {
-                    src: self.unit.source.clone(),
+                    src: ctx.source.clone(),
                     span: param.span,
                     expected: self.types.name_of(*expected_type),
                     got: self.types.name_of(checked_expr.type_id),
@@ -463,7 +504,7 @@ impl Checker {
         }
 
         for param in &params {
-            checked_params.push(self.typecheck_expr(param, None)?);
+            checked_params.push(self.typecheck_expr(param, None, ctx)?);
         }
 
         Ok(CheckedExpr {
@@ -485,12 +526,13 @@ impl Checker {
         expr: &Expr,
         name: &str,
         params: &Vec<Expr>,
+        ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
         match name {
             "type_name" => {
                 if params.len() != 1 {
                     return Err(Error::BuiltinParamCountMismatch {
-                        src: self.unit.source.clone(),
+                        src: ctx.source.clone(),
                         span: expr.span,
                         name: name.to_string(),
                         expected: 1,
@@ -499,7 +541,7 @@ impl Checker {
                     });
                 }
 
-                let checked_param = self.typecheck_expr(&params[0], None)?;
+                let checked_param = self.typecheck_expr(&params[0], None, ctx)?;
 
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
@@ -507,7 +549,7 @@ impl Checker {
                 })
             }
             name => Err(Error::UnknownBuiltin {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span: expr.span,
                 name: name.to_string(),
             }),
@@ -519,13 +561,14 @@ impl Checker {
         expr: &Expr,
         name: &Ident,
         fields: &Vec<(Ident, Expr)>,
+        ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let struct_type_id = self.types.force_find_by_name(&self.unit.source, name)?;
+        let struct_type_id = self.types.force_find_by_name(ctx.source, name)?;
 
         let definition = self.types.get_definition(struct_type_id);
         if !definition.is_struct() {
             return Err(Error::StructInstantiationOnNonStruct {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span: name.span,
             });
         }
@@ -538,7 +581,7 @@ impl Checker {
             let defined_field = s.1.iter().find(|f| f.0 == field.0);
             let Some(defined_field) = defined_field else {
                 return Err(Error::StructInstantiationFieldDoesntExist {
-                    src: self.unit.source.clone(),
+                    src: ctx.source.clone(),
                     span: field.0.span,
                     struct_name: name.name.clone(),
                     field_name: field.0.name.clone(),
@@ -547,7 +590,7 @@ impl Checker {
 
             if let Some(existing_field) = checked_fields.iter().find(|f| f.0 == field.0) {
                 return Err(Error::StructInstantiationFieldAlreadyDeclared {
-                    src: self.unit.source.clone(),
+                    src: ctx.source.clone(),
                     original_span: existing_field.0.span,
                     redefined_span: field.0.span,
                     field_name: field.0.name.clone(),
@@ -555,11 +598,11 @@ impl Checker {
             }
 
             let checked_expr =
-                self.typecheck_expr(&field.1, Some((defined_field.1, defined_field.0.span)))?;
+                self.typecheck_expr(&field.1, Some((defined_field.1, defined_field.0.span)), ctx)?;
 
             if checked_expr.type_id != defined_field.1 {
                 return Err(Error::StructInstantiationFieldTypeMismatch {
-                    src: self.unit.source.clone(),
+                    src: ctx.source.clone(),
                     span: field.1.span,
                     struct_name: name.name.clone(),
                     field_name: field.0.name.clone(),
@@ -581,7 +624,7 @@ impl Checker {
             }
 
             return Err(Error::StructInstantiationMissingFields {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span: expr.span,
                 struct_name: name.name.clone(),
                 fields: string_join_with_and(
@@ -607,13 +650,18 @@ impl Checker {
         })
     }
 
-    fn typecheck_member_access_expr(&mut self, lhs: &Expr, member: &Ident) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, None)?;
+    fn typecheck_member_access_expr(
+        &mut self,
+        lhs: &Expr,
+        member: &Ident,
+        ctx: &CheckerContext,
+    ) -> Result<CheckedExpr> {
+        let checked_lhs = self.typecheck_expr(lhs, None, ctx)?;
 
         let definition = self.types.get_definition(checked_lhs.type_id);
         if !definition.is_struct() {
             return Err(Error::MemberAccessNotAStruct {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span: lhs.span,
                 got: self.types.name_of(checked_lhs.type_id),
             });
@@ -623,7 +671,7 @@ impl Checker {
 
         let Some(field) = definition.1.iter().find(|f| f.0 == *member) else {
             return Err(Error::MemberAccessUnknownField {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span: member.span,
                 struct_name: self.types.name_of(checked_lhs.type_id),
                 field_name: member.name.clone(),
@@ -639,10 +687,15 @@ impl Checker {
         })
     }
 
-    fn expect_number(&self, expr: &CheckedExpr, span: SourceSpan) -> Result<()> {
+    fn expect_number(
+        &self,
+        expr: &CheckedExpr,
+        span: SourceSpan,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
         if !self.types.is_number(expr.type_id) {
             Err(Error::ExpectedButGot {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span,
                 expected: "number".to_string(),
                 got: self.types.name_of(expr.type_id),
@@ -657,12 +710,13 @@ impl Checker {
         value: &str,
         span: SourceSpan,
         type_id: TypeId,
+        ctx: &CheckerContext,
     ) -> Result<T> {
         if let Ok(value) = value.parse::<T>() {
             Ok(value)
         } else {
             Err(Error::InvalidNumber {
-                src: self.unit.source.clone(),
+                src: ctx.source.clone(),
                 span,
                 value: value.to_string(),
                 type_name: self.types.name_of(type_id),

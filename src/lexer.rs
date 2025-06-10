@@ -9,7 +9,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: &PathBuf) -> Self {
         Self {
             content: std::fs::read_to_string(&path).unwrap(),
             position: 0,

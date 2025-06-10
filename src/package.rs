@@ -1,6 +1,9 @@
 use crate::{
+    ast::parsed::TranslationUnit,
     error::{Error, Result},
     helpers::find_duplicate,
+    lexer::Lexer,
+    parser::Parser,
 };
 use std::path::PathBuf;
 
@@ -98,4 +101,54 @@ impl Package {
         let cwd = std::env::current_dir().unwrap();
         cwd.join(path)
     }
+
+    pub fn parse(self) -> Result<ParsedPackage> {
+        let module = Self::parse_module(Module {
+            children: self.modules,
+            path: self.path,
+            name: self.name,
+        })?;
+
+        Ok(ParsedPackage {
+            name: module.name,
+            path: module.path,
+            modules: module.children,
+            unit: module.unit,
+        })
+    }
+
+    fn parse_module(module: Module) -> Result<ParsedModule> {
+        let lexer = Lexer::new(&module.path);
+        let parser = Parser::new(lexer);
+        let unit = parser.parse()?;
+
+        let mut children = vec![];
+
+        for child in module.children {
+            children.push(Self::parse_module(child)?);
+        }
+
+        Ok(ParsedModule {
+            name: module.name,
+            path: module.path,
+            unit,
+            children,
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct ParsedPackage {
+    name: String,
+    unit: TranslationUnit,
+    path: PathBuf,
+    modules: Vec<ParsedModule>,
+}
+
+#[derive(Debug)]
+pub struct ParsedModule {
+    name: String,
+    unit: TranslationUnit,
+    path: PathBuf,
+    children: Vec<ParsedModule>,
 }
