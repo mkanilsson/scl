@@ -115,6 +115,13 @@ pub struct TranslationUnit {
     pub procs: Vec<ProcDefinition>,
     pub extern_procs: Vec<ExternProcDefinition>,
     pub structs: Vec<StructDefinition>,
+    pub imports: Vec<Import>,
+}
+
+#[derive(Debug, Clone)]
+pub enum Import {
+    Part(Box<Import>, Ident),
+    Final(Ident),
 }
 
 #[derive(Debug, Clone)]

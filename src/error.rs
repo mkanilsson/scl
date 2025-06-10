@@ -34,8 +34,8 @@ pub enum Error {
         #[label("here")]
         span: SourceSpan,
     },
-    #[error("Expected proc or struct definition or extern proc")]
-    ExpectedProcStructExtern {
+    #[error("Expected proc or struct definition, extern proc or use")]
+    ExpectedProcStructExternUse {
         #[source_code]
         src: NamedSource<String>,
 

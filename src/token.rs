@@ -128,6 +128,8 @@ pub enum TokenKind {
 
     #[name(":")]
     Colon,
+    #[name("::")]
+    ColonColon,
     #[name(",")]
     Comma,
 
@@ -144,6 +146,7 @@ pub enum TokenKind {
     Proc,
     Extern,
     Struct,
+    Use,
 }
 
 impl TokenKind {

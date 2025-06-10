@@ -82,6 +82,7 @@ impl Lexer {
             "struct" => TokenKind::Struct,
             "true" => TokenKind::True,
             "false" => TokenKind::False,
+            "use" => TokenKind::Use,
             _ => TokenKind::Identifier(string),
         };
 
@@ -162,6 +163,20 @@ impl Lexer {
         }
     }
 
+    fn colon_or_coloncolon(&mut self) -> Option<Token> {
+        let start = self.position - 1;
+
+        if let Some(':') = self.peek() {
+            self.advance();
+            Some(Token::new(
+                (start..self.position).into(),
+                TokenKind::ColonColon,
+            ))
+        } else {
+            Some(self.char(TokenKind::Colon))
+        }
+    }
+
     fn read_exclamation_equal(&mut self) -> Option<Token> {
         let start = self.position - 1;
 
@@ -210,7 +225,7 @@ impl Iterator for Lexer {
             ',' => Some(self.char(TokenKind::Comma)),
             '{' => Some(self.char(TokenKind::OpenCurly)),
             '}' => Some(self.char(TokenKind::CloseCurly)),
-            ':' => Some(self.char(TokenKind::Colon)),
+            ':' => self.colon_or_coloncolon(),
             '.' => self.dot_or_dotdotdot(),
             '(' => Some(self.char(TokenKind::OpenParen)),
             ')' => Some(self.char(TokenKind::CloseParen)),

@@ -1,9 +1,8 @@
-
 use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::{
-    Expr, ExprKind, ExternProcDefinition, Ident, ProcDefinition, Stmt, StmtKind, StructDefinition,
-    TranslationUnit,
+    Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt, StmtKind,
+    StructDefinition, TranslationUnit,
 };
 use crate::ast::tajp::{Type, TypeKind};
 use crate::error::{Error, Result};
@@ -73,14 +72,16 @@ impl Parser {
         let mut procs = vec![];
         let mut extern_procs = vec![];
         let mut structs = vec![];
+        let mut imports = vec![];
 
         while let Some(c) = self.current() {
             match &c.kind {
                 TokenKind::Proc => procs.push(self.parse_proc_definition()?),
                 TokenKind::Extern => extern_procs.push(self.parse_extern_proc_definition()?),
                 TokenKind::Struct => structs.push(self.parse_struct_definition()?),
+                TokenKind::Use => imports.push(self.parse_use_include()?),
                 _ => {
-                    return Err(Error::ExpectedProcStructExtern {
+                    return Err(Error::ExpectedProcStructExternUse {
                         src: self.named_source(),
                         span: c.span,
                     });
@@ -92,8 +93,25 @@ impl Parser {
             procs,
             extern_procs,
             structs,
+            imports,
             source: NamedSource::new(self.file_name, self.content),
         })
+    }
+
+    fn parse_use_include(&mut self) -> Result<Import> {
+        self.expect(TokenKind::Use)?;
+        self.parse_use_next()
+    }
+
+    fn parse_use_next(&mut self) -> Result<Import> {
+        let part = self.expect_ident()?;
+
+        if self.peek().kind == TokenKind::ColonColon {
+            self.expect(TokenKind::ColonColon)?;
+            Ok(Import::Part(Box::new(self.parse_use_next()?), part))
+        } else {
+            Ok(Import::Final(part))
+        }
     }
 
     fn parse_proc_definition(&mut self) -> Result<ProcDefinition> {
