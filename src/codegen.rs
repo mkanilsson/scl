@@ -184,6 +184,9 @@ impl Codegen {
             generated_params.push(self.codegen_expr(param, block, module));
         }
 
+        // NOTE: There is a bug here causing the wrong calling convention
+        //       if the return_type is an aggregate type
+        //       (https://github.com/garritfra/qbe-rs/issues/35)
         block.assign_instr(
             result_value.clone(),
             result_type.clone(),
@@ -341,48 +344,14 @@ impl Codegen {
         &'a self,
         memory_layout: &MemoryLayout,
         destination: &Value,
-        base: &Value,
+        source: &Value,
         block: &mut Block<'a>,
     ) {
-        let offset_value = Value::Temporary(format!("copy_offset_{}", self.unique_tag()));
-        let store_value = Value::Temporary(format!("store_offset_{}", self.unique_tag()));
-        let fields = memory_layout.fields.as_ref().unwrap();
-
-        for field in fields {
-            block.add_comment(format!(
-                "Copy from {} to {} with offset {}",
-                base, destination, field.1.offset
-            ));
-
-            let offset = Value::Const(field.1.offset as u64);
-            block.assign_instr(
-                offset_value.clone(),
-                Type::Long,
-                Instr::Add(base.clone(), offset.clone()),
-            );
-
-            block.assign_instr(
-                store_value.clone(),
-                Type::Long,
-                Instr::Add(destination.clone(), offset),
-            );
-
-            block.add_instr(Instr::Store(
-                self.size_to_type(field.1.size),
-                store_value.clone(),
-                offset_value.clone(),
-            ));
-        }
-    }
-
-    fn size_to_type(&self, size: usize) -> Type {
-        match size {
-            1 => Type::Byte,
-            2 => Type::Halfword,
-            4 => Type::Word,
-            8 => Type::Long,
-            _ => unreachable!(),
-        }
+        block.add_instr(Instr::Blit(
+            source.clone(),
+            destination.clone(),
+            memory_layout.size as u64,
+        ));
     }
 
     fn unique_tag(&self) -> String {

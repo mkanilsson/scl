@@ -202,7 +202,9 @@ impl TypeCollection {
 
     pub fn qbe_type_def_of<'a>(&self, type_id: TypeId) -> &'static qbe::TypeDef<'a> {
         let definition = self.get_definition(type_id);
-
+        self.qbe_type_def_of_definition(&definition)
+    }
+    pub fn qbe_type_def_of_definition<'a>(&self, definition: &Type) -> &'static qbe::TypeDef<'a> {
         // What am i suppose to do here when the reference needs to point into the module
         // but then module gets locked becuase it's borrowed as mutable
         Box::leak(Box::new(match definition {
@@ -217,13 +219,18 @@ impl TypeCollection {
 
     pub fn qbe_type_of<'a>(&self, type_id: TypeId) -> qbe::Type<'a> {
         let definition = self.get_definition(type_id);
+        self.qbe_type_of_definition(&definition)
+    }
 
+    fn qbe_type_of_definition<'a>(&self, definition: &Type) -> qbe::Type<'a> {
         match definition {
             Type::Bool => qbe::Type::Word,
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
-            Type::Struct { .. } => qbe::Type::Aggregate(self.qbe_type_def_of(type_id)),
+            Type::Struct { .. } => {
+                qbe::Type::Aggregate(self.qbe_type_def_of_definition(definition))
+            }
             Type::Void => unreachable!(),
             Type::UndefinedStruct => unreachable!(),
         }
@@ -235,19 +242,7 @@ impl TypeCollection {
     }
 
     fn alignment_of_definition(&self, definition: &Type) -> usize {
-        match definition {
-            Type::Bool => std::mem::align_of::<bool>(),
-            Type::I32 => std::mem::align_of::<i32>(),
-            Type::U32 => std::mem::align_of::<u32>(),
-            Type::String => std::mem::align_of::<&str>(),
-            Type::Proc { .. } => std::mem::align_of::<fn() -> ()>(),
-            Type::Struct { name: _, fields } => fields
-                .iter()
-                .map(|f| self.alignment_of(f.1))
-                .max()
-                .unwrap_or(0),
-            Type::Void | Type::UndefinedStruct => unreachable!(),
-        }
+        self.qbe_type_of_definition(definition).align() as usize
     }
 
     pub fn size_of(&self, type_id: TypeId) -> usize {
@@ -256,15 +251,7 @@ impl TypeCollection {
     }
 
     fn size_of_definition(&self, definition: &Type) -> usize {
-        match definition {
-            Type::Bool => std::mem::size_of::<bool>(),
-            Type::I32 => std::mem::size_of::<i32>(),
-            Type::U32 => std::mem::size_of::<u32>(),
-            Type::String => std::mem::size_of::<usize>(),
-            Type::Proc { .. } => std::mem::size_of::<usize>(),
-            Type::Struct { name: _, fields } => self.size_of_struct(fields),
-            Type::Void | Type::UndefinedStruct => unreachable!(),
-        }
+        self.qbe_type_of_definition(definition).size() as usize
     }
 
     fn size_of_struct(&self, fields: &Vec<(Ident, TypeId)>) -> usize {
