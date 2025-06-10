@@ -1,3 +1,8 @@
+use std::{
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
+
 pub fn string_join_with_or(items: &[&str]) -> String {
     string_join_with(items, "or")
 }
@@ -16,4 +21,21 @@ pub fn string_join_with(items: &[&str], last: &str) -> String {
             format!("{} {last} {}", all_except_last, items.last().unwrap())
         }
     }
+}
+
+pub fn find_duplicate<T>(items: &[T]) -> Option<&T>
+where
+    T: Hash + Eq,
+{
+    let mut existing = HashSet::new();
+
+    for item in items {
+        if existing.contains(&item) {
+            return Some(item);
+        }
+
+        existing.insert(item);
+    }
+
+    None
 }

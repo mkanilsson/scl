@@ -3,6 +3,7 @@ use std::process::Command;
 use codegen::Codegen;
 use error::Result;
 use lexer::Lexer;
+use package::Package;
 use typechecker::Checker;
 
 mod ast;
@@ -10,6 +11,7 @@ mod codegen;
 mod error;
 mod helpers;
 mod lexer;
+mod package;
 mod parser;
 mod pratt;
 mod token;
@@ -26,6 +28,8 @@ fn main() -> miette::Result<()> {
 }
 
 fn run() -> Result<()> {
+    let std_package = Package::from_path("std", "std".into())?;
+    println!("std: {:#?}", std_package);
     let lexer = Lexer::new("examples/expressions.scl".into());
     let parser = parser::Parser::new(lexer);
     let unit = parser.parse()?;

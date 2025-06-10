@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use miette::{Diagnostic, NamedSource, SourceSpan};
 
 pub type Result<T, E = Error> = miette::Result<T, E>;
@@ -293,4 +295,13 @@ pub enum Error {
         struct_name: String,
         field_name: String,
     },
+    #[error("Expected a '{root_file_name}.scl' in '{path}'")]
+    ExpectedRootFile {
+        root_file_name: &'static str,
+        path: PathBuf,
+    },
+    #[error(
+        "Module defined twice, both '{module_name}.scl' and '{module_name}/mod.scl' exists in '{path}'"
+    )]
+    ModuleDefinedTwice { module_name: String, path: PathBuf },
 }
