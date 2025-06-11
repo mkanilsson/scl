@@ -53,12 +53,12 @@ impl Checker {
 
     pub fn add_package(&mut self, package: &ParsedPackage) -> Result<ModuleId> {
         let package_id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
+        // TODO: Find a way to limit struct and proc lookups in these functions
         self.declare_structs(&package.path, &package.unit, &package.modules)?;
         self.declare_procs(&package.path, &package.unit, &package.modules)?;
         self.resolve_imports(package_id, &package.path, &package.unit, &package.modules)?;
-        // Define structs
+        self.define_structs(&package.path, &package.unit, &package.modules)?;
         // Define procs
-        // Return some sort of package id, that can be used when using names later on
         Ok(package_id)
     }
     fn resolve_imports(
@@ -111,11 +111,13 @@ impl Checker {
                 }
 
                 if let Ok(type_id) = self.types.force_find_by_name(ctx.source, module_id, ident) {
+                    // TODO: Verify that the name is unique
                     self.types.add_to_module(import_to, type_id, ident);
                     return Ok(());
                 }
 
                 if let Ok(proc_id) = self.procs.force_find(ctx.source, module_id, ident) {
+                    // TODO: Verify that the name is unique
                     self.procs.add_to_module(import_to, proc_id, ident);
                     return Ok(());
                 }
@@ -152,6 +154,34 @@ impl Checker {
 
         for proc in &unit.extern_procs {
             self.add_extern_proc_name(proc, &ctx)?;
+        }
+
+        Ok(())
+    }
+
+    fn define_structs(
+        &mut self,
+        path: &PathBuf,
+        unit: &TranslationUnit,
+        modules: &Vec<ParsedModule>,
+    ) -> Result<()> {
+        let ctx = CheckerContext {
+            module_id: self.modules.find_from_path(path).unwrap(),
+            unit,
+            source: &unit.source,
+        };
+
+        for child in modules {
+            self.define_structs(&child.path, &child.unit, &child.children)?;
+        }
+
+        for s in &unit.structs {
+            self.define_struct(
+                s,
+                self.types
+                    .force_find_by_name(&unit.source, ctx.module_id, &s.ident)?,
+                &ctx,
+            )?;
         }
 
         Ok(())
