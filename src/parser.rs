@@ -80,6 +80,7 @@ impl Parser {
                 TokenKind::Extern => extern_procs.push(self.parse_extern_proc_definition()?),
                 TokenKind::Struct => structs.push(self.parse_struct_definition()?),
                 TokenKind::Use => imports.push(self.parse_use_include()?),
+                TokenKind::EOF => break,
                 _ => {
                     return Err(Error::ExpectedProcStructExternUse {
                         src: self.named_source(),

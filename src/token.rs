@@ -147,6 +147,9 @@ pub enum TokenKind {
     Extern,
     Struct,
     Use,
+
+    #[name("EOF")]
+    EOF,
 }
 
 impl TokenKind {

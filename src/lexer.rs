@@ -6,6 +6,7 @@ pub struct Lexer {
     pub file_name: String,
     pub content: String,
     position: usize,
+    has_emitted_eof: bool,
 }
 
 impl Lexer {
@@ -14,6 +15,7 @@ impl Lexer {
             content: std::fs::read_to_string(&path).unwrap(),
             position: 0,
             file_name: path.to_string_lossy().to_string(),
+            has_emitted_eof: false,
         }
     }
 
@@ -215,7 +217,22 @@ impl Iterator for Lexer {
     fn next(&mut self) -> Option<Self::Item> {
         self.skip_whitespace();
 
-        match self.advance()? {
+        let next = match self.advance() {
+            Some(next) => next,
+            None => {
+                return if self.has_emitted_eof {
+                    None
+                } else {
+                    self.has_emitted_eof = true;
+                    Some(Token::new(
+                        (self.position - 1..self.position).into(),
+                        TokenKind::EOF,
+                    ))
+                };
+            }
+        };
+
+        match next {
             '+' => Some(self.char(TokenKind::Plus)),
             '-' => Some(self.char(TokenKind::Minus)),
             '*' => Some(self.char(TokenKind::Star)),
