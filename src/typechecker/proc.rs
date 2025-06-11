@@ -60,6 +60,16 @@ impl ProcCollection {
         }
     }
 
+    pub fn force_find_type_of(
+        &self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        ident: &Ident,
+    ) -> Result<TypeId> {
+        let proc_id = self.force_find(src, module_id, ident)?;
+        Ok(self.procs[proc_id.0].type_id)
+    }
+
     pub fn find(&self, module_id: ModuleId, ident: &Ident) -> Option<ProcId> {
         self.parsed.get(&module_id)?.get(ident).copied()
     }

@@ -58,7 +58,7 @@ impl Checker {
         self.declare_procs(&package.path, &package.unit, &package.modules)?;
         self.resolve_imports(package_id, &package.path, &package.unit, &package.modules)?;
         self.define_structs(&package.path, &package.unit, &package.modules)?;
-        // Define procs
+        self.define_procs(&package.path, &package.unit, &package.modules)?;
         Ok(package_id)
     }
     fn resolve_imports(
@@ -148,6 +148,8 @@ impl Checker {
             self.declare_procs(&child.path, &child.unit, &child.children)?;
         }
 
+        // FIXME: Procs with the same structure will have different TypeId's when they should have
+        //        the same
         for proc in &unit.procs {
             self.add_proc_name(proc, &ctx)?;
         }
@@ -180,6 +182,43 @@ impl Checker {
                 s,
                 self.types
                     .force_find_by_name(&unit.source, ctx.module_id, &s.ident)?,
+                &ctx,
+            )?;
+        }
+
+        Ok(())
+    }
+
+    fn define_procs(
+        &mut self,
+        path: &PathBuf,
+        unit: &TranslationUnit,
+        modules: &Vec<ParsedModule>,
+    ) -> Result<()> {
+        let ctx = CheckerContext {
+            module_id: self.modules.find_from_path(path).unwrap(),
+            unit,
+            source: &unit.source,
+        };
+
+        for child in modules {
+            self.define_procs(&child.path, &child.unit, &child.children)?;
+        }
+
+        for proc in &unit.procs {
+            self.define_proc(
+                proc,
+                self.procs
+                    .force_find_type_of(ctx.source, ctx.module_id, &proc.ident)?,
+                &ctx,
+            )?;
+        }
+
+        for extern_proc in &unit.extern_procs {
+            self.define_extern_proc(
+                extern_proc,
+                self.procs
+                    .force_find_type_of(ctx.source, ctx.module_id, &extern_proc.ident)?,
                 &ctx,
             )?;
         }
@@ -264,7 +303,12 @@ impl Checker {
     //     })
     // }
 
-    fn add_proc_types(&mut self, definition: &ProcDefinition, ctx: &CheckerContext) -> Result<()> {
+    fn define_proc(
+        &mut self,
+        definition: &ProcDefinition,
+        type_id: TypeId,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
         let mut params: Vec<(Ident, TypeId)> = vec![];
         for param in &definition.params {
             if let Some(original) = params.iter().find(|p| p.0.name == param.0.name) {
@@ -283,22 +327,16 @@ impl Checker {
         let return_type =
             self.types
                 .force_find(&ctx.source, ctx.module_id, &definition.return_type)?;
-        let type_id = self.types.register_type(Type::Proc {
-            params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
-            return_type,
-            variadic: false,
-        });
 
-        if let Some((_, original)) = self.scope.find_with_original_span(&definition.ident) {
-            return Err(Error::ProcNameCollision {
-                src: ctx.source.clone(),
-                original_span: original,
-                redefined_span: definition.ident.span,
-                name: definition.ident.name.clone(),
-            });
-        }
+        self.types.define_proc(
+            type_id,
+            Type::Proc {
+                params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
+                return_type,
+                variadic: false,
+            },
+        );
 
-        self.scope.add_to_scope(&definition.ident, type_id);
         Ok(())
     }
 
@@ -369,9 +407,10 @@ impl Checker {
         Ok(())
     }
 
-    fn add_extern_proc_types(
+    fn define_extern_proc(
         &mut self,
         definition: &ExternProcDefinition,
+        type_id: TypeId,
         ctx: &CheckerContext,
     ) -> Result<()> {
         let mut params: Vec<TypeId> = vec![];
@@ -386,22 +425,15 @@ impl Checker {
             self.types
                 .force_find(ctx.source, ctx.module_id, &definition.return_type)?;
 
-        let type_id = self.types.register_type(Type::Proc {
-            params: params.clone(),
-            return_type,
-            variadic: definition.variadic,
-        });
+        self.types.define_proc(
+            type_id,
+            Type::Proc {
+                params: params.clone(),
+                return_type,
+                variadic: definition.variadic,
+            },
+        );
 
-        if let Some((_, original)) = self.scope.find_with_original_span(&definition.ident) {
-            return Err(Error::ProcNameCollision {
-                src: ctx.source.clone(),
-                original_span: original,
-                redefined_span: definition.ident.span,
-                name: definition.ident.name.clone(),
-            });
-        }
-
-        self.scope.add_to_scope(&definition.ident, type_id);
         Ok(())
     }
 

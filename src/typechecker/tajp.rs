@@ -237,6 +237,11 @@ impl TypeCollection {
         self.structs.push(type_id);
     }
 
+    pub fn define_proc(&mut self, type_id: TypeId, proc: Type) {
+        assert_eq!(self.types[type_id.0], Type::UndefinedProc);
+        self.types[type_id.0] = proc;
+    }
+
     pub fn qbe_type_def_of<'a>(&self, type_id: TypeId) -> &'static qbe::TypeDef<'a> {
         let definition = self.get_definition(type_id);
         self.qbe_type_def_of_definition(&definition)
