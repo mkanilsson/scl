@@ -54,7 +54,16 @@ pub enum Error {
 
         type_name: String,
     },
+    #[error("Unknown proc '{proc_name}'")]
+    UnknownProc {
+        #[source_code]
+        src: NamedSource<String>,
 
+        #[label("here")]
+        span: SourceSpan,
+
+        proc_name: String,
+    },
     #[error("Proc named '{name}' has already been defined")]
     ProcNameCollision {
         #[source_code]
@@ -304,4 +313,26 @@ pub enum Error {
         "Module defined twice, both '{module_name}.scl' and '{module_name}/mod.scl' exists in '{path}'"
     )]
     ModuleDefinedTwice { module_name: String, path: PathBuf },
+    #[error("Can't find module '{module_name}' in '{base_name}'")]
+    ModuleNotFound {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        module_name: String,
+        base_name: String,
+    },
+    #[error("Can't find proc or struct '{wanted_name}' in '{module_name}'")]
+    ProcOrStructNotFound {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        wanted_name: String,
+        module_name: String,
+    },
 }

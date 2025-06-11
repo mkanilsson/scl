@@ -1,3 +1,9 @@
+use miette::NamedSource;
+
+use crate::{
+    ast::parsed::Ident,
+    error::{Error, Result},
+};
 use std::{collections::HashMap, path::PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,6 +40,26 @@ impl ModuleCollection {
 
     pub fn find_from_path(&self, path: &PathBuf) -> Option<ModuleId> {
         self.paths.get(path).copied()
+    }
+
+    pub fn force_find_in(
+        &self,
+        source: &NamedSource<String>,
+        module_id: ModuleId,
+        name: &Ident,
+    ) -> Result<ModuleId> {
+        for child in &self.modules[module_id.0].children {
+            if self.modules[child.0].name == name.name {
+                return Ok(*child);
+            }
+        }
+
+        return Err(Error::ModuleNotFound {
+            src: source.clone(),
+            span: name.span,
+            module_name: "TODO".to_string(),
+            base_name: name.name.clone(),
+        });
     }
 }
 

@@ -356,6 +356,11 @@ impl TypeCollection {
     fn round_up_to_alignment(&self, value: usize, alignment: usize) -> usize {
         (value + (alignment - 1)) & !(alignment - 1)
     }
+
+    pub fn add_to_module(&mut self, module_id: ModuleId, type_id: TypeId, ident: &Ident) {
+        let parsed_for_module = self.parsed.entry(module_id).or_insert_with(HashMap::new);
+        parsed_for_module.insert(ast::tajp::TypeKind::Named(ident.clone()), type_id);
+    }
 }
 
 #[derive(Clone)]

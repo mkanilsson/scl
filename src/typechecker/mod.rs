@@ -12,7 +12,7 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        BinOp, Expr, ExprKind, ExternProcDefinition, Ident, ProcDefinition, Stmt, StmtKind,
+        BinOp, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt, StmtKind,
         StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
@@ -47,18 +47,87 @@ impl Checker {
             scope: Scope::new(),
             modules: ModuleCollection::new(),
             procs: ProcCollection::new(),
+            // TODO: Add a packages thingy
         }
     }
 
     pub fn add_package(&mut self, package: &ParsedPackage) -> Result<ModuleId> {
-        let id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
+        let package_id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
         self.declare_structs(&package.path, &package.unit, &package.modules)?;
         self.declare_procs(&package.path, &package.unit, &package.modules)?;
-        // Resolve imports
+        self.resolve_imports(package_id, &package.path, &package.unit, &package.modules)?;
         // Define structs
         // Define procs
         // Return some sort of package id, that can be used when using names later on
-        Ok(id)
+        Ok(package_id)
+    }
+    fn resolve_imports(
+        &mut self,
+        package_id: ModuleId,
+        path: &PathBuf,
+        unit: &TranslationUnit,
+        modules: &Vec<ParsedModule>,
+    ) -> Result<()> {
+        let ctx = CheckerContext {
+            module_id: self.modules.find_from_path(path).unwrap(),
+            source: &unit.source,
+            unit,
+        };
+        for import in &unit.imports {
+            self.resolve_import_part(ctx.module_id, package_id, import, true, &ctx)?;
+        }
+
+        for module in modules {
+            self.resolve_imports(package_id, &module.path, &module.unit, &module.children)?;
+        }
+
+        Ok(())
+    }
+
+    fn resolve_import_part(
+        &mut self,
+        import_to: ModuleId,
+        module_id: ModuleId,
+        import: &Import,
+        first: bool,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
+        match import {
+            Import::Part(import, ident) => {
+                if first {
+                    if ident.name == "package" {
+                        return self.resolve_import_part(import_to, module_id, import, false, ctx);
+                    } else {
+                        todo!("Import from another package, requires a package collection")
+                    }
+                } else {
+                    let module_id = self.modules.force_find_in(ctx.source, module_id, ident)?;
+                    return self.resolve_import_part(import_to, module_id, import, false, ctx);
+                }
+            }
+            Import::Final(ident) => {
+                if first {
+                    todo!("This should show an error message");
+                }
+
+                if let Ok(type_id) = self.types.force_find_by_name(ctx.source, module_id, ident) {
+                    self.types.add_to_module(import_to, type_id, ident);
+                    return Ok(());
+                }
+
+                if let Ok(proc_id) = self.procs.force_find(ctx.source, module_id, ident) {
+                    self.procs.add_to_module(import_to, proc_id, ident);
+                    return Ok(());
+                }
+
+                return Err(Error::ProcOrStructNotFound {
+                    src: ctx.source.clone(),
+                    span: ident.span,
+                    wanted_name: ident.name.clone(),
+                    module_name: "TODO".to_string(),
+                });
+            }
+        }
     }
 
     fn declare_procs(

@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use miette::NamedSource;
+
 use crate::ast::parsed::Ident;
+use crate::error::{Error, Result};
 
 use super::{module::ModuleId, tajp::TypeId};
 
@@ -16,7 +19,7 @@ impl From<usize> for ProcId {
 #[derive(Debug)]
 pub struct ProcCollection {
     pub procs: Vec<Proc>,
-    parsed: HashMap<ModuleId, HashMap<Ident, ProcId>>,
+    pub parsed: HashMap<ModuleId, HashMap<Ident, ProcId>>,
 }
 
 impl ProcCollection {
@@ -33,6 +36,32 @@ impl ProcCollection {
         parsed_for_module.insert(proc.name.clone(), id.into());
         self.procs.push(proc);
         id.into()
+    }
+
+    pub fn add_to_module(&mut self, module_id: ModuleId, proc_id: ProcId, ident: &Ident) {
+        let parsed_for_module = self.parsed.entry(module_id).or_insert_with(HashMap::new);
+        parsed_for_module.insert(ident.clone(), proc_id);
+    }
+
+    pub fn force_find(
+        &self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        ident: &Ident,
+    ) -> Result<ProcId> {
+        if let Some(found) = self.find(module_id, ident) {
+            Ok(found)
+        } else {
+            Err(Error::UnknownProc {
+                src: src.clone(),
+                span: ident.span,
+                proc_name: ident.name.clone(),
+            })
+        }
+    }
+
+    pub fn find(&self, module_id: ModuleId, ident: &Ident) -> Option<ProcId> {
+        self.parsed.get(&module_id)?.get(ident).copied()
     }
 }
 

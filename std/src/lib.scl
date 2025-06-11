@@ -1,0 +1,2 @@
+use package::io::printf
+use package::io::Thing
