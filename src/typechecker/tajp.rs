@@ -8,6 +8,8 @@ use crate::{
     error::{Error, Result},
 };
 
+use super::module::ModuleId;
+
 pub const VOID_TYPE_ID: TypeId = TypeId(0);
 pub const BOOL_TYPE_ID: TypeId = TypeId(1);
 pub const I32_TYPE_ID: TypeId = TypeId(2);
@@ -17,6 +19,7 @@ pub const STRING_TYPE_ID: TypeId = TypeId(4);
 #[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum Type {
     UndefinedStruct,
+    UndefinedProc,
     Void,
     Bool,
     I32,
@@ -28,6 +31,7 @@ pub enum Type {
         variadic: bool,
     },
     Struct {
+        module_id: ModuleId,
         name: Ident,
         fields: Vec<(Ident, TypeId)>,
     },
@@ -47,7 +51,11 @@ impl Type {
 
     pub fn as_struct(self) -> (Ident, Vec<(Ident, TypeId)>) {
         match self {
-            Type::Struct { name, fields } => (name, fields),
+            Type::Struct {
+                name,
+                fields,
+                module_id: _,
+            } => (name, fields),
             _ => unreachable!(),
         }
     }
@@ -86,8 +94,8 @@ impl Type {
 
                 format!("proc ({params}) {return_type}")
             }
-            Type::Struct { name, fields: _ } => name.name.clone(),
-            Type::UndefinedStruct => unreachable!(),
+            Type::Struct { name, .. } => name.name.clone(),
+            Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
     }
 }
@@ -104,7 +112,7 @@ impl From<usize> for TypeId {
 #[derive(Debug)]
 pub struct TypeCollection {
     types: Vec<Type>,
-    parsed: HashMap<ast::tajp::TypeKind, TypeId>,
+    parsed: HashMap<ModuleId, HashMap<ast::tajp::TypeKind, TypeId>>,
     pub structs: Vec<TypeId>,
 }
 
@@ -132,18 +140,41 @@ impl TypeCollection {
         id.into()
     }
 
-    pub fn register_undefined_struct(&mut self, ident: &Ident) -> TypeId {
+    pub fn register_undefined_struct(&mut self, module_id: ModuleId, ident: &Ident) -> TypeId {
         let type_id = self.types.len();
         self.types.push(Type::UndefinedStruct);
         let type_id = type_id.into();
-        self.parsed
-            .insert(ast::tajp::TypeKind::Named(ident.clone()), type_id);
-
+        self.insert_parsed_for_module(
+            module_id,
+            ast::tajp::TypeKind::Named(ident.clone()),
+            type_id,
+        );
         type_id
     }
 
-    pub fn force_find(&self, src: &NamedSource<String>, t: &ast::tajp::Type) -> Result<TypeId> {
-        if let Some(found) = self.find(t) {
+    pub fn register_undefined_proc(&mut self) -> TypeId {
+        let type_id = self.types.len();
+        self.types.push(Type::UndefinedProc);
+        type_id.into()
+    }
+
+    fn insert_parsed_for_module(
+        &mut self,
+        module_id: ModuleId,
+        t: ast::tajp::TypeKind,
+        type_id: TypeId,
+    ) {
+        let parsed_for_module = self.parsed.entry(module_id).or_insert_with(HashMap::new);
+        parsed_for_module.insert(t, type_id);
+    }
+
+    pub fn force_find(
+        &self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        t: &ast::tajp::Type,
+    ) -> Result<TypeId> {
+        if let Some(found) = self.find(module_id, t) {
             Ok(found)
         } else {
             Err(Error::UnknownType {
@@ -154,17 +185,23 @@ impl TypeCollection {
         }
     }
 
-    pub fn find(&self, t: &ast::tajp::Type) -> Option<TypeId> {
+    pub fn find(&self, module_id: ModuleId, t: &ast::tajp::Type) -> Option<TypeId> {
         if let Some(primative) = self.find_primative(t) {
             return Some(primative);
         }
 
-        self.parsed.get(&t.kind).copied()
+        self.parsed.get(&module_id)?.get(&t.kind).copied()
     }
 
-    pub fn force_find_by_name(&self, src: &NamedSource<String>, name: &Ident) -> Result<TypeId> {
+    pub fn force_find_by_name(
+        &self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        name: &Ident,
+    ) -> Result<TypeId> {
         self.force_find(
             src,
+            module_id,
             &ast::tajp::Type::new(name.span, ast::tajp::TypeKind::Named(name.clone())),
         )
     }
@@ -208,7 +245,11 @@ impl TypeCollection {
         // What am i suppose to do here when the reference needs to point into the module
         // but then module gets locked becuase it's borrowed as mutable
         Box::leak(Box::new(match definition {
-            Type::Struct { name, fields } => qbe::TypeDef {
+            Type::Struct {
+                name,
+                fields,
+                module_id: _,
+            } => qbe::TypeDef {
                 align: None,
                 items: fields.iter().map(|f| (self.qbe_type_of(f.1), 0)).collect(),
                 name: name.name.clone(),
@@ -232,7 +273,7 @@ impl TypeCollection {
                 qbe::Type::Aggregate(self.qbe_type_def_of_definition(definition))
             }
             Type::Void => unreachable!(),
-            Type::UndefinedStruct => unreachable!(),
+            Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
     }
 
@@ -272,8 +313,12 @@ impl TypeCollection {
                     None,
                 )
             }
-            Type::Struct { name: _, fields } => self.memory_layout_of_struct(fields),
-            Type::Void | Type::UndefinedStruct => unreachable!(),
+            Type::Struct {
+                name: _,
+                fields,
+                module_id: _,
+            } => self.memory_layout_of_struct(fields),
+            Type::Void | Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
     }
 

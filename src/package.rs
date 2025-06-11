@@ -139,16 +139,16 @@ impl Package {
 
 #[derive(Debug)]
 pub struct ParsedPackage {
-    name: String,
-    unit: TranslationUnit,
-    path: PathBuf,
-    modules: Vec<ParsedModule>,
+    pub name: String,
+    pub unit: TranslationUnit,
+    pub path: PathBuf,
+    pub modules: Vec<ParsedModule>,
 }
 
 #[derive(Debug)]
 pub struct ParsedModule {
-    name: String,
-    unit: TranslationUnit,
-    path: PathBuf,
-    children: Vec<ParsedModule>,
+    pub name: String,
+    pub unit: TranslationUnit,
+    pub path: PathBuf,
+    pub children: Vec<ParsedModule>,
 }
