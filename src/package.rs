@@ -4,6 +4,7 @@ use crate::{
     helpers::find_duplicate,
     lexer::Lexer,
     parser::Parser,
+    typechecker::{ast::CheckedTranslationUnit, module::ModuleId},
 };
 use std::path::PathBuf;
 
@@ -151,4 +152,16 @@ pub struct ParsedModule {
     pub unit: TranslationUnit,
     pub path: PathBuf,
     pub children: Vec<ParsedModule>,
+}
+
+#[derive(Debug)]
+pub struct CheckedPackage {
+    package_id: ModuleId,
+    units: Vec<CheckedTranslationUnit>,
+}
+
+impl CheckedPackage {
+    pub fn new(package_id: ModuleId, units: Vec<CheckedTranslationUnit>) -> Self {
+        Self { package_id, units }
+    }
 }

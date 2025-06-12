@@ -30,7 +30,7 @@ fn run() -> Result<()> {
     let mut checker = Checker::new();
     let checked_package = checker.add_package(&std_package)?;
 
-    println!("{:#?}", checker);
+    println!("{:#?}", checked_package);
 
     // let qbe_source = Codegen::new(vec![checked_package]);
     // println!("std: {:#?}", std_package);

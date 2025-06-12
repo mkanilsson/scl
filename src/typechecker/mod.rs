@@ -1,6 +1,6 @@
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
-use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt};
+use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::{NamedSource, SourceSpan};
 use module::{Module, ModuleCollection, ModuleId};
 use proc::{Proc, ProcCollection};
@@ -12,16 +12,16 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        BinOp, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt, StmtKind,
-        StructDefinition, TranslationUnit,
+        self, BinOp, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt,
+        StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
-    package::{ParsedModule, ParsedPackage},
+    package::{CheckedPackage, ParsedModule, ParsedPackage},
 };
 
 pub mod ast;
-mod module;
+pub mod module;
 mod proc;
 mod scope;
 pub mod tajp;
@@ -51,15 +51,18 @@ impl Checker {
         }
     }
 
-    pub fn add_package(&mut self, package: &ParsedPackage) -> Result<ModuleId> {
+    pub fn add_package(&mut self, package: &ParsedPackage) -> Result<CheckedPackage> {
         let package_id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
+
         // TODO: Find a way to limit struct and proc lookups in these functions
         self.declare_structs(&package.path, &package.unit, &package.modules)?;
         self.declare_procs(&package.path, &package.unit, &package.modules)?;
         self.resolve_imports(package_id, &package.path, &package.unit, &package.modules)?;
         self.define_structs(&package.path, &package.unit, &package.modules)?;
         self.define_procs(&package.path, &package.unit, &package.modules)?;
-        Ok(package_id)
+        let units = self.check_package(&package.path, &package.unit, &package.modules)?;
+
+        Ok(CheckedPackage::new(package_id, units))
     }
     fn resolve_imports(
         &mut self,
@@ -226,6 +229,29 @@ impl Checker {
         Ok(())
     }
 
+    fn check_package(
+        &mut self,
+        path: &PathBuf,
+        unit: &TranslationUnit,
+        modules: &Vec<ParsedModule>,
+    ) -> Result<Vec<CheckedTranslationUnit>> {
+        let ctx = CheckerContext {
+            module_id: self.modules.find_from_path(path).unwrap(),
+            unit,
+            source: &unit.source,
+        };
+
+        let mut units = vec![];
+
+        for child in modules {
+            units.extend(self.check_package(&child.path, &child.unit, &child.children)?);
+        }
+
+        units.push(self.check_unit(unit, &ctx)?);
+
+        Ok(units)
+    }
+
     fn declare_structs(
         &mut self,
         path: &PathBuf,
@@ -267,41 +293,32 @@ impl Checker {
         }))
     }
 
-    // pub fn check(&mut self) -> Result<CheckedTranslationUnit> {
-    //     let structs = self.unit.structs.clone();
-    //
-    //     let mut struct_and_type_ids = vec![];
-    //     for s in structs {
-    //         let type_id = self.add_struct_name(&s)?;
-    //         struct_and_type_ids.push((s, type_id));
-    //     }
-    //
-    //     for s in struct_and_type_ids {
-    //         self.define_struct(&s.0, s.1)?;
-    //     }
-    //
-    //     // TODO: Detect recursive structs
-    //
-    //     let extern_procs = self.unit.extern_procs.clone();
-    //
-    //     for extern_proc in extern_procs {
-    //         self.add_extern_proc_types(&extern_proc)?;
-    //     }
-    //
-    //     let procs = self.unit.procs.clone();
-    //     for proc in &procs {
-    //         self.add_proc_types(proc)?;
-    //     }
-    //
-    //     let mut checked_procs = vec![];
-    //     for proc in procs {
-    //         checked_procs.push(self.typecheck_proc(&proc)?);
-    //     }
-    //
-    //     Ok(CheckedTranslationUnit {
-    //         procs: checked_procs,
-    //     })
-    // }
+    fn check_unit(
+        &mut self,
+        unit: &TranslationUnit,
+        ctx: &CheckerContext,
+    ) -> Result<CheckedTranslationUnit> {
+        self.scope.enter();
+
+        for proc in &unit.procs {
+            self.scope.add_to_scope(
+                &proc.ident,
+                self.procs
+                    .force_find_type_of(ctx.source, ctx.module_id, &proc.ident)?,
+            );
+        }
+
+        let mut checked_procs = vec![];
+        for proc in &unit.procs {
+            checked_procs.push(self.typecheck_proc(&proc, ctx)?);
+        }
+
+        self.scope.exit();
+
+        Ok(CheckedTranslationUnit {
+            procs: checked_procs,
+        })
+    }
 
     fn define_proc(
         &mut self,
@@ -328,14 +345,11 @@ impl Checker {
             self.types
                 .force_find(&ctx.source, ctx.module_id, &definition.return_type)?;
 
-        self.types.define_proc(
-            type_id,
-            Type::Proc {
-                params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
-                return_type,
-                variadic: false,
-            },
-        );
+        self.types.define_proc(type_id, Type::Proc {
+            params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
+            return_type,
+            variadic: false,
+        });
 
         Ok(())
     }
@@ -351,13 +365,10 @@ impl Checker {
     fn add_proc(&mut self, ident: Ident, ctx: &CheckerContext) -> Result<TypeId> {
         // TODO: Verify that the name is unique
         let type_id = self.types.register_undefined_proc();
-        self.procs.add(
-            ctx.module_id,
-            Proc {
-                type_id,
-                name: ident,
-            },
-        );
+        self.procs.add(ctx.module_id, Proc {
+            type_id,
+            name: ident,
+        });
 
         Ok(type_id)
     }
@@ -395,14 +406,11 @@ impl Checker {
             fields.push((field.0.clone(), type_id));
         }
 
-        self.types.define_struct(
-            type_id,
-            Type::Struct {
-                module_id: ctx.module_id,
-                name: s.ident.clone(),
-                fields,
-            },
-        );
+        self.types.define_struct(type_id, Type::Struct {
+            module_id: ctx.module_id,
+            name: s.ident.clone(),
+            fields,
+        });
 
         Ok(())
     }
@@ -425,14 +433,11 @@ impl Checker {
             self.types
                 .force_find(ctx.source, ctx.module_id, &definition.return_type)?;
 
-        self.types.define_proc(
-            type_id,
-            Type::Proc {
-                params: params.clone(),
-                return_type,
-                variadic: definition.variadic,
-            },
-        );
+        self.types.define_proc(type_id, Type::Proc {
+            params: params.clone(),
+            return_type,
+            variadic: definition.variadic,
+        });
 
         Ok(())
     }
