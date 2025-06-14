@@ -1,16 +1,15 @@
-use std::fmt::format;
-
-use nanoid::nanoid;
-use qbe::{Block, DataDef, DataItem, Function, Instr, Linkage, Module, Type, Value};
+use qbe::{DataDef, DataItem, Function, Instr, Linkage, Module, Type, Value};
 
 use crate::{
     ast::parsed::BinOp,
     typechecker::{
         Checker,
         ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit},
-        tajp::{MemoryLayout, TypeCollection, VOID_TYPE_ID},
+        tajp::{MemoryLayout, VOID_TYPE_ID},
     },
 };
+
+static mut UNIQUE_TAG_COUNT: usize = 0;
 
 pub struct Codegen {
     units: Vec<CheckedTranslationUnit>,
@@ -178,7 +177,7 @@ impl Codegen {
             (Type::Byte, DataItem::Const(0)),
         ];
 
-        let name = format!("str_{}", self.unique_tag());
+        let name = format!("str.{}", self.unique_tag());
 
         module.add_data(DataDef::new(Linkage::private(), name.clone(), None, items));
 
@@ -198,7 +197,7 @@ impl Codegen {
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         let mut result_value =
-            Value::Temporary(format!("{name}_return_value_{}", self.unique_tag()));
+            Value::Temporary(format!("{name}.return_value.{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
         let mut generated_params = vec![];
@@ -246,7 +245,7 @@ impl Codegen {
             let expr = self.codegen_expr(&field.1, function, module);
 
             // Get offset
-            let offset_value = Value::Temporary(format!("offset_{}", self.unique_tag()));
+            let offset_value = Value::Temporary(format!("offset.{}", self.unique_tag()));
             let field_layout = fields_offsets.get(&field.0).unwrap();
 
             function.blocks.last_mut().unwrap().add_comment(format!(
@@ -284,7 +283,7 @@ impl Codegen {
 
         let generated_lhs = self.codegen_expr(lhs, function, module);
 
-        let offset_value = Value::Temporary(format!("offset_{}", self.unique_tag()));
+        let offset_value = Value::Temporary(format!("offset.{}", self.unique_tag()));
 
         function.assign_instr(
             offset_value.clone(),
@@ -295,7 +294,7 @@ impl Codegen {
             ),
         );
 
-        let result_value = Value::Temporary(format!("member_access_{}", self.unique_tag()));
+        let result_value = Value::Temporary(format!("member_access.{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
         function.assign_instr(
@@ -364,7 +363,7 @@ impl Codegen {
         let generated_lhs = self.codegen_expr(lhs, function, module);
         let generated_rhs = self.codegen_expr(rhs, function, module);
 
-        let binop_result = Value::Temporary(format!("binop_{}", self.unique_tag()));
+        let binop_result = Value::Temporary(format!("binop.{}", self.unique_tag()));
 
         #[allow(unreachable_patterns)]
         let inst = match op {
@@ -402,7 +401,7 @@ impl Codegen {
             _ => unreachable!(),
         };
 
-        let value_name = format!("allocated_{}", self.unique_tag());
+        let value_name = format!("allocated.{}", self.unique_tag());
         let value = Value::Temporary(value_name);
         function.assign_instr(value.clone(), Type::Long, instr);
 
@@ -423,7 +422,11 @@ impl Codegen {
         ));
     }
 
-    fn unique_tag(&self) -> String {
-        nanoid!(10).replace("-", "_")
+    fn unique_tag(&self) -> usize {
+        // SAFETY: Codegen is single threaded
+        unsafe {
+            UNIQUE_TAG_COUNT += 1;
+            UNIQUE_TAG_COUNT
+        }
     }
 }
