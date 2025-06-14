@@ -511,6 +511,20 @@ impl Checker {
         })
     }
 
+    fn typecheck_block(
+        &mut self,
+        stmts: &Vec<Stmt>,
+        return_type: (TypeId, SourceSpan),
+        ctx: &CheckerContext,
+    ) -> Result<Vec<CheckedStmt>> {
+        let mut checked_stmts = vec![];
+        for stmt in stmts {
+            checked_stmts.push(self.typecheck_stmt(return_type, stmt, ctx)?);
+        }
+
+        Ok(checked_stmts)
+    }
+
     fn typecheck_stmt(
         &mut self,
         return_type: (TypeId, SourceSpan),
@@ -522,10 +536,10 @@ impl Checker {
                 self.typecheck_return_stmt(return_type, stmt.span, value, ctx)
             }
             StmtKind::VariableDeclaration { name, value } => {
-                self.typecheck_variable_declaration_stmt(name, value, ctx)
+                self.typecheck_variable_declaration_stmt(name, value, return_type, ctx)
             }
             StmtKind::Expr(expr) => {
-                let expr = self.typecheck_expr(expr, None, ctx)?;
+                let expr = self.typecheck_expr(expr, None, return_type, ctx)?;
                 Ok(CheckedStmt::Expr(expr))
             }
             stmt => todo!("typecheck_stmt: {}", stmt),
@@ -548,7 +562,7 @@ impl Checker {
                     });
                 }
 
-                let expr = self.typecheck_expr(value, Some(return_type), ctx)?;
+                let expr = self.typecheck_expr(value, Some(return_type), return_type, ctx)?;
 
                 if expr.type_id != return_type.0 {
                     return Err(Error::ReturnValueDoesntMatch {
@@ -579,9 +593,10 @@ impl Checker {
         &mut self,
         ident: &Ident,
         expr: &Expr,
+        return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedStmt> {
-        let expr = self.typecheck_expr(expr, None, ctx)?;
+        let expr = self.typecheck_expr(expr, None, return_type, ctx)?;
         self.scope.add_to_scope(ident, expr.type_id);
 
         Ok(CheckedStmt::VariableDeclaration {
@@ -594,6 +609,7 @@ impl Checker {
         &mut self,
         expr: &Expr,
         wanted: Option<(TypeId, SourceSpan)>,
+        return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
         match &expr.kind {
@@ -643,24 +659,33 @@ impl Checker {
                 }
             }
             ExprKind::BinOp { lhs, op, rhs } => {
-                self.typecheck_binop_expr(lhs, *op, rhs, wanted, ctx)
+                self.typecheck_binop_expr(lhs, *op, rhs, wanted, return_type, ctx)
             }
             ExprKind::String(value) => Ok(CheckedExpr {
                 type_id: STRING_TYPE_ID,
                 kind: ast::CheckedExprKind::String(value.clone()),
             }),
-            ExprKind::Call { expr, params } => self.typecheck_call_expr(expr, params, wanted, ctx),
+            ExprKind::Call { expr, params } => {
+                self.typecheck_call_expr(expr, params, wanted, return_type, ctx)
+            }
             ExprKind::Bool(value) => Ok(CheckedExpr {
                 type_id: BOOL_TYPE_ID,
                 kind: ast::CheckedExprKind::Number(if *value { 1 } else { 0 }),
             }),
-            ExprKind::Builtin(name, params) => self.typecheck_builtin_expr(expr, name, params, ctx),
+            ExprKind::Builtin(name, params) => {
+                self.typecheck_builtin_expr(expr, name, params, return_type, ctx)
+            }
             ExprKind::StructInstantiation { name, members } => {
-                self.typecheck_struct_instantiation_expr(expr, name, members, ctx)
+                self.typecheck_struct_instantiation_expr(expr, name, members, return_type, ctx)
             }
             ExprKind::MemberAccess { lhs, member } => {
-                self.typecheck_member_access_expr(lhs, member, ctx)
+                self.typecheck_member_access_expr(lhs, member, return_type, ctx)
             }
+            ExprKind::If {
+                condition,
+                true_block,
+                false_block,
+            } => self.typecheck_if_expr(condition, true_block, false_block, return_type, ctx),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -671,10 +696,11 @@ impl Checker {
         op: BinOp,
         rhs: &Expr,
         wanted: Option<(TypeId, SourceSpan)>,
+        return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, wanted, ctx)?;
-        let checked_rhs = self.typecheck_expr(rhs, wanted, ctx)?;
+        let checked_lhs = self.typecheck_expr(lhs, wanted, return_type, ctx)?;
+        let checked_rhs = self.typecheck_expr(rhs, wanted, return_type, ctx)?;
 
         if checked_lhs.type_id != checked_rhs.type_id {
             return Err(Error::BinOpSidesMismatch {
@@ -739,9 +765,10 @@ impl Checker {
         expr: &Expr,
         params: &Vec<Expr>,
         wanted: Option<(TypeId, SourceSpan)>,
+        return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let checked_expr = self.typecheck_expr(expr, wanted, ctx)?;
+        let checked_expr = self.typecheck_expr(expr, wanted, return_type, ctx)?;
 
         let ident = match checked_expr.kind {
             CheckedExprKind::Identifier(name) => name,
@@ -769,8 +796,12 @@ impl Checker {
         let mut checked_params = vec![];
         for (param, expected_type) in non_variadic_params {
             // TODO: Get the location of the suspected span or allow the span to be optional
-            let checked_expr =
-                self.typecheck_expr(&param, Some((*expected_type, (0..0).into())), ctx)?;
+            let checked_expr = self.typecheck_expr(
+                &param,
+                Some((*expected_type, (0..0).into())),
+                return_type,
+                ctx,
+            )?;
             if checked_expr.type_id != *expected_type {
                 return Err(Error::ProcCallParamTypeMismatch {
                     src: ctx.source.clone(),
@@ -784,7 +815,7 @@ impl Checker {
         }
 
         for param in &params {
-            checked_params.push(self.typecheck_expr(param, None, ctx)?);
+            checked_params.push(self.typecheck_expr(param, None, return_type, ctx)?);
         }
 
         Ok(CheckedExpr {
@@ -806,6 +837,7 @@ impl Checker {
         expr: &Expr,
         name: &str,
         params: &Vec<Expr>,
+        return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
         match name {
@@ -821,7 +853,7 @@ impl Checker {
                     });
                 }
 
-                let checked_param = self.typecheck_expr(&params[0], None, ctx)?;
+                let checked_param = self.typecheck_expr(&params[0], None, return_type, ctx)?;
 
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
@@ -841,6 +873,7 @@ impl Checker {
         expr: &Expr,
         name: &Ident,
         fields: &Vec<(Ident, Expr)>,
+        return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
         let struct_type_id = self
@@ -879,8 +912,12 @@ impl Checker {
                 });
             }
 
-            let checked_expr =
-                self.typecheck_expr(&field.1, Some((defined_field.1, defined_field.0.span)), ctx)?;
+            let checked_expr = self.typecheck_expr(
+                &field.1,
+                Some((defined_field.1, defined_field.0.span)),
+                return_type,
+                ctx,
+            )?;
 
             if checked_expr.type_id != defined_field.1 {
                 return Err(Error::StructInstantiationFieldTypeMismatch {
@@ -936,9 +973,10 @@ impl Checker {
         &mut self,
         lhs: &Expr,
         member: &Ident,
+        return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, None, ctx)?;
+        let checked_lhs = self.typecheck_expr(lhs, None, return_type, ctx)?;
 
         let definition = self.types.get_definition(checked_lhs.type_id);
         if !definition.is_struct() {
@@ -966,6 +1004,45 @@ impl Checker {
                 lhs: Box::new(checked_lhs),
                 name: field.0.name.clone(),
             },
+        })
+    }
+
+    // TODO: Make it act as an expression,
+    //       Currently it's checked as a statement
+    fn typecheck_if_expr(
+        &mut self,
+        condition: &Expr,
+        true_block: &Vec<Stmt>,
+        false_block: &Vec<Stmt>,
+        return_type: (TypeId, SourceSpan),
+        ctx: &CheckerContext,
+    ) -> Result<CheckedExpr> {
+        let checked_condition = self.typecheck_expr(
+            condition,
+            Some((BOOL_TYPE_ID, (0..0).into())),
+            return_type,
+            ctx,
+        )?;
+        let checked_true_block = self.typecheck_block(true_block, return_type, ctx)?;
+        let checked_false_block = self.typecheck_block(false_block, return_type, ctx)?;
+
+        if checked_condition.type_id != BOOL_TYPE_ID {
+            return Err(Error::ExpectedButGot {
+                src: ctx.source.clone(),
+                span: condition.span,
+                expected: "bool".to_string(),
+                got: self.types.name_of(checked_condition.type_id),
+            });
+        }
+
+        Ok(CheckedExpr {
+            kind: CheckedExprKind::If {
+                condition: Box::new(checked_condition),
+                true_block: checked_true_block,
+                false_block: checked_false_block,
+            },
+            // TODO: Actually check what type it yields
+            type_id: I32_TYPE_ID,
         })
     }
 

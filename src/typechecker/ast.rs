@@ -54,4 +54,9 @@ pub enum CheckedExprKind {
         lhs: Box<CheckedExpr>,
         name: String,
     },
+    If {
+        condition: Box<CheckedExpr>,
+        false_block: Vec<CheckedStmt>,
+        true_block: Vec<CheckedStmt>,
+    },
 }
