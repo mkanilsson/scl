@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use nanoid::nanoid;
 use qbe::{Block, DataDef, DataItem, Function, Instr, Linkage, Module, Type, Value};
 
@@ -62,7 +64,7 @@ impl Codegen {
         let block = func.add_block("start");
 
         for stmt in &proc.stmts {
-            self.codegen_stmt(stmt, block, module);
+            self.codegen_stmt(stmt, &mut func, module);
         }
 
         module.add_function(func);
@@ -71,17 +73,17 @@ impl Codegen {
     fn codegen_stmt<'a>(
         &'a self,
         stmt: &CheckedStmt,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) {
         #[allow(unreachable_patterns)]
         match stmt {
-            CheckedStmt::Return { value } => self.codegen_return_stmt(value, block, module),
+            CheckedStmt::Return { value } => self.codegen_return_stmt(value, function, module),
             CheckedStmt::VariableDeclaration { name, value } => {
-                self.codegen_variable_declaration_stmt(name, value, block, module)
+                self.codegen_variable_declaration_stmt(name, value, function, module)
             }
             CheckedStmt::Expr(expr) => {
-                self.codegen_expr(expr, block, module);
+                self.codegen_expr(expr, function, module);
             }
             stmt => todo!("codegen_stmt: {}", stmt),
         }
@@ -90,25 +92,25 @@ impl Codegen {
     fn codegen_return_stmt<'a>(
         &'a self,
         value: &Option<CheckedExpr>,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) {
         let qbe_value = value
             .as_ref()
-            .map(|expr| self.codegen_expr(expr, block, module).1);
+            .map(|expr| self.codegen_expr(expr, function, module).1);
 
-        block.add_instr(Instr::Ret(qbe_value));
+        function.add_instr(Instr::Ret(qbe_value));
     }
 
     fn codegen_variable_declaration_stmt<'a>(
         &'a self,
         name: &str,
         value: &CheckedExpr,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) {
-        let expr = self.codegen_expr(value, block, module);
-        block.assign_instr(
+        let expr = self.codegen_expr(value, function, module);
+        function.assign_instr(
             Value::Temporary(name.to_string()),
             expr.0,
             Instr::Copy(expr.1),
@@ -118,7 +120,7 @@ impl Codegen {
     fn codegen_expr<'a>(
         &'a self,
         expr: &CheckedExpr,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         #[allow(unreachable_patterns)]
@@ -127,19 +129,26 @@ impl Codegen {
             CheckedExprKind::Number(value) => self.codegen_number_expr(expr, *value),
             CheckedExprKind::String(value) => self.codegen_string_expr(expr, value, module),
             CheckedExprKind::BinOp { lhs, op, rhs } => {
-                self.codegen_binop_expr(lhs, *op, rhs, block, module)
+                self.codegen_binop_expr(lhs, *op, rhs, function, module)
             }
             CheckedExprKind::DirectCall {
                 name,
                 params,
                 variadic_after,
-            } => self.codegen_direct_call_expr(expr, name, params, *variadic_after, block, module),
+            } => {
+                self.codegen_direct_call_expr(expr, name, params, *variadic_after, function, module)
+            }
             CheckedExprKind::StructInstantiation { name, fields } => {
-                self.codegen_struct_instantation_expr(expr, name, fields, block, module)
+                self.codegen_struct_instantation_expr(expr, name, fields, function, module)
             }
             CheckedExprKind::MemberAccess { lhs, name } => {
-                self.codegen_member_access_expr(expr, lhs, name, block, module)
+                self.codegen_member_access_expr(expr, lhs, name, function, module)
             }
+            CheckedExprKind::If {
+                condition,
+                false_block,
+                true_block,
+            } => self.codegen_if_expr(condition, true_block, false_block, function, module),
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -185,7 +194,7 @@ impl Codegen {
         name: &str,
         params: &Vec<CheckedExpr>,
         variadic_after: Option<u64>,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         let mut result_value =
@@ -195,13 +204,13 @@ impl Codegen {
         let mut generated_params = vec![];
 
         for param in params {
-            generated_params.push(self.codegen_expr(param, block, module));
+            generated_params.push(self.codegen_expr(param, function, module));
         }
 
         // NOTE: There is a bug here causing the wrong calling convention
         //       if the return_type is an aggregate type
         //       (https://github.com/garritfra/qbe-rs/issues/35)
-        block.assign_instr(
+        function.assign_instr(
             result_value.clone(),
             result_type.clone(),
             Instr::Call(name.to_string(), generated_params, variadic_after),
@@ -210,9 +219,9 @@ impl Codegen {
         let definition = self.checker.types.get_definition(expr.type_id);
         if definition.is_struct() {
             let memory_layout = self.checker.types.memory_layout_of_definition(&definition);
-            let struct_storage = self.allocate(&memory_layout, block);
+            let struct_storage = self.allocate(&memory_layout, function);
 
-            self.copy_struct_fields(&memory_layout, &struct_storage, &result_value, block);
+            self.copy_struct_fields(&memory_layout, &struct_storage, &result_value, function);
             result_value = struct_storage;
         }
 
@@ -224,27 +233,27 @@ impl Codegen {
         expr: &CheckedExpr,
         name: &str,
         fields: &Vec<(String, CheckedExpr)>,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         let memory_layout = self.checker.types.memory_layout_of(expr.type_id);
 
-        let struct_value = self.allocate(&memory_layout, block);
+        let struct_value = self.allocate(&memory_layout, function);
         let fields_offsets = memory_layout.fields.expect("Struct to have fields");
 
         for field in fields {
             // TODO: Copy from other struct
-            let expr = self.codegen_expr(&field.1, block, module);
+            let expr = self.codegen_expr(&field.1, function, module);
 
             // Get offset
             let offset_value = Value::Temporary(format!("offset_{}", self.unique_tag()));
             let field_layout = fields_offsets.get(&field.0).unwrap();
 
-            block.add_comment(format!(
+            function.blocks.last_mut().unwrap().add_comment(format!(
                 "Store value into {name}.{} (offset: {})",
                 field.0, field_layout.offset
             ));
-            block.assign_instr(
+            function.assign_instr(
                 offset_value.clone(),
                 Type::Long,
                 Instr::Add(
@@ -255,7 +264,7 @@ impl Codegen {
 
             // TODO: Copy struct fields if there is a nested struct
             // Store value
-            block.add_instr(Instr::Store(expr.0, offset_value, expr.1));
+            function.add_instr(Instr::Store(expr.0, offset_value, expr.1));
         }
 
         (self.checker.types.qbe_type_of(expr.type_id), struct_value)
@@ -266,18 +275,18 @@ impl Codegen {
         expr: &CheckedExpr,
         lhs: &CheckedExpr,
         name: &str,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         let memory_layout = self.checker.types.memory_layout_of(lhs.type_id);
         let fields = memory_layout.fields.unwrap();
         let field_layout = fields.get(name).unwrap();
 
-        let generated_lhs = self.codegen_expr(lhs, block, module);
+        let generated_lhs = self.codegen_expr(lhs, function, module);
 
         let offset_value = Value::Temporary(format!("offset_{}", self.unique_tag()));
 
-        block.assign_instr(
+        function.assign_instr(
             offset_value.clone(),
             Type::Long,
             Instr::Add(
@@ -289,7 +298,7 @@ impl Codegen {
         let result_value = Value::Temporary(format!("member_access_{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
-        block.assign_instr(
+        function.assign_instr(
             result_value.clone(),
             result_type.clone(),
             Instr::Load(result_type.clone(), offset_value),
@@ -298,16 +307,62 @@ impl Codegen {
         (result_type, result_value)
     }
 
+    fn codegen_if_expr<'a>(
+        &'a self,
+        condition: &CheckedExpr,
+        true_block: &Vec<CheckedStmt>,
+        false_block: &Vec<CheckedStmt>,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let unique_tag = self.unique_tag();
+        let true_block_tag = format!("if.true.{}", unique_tag);
+        let false_block_tag = format!("if.false.{}", unique_tag);
+        let after_block_tag = format!("if.after.{}", unique_tag);
+
+        // TODO: Convert to Word size if it's something else
+        let condition = self.codegen_expr(condition, function, module);
+        function.add_instr(Instr::Jnz(
+            condition.1,
+            true_block_tag.clone(),
+            false_block_tag.clone(),
+        ));
+
+        self.codegen_block(&true_block_tag, true_block, function, module);
+        function.add_instr(Instr::Jmp(after_block_tag.clone()));
+
+        self.codegen_block(&false_block_tag, false_block, function, module);
+        function.add_instr(Instr::Jmp(after_block_tag.clone()));
+
+        function.add_block(after_block_tag);
+
+        (Type::Word, Value::Temporary("todo_if_as_exprs".into()))
+    }
+
+    fn codegen_block<'a>(
+        &'a self,
+        name: &str,
+        stmts: &Vec<CheckedStmt>,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) {
+        function.add_block(name);
+
+        for stmt in stmts {
+            self.codegen_stmt(stmt, function, module);
+        }
+    }
+
     fn codegen_binop_expr<'a>(
         &'a self,
         lhs: &CheckedExpr,
         op: BinOp,
         rhs: &CheckedExpr,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let generated_lhs = self.codegen_expr(lhs, block, module);
-        let generated_rhs = self.codegen_expr(rhs, block, module);
+        let generated_lhs = self.codegen_expr(lhs, function, module);
+        let generated_rhs = self.codegen_expr(rhs, function, module);
 
         let binop_result = Value::Temporary(format!("binop_{}", self.unique_tag()));
 
@@ -333,12 +388,12 @@ impl Codegen {
             op => todo!("codegen_binop_expr: {}", op),
         };
 
-        block.assign_instr(binop_result.clone(), generated_lhs.0.clone(), inst);
+        function.assign_instr(binop_result.clone(), generated_lhs.0.clone(), inst);
 
         (generated_lhs.0, binop_result)
     }
 
-    fn allocate<'a>(&'a self, memory_layout: &MemoryLayout, block: &mut Block<'a>) -> Value {
+    fn allocate<'a>(&'a self, memory_layout: &MemoryLayout, function: &mut Function<'a>) -> Value {
         let instr = match memory_layout.alignment {
             1 | 2 => todo!(),
             4 => Instr::Alloc4(memory_layout.size as u32),
@@ -349,7 +404,7 @@ impl Codegen {
 
         let value_name = format!("allocated_{}", self.unique_tag());
         let value = Value::Temporary(value_name);
-        block.assign_instr(value.clone(), Type::Long, instr);
+        function.assign_instr(value.clone(), Type::Long, instr);
 
         value
     }
@@ -359,9 +414,9 @@ impl Codegen {
         memory_layout: &MemoryLayout,
         destination: &Value,
         source: &Value,
-        block: &mut Block<'a>,
+        function: &mut Function<'a>,
     ) {
-        block.add_instr(Instr::Blit(
+        function.add_instr(Instr::Blit(
             source.clone(),
             destination.clone(),
             memory_layout.size as u64,

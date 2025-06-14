@@ -1,10 +1,10 @@
 use std::io::printf 
 
 proc main() i32 {
-    if (true) {
-        printf("True!");
+    if (7 == 7) {
+        printf("True!\n");
     } else {
-        printf("False!");
+        printf("False!\n");
     }
 
     ret 0;
