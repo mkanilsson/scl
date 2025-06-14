@@ -77,6 +77,11 @@ pub enum ExprKind {
         expr: Box<Expr>,
         params: Vec<Expr>,
     },
+    If {
+        condition: Box<Expr>,
+        true_block: Vec<Stmt>,
+        false_block: Vec<Stmt>,
+    },
 }
 
 #[derive(Debug, Clone)]

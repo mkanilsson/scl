@@ -89,6 +89,10 @@ pub enum TokenKind {
     #[name(")")]
     CloseParen,
 
+    #[nud(Parser::parse_primary)]
+    If,
+    Else,
+
     #[stmt(Parser::parse_variable_declaration)]
     Let,
 

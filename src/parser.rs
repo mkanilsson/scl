@@ -251,7 +251,23 @@ impl Parser {
             Stmt::new(expr.span, StmtKind::Expr(expr))
         };
 
-        self.expect(TokenKind::Semicolon)?;
+        match &stmt.kind {
+            StmtKind::Expr(expr) => match &expr.kind {
+                // If statements can be without semicolon
+                ExprKind::If { .. } => {
+                    if self.peek().kind == TokenKind::Semicolon {
+                        self.expect(TokenKind::Semicolon)?;
+                    }
+                }
+                _ => {
+                    self.expect(TokenKind::Semicolon)?;
+                }
+            },
+            _ => {
+                self.expect(TokenKind::Semicolon)?;
+            }
+        };
+
         Ok(stmt)
     }
 
@@ -278,6 +294,24 @@ impl Parser {
                     token.span,
                     last.span,
                     ExprKind::Builtin(name, params),
+                ));
+            }
+            TokenKind::If => {
+                self.expect(TokenKind::OpenParen)?;
+                let condition = self.parse_expr(BindingPower::Logical)?;
+                self.expect(TokenKind::CloseParen)?;
+                let true_block = self.parse_block()?;
+                self.expect(TokenKind::Else)?;
+                let false_block = self.parse_block()?;
+
+                return Ok(Self::new_expr(
+                    token.span,
+                    self.prev().span,
+                    ExprKind::If {
+                        condition: Box::new(condition),
+                        true_block,
+                        false_block,
+                    },
                 ));
             }
             _ => unreachable!(),
@@ -454,6 +488,10 @@ impl Parser {
         let token = self.peek().clone();
         self.i += 1;
         token
+    }
+
+    fn prev(&mut self) -> &Token {
+        self.tokens.get(self.i - 1).unwrap()
     }
 
     fn peek(&mut self) -> &Token {

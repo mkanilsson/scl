@@ -85,6 +85,8 @@ impl Lexer {
             "true" => TokenKind::True,
             "false" => TokenKind::False,
             "use" => TokenKind::Use,
+            "if" => TokenKind::If,
+            "else" => TokenKind::Else,
             _ => TokenKind::Identifier(string),
         };
 

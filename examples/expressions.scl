@@ -1,6 +1,11 @@
 use std::io::printf 
 
 proc main() i32 {
-    printf("x = %s\n", "it's working!!!");
+    if (true) {
+        printf("True!");
+    } else {
+        printf("False!");
+    }
+
     ret 0;
 }
