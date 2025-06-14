@@ -157,7 +157,7 @@ pub struct ParsedModule {
 #[derive(Debug)]
 pub struct CheckedPackage {
     package_id: ModuleId,
-    units: Vec<CheckedTranslationUnit>,
+    pub units: Vec<CheckedTranslationUnit>,
 }
 
 impl CheckedPackage {

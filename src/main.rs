@@ -1,3 +1,6 @@
+use std::process::Command;
+
+use codegen::Codegen;
 use error::Result;
 use package::Package;
 use typechecker::Checker;
@@ -32,56 +35,43 @@ fn run() -> Result<()> {
 
     println!("{:#?}", checked_package);
 
-    // let qbe_source = Codegen::new(vec![checked_package]);
-    // println!("std: {:#?}", std_package);
+    let mut codegener = Codegen::new(checked_package.units, checker);
+    let code = codegener.generate();
 
-    // NOTE: OLD STUFF UNDER
-    // let lexer = Lexer::new("examples/expressions.scl".into());
-    // let parser = parser::Parser::new(lexer);
-    // let unit = parser.parse()?;
-    // println!("{unit:#?}");
-    // let mut checker = Checker::new(unit);
-    // let checked_unit = checker.check()?;
-    // println!("{checked_unit:#?}");
-    // println!("{checker:#?}");
-    //
-    // let mut codegener = Codegen::new(checked_unit, checker.types);
-    // let code = codegener.generate();
-    //
-    // std::fs::create_dir_all("out/").unwrap();
-    // std::fs::write("out/a.qbe", code).unwrap();
-    //
-    // // Compile to asm
-    // let qbe_cmd = Command::new("qbe")
-    //     .arg("-o")
-    //     .arg("out/a.S")
-    //     .arg("out/a.qbe")
-    //     .output()
-    //     .unwrap();
-    //
-    // if !qbe_cmd.status.success() {
-    //     println!("qbe failed");
-    //     println!("stderr:\n{}", String::from_utf8_lossy(&qbe_cmd.stderr));
-    //     println!("stdout:\n{}", String::from_utf8_lossy(&qbe_cmd.stdout));
-    //
-    //     return Ok(());
-    // }
-    //
-    // // Compile to machinecode
-    // let gcc_cmd = Command::new("gcc")
-    //     .arg("-o")
-    //     .arg("out/a.out")
-    //     .arg("out/a.S")
-    //     .output()
-    //     .unwrap();
-    //
-    // if !gcc_cmd.status.success() {
-    //     println!("gcc failed");
-    //     println!("stderr:\n{}", String::from_utf8_lossy(&gcc_cmd.stderr));
-    //     println!("stdout:\n{}", String::from_utf8_lossy(&gcc_cmd.stdout));
-    //
-    //     return Ok(());
-    // }
+    std::fs::create_dir_all("out/").unwrap();
+    std::fs::write("out/a.qbe", code).unwrap();
+
+    // Compile to asm
+    let qbe_cmd = Command::new("qbe")
+        .arg("-o")
+        .arg("out/a.S")
+        .arg("out/a.qbe")
+        .output()
+        .unwrap();
+
+    if !qbe_cmd.status.success() {
+        println!("qbe failed");
+        println!("stderr:\n{}", String::from_utf8_lossy(&qbe_cmd.stderr));
+        println!("stdout:\n{}", String::from_utf8_lossy(&qbe_cmd.stdout));
+
+        return Ok(());
+    }
+
+    // Compile to machinecode
+    let gcc_cmd = Command::new("gcc")
+        .arg("-o")
+        .arg("out/a.out")
+        .arg("out/a.S")
+        .output()
+        .unwrap();
+
+    if !gcc_cmd.status.success() {
+        println!("gcc failed");
+        println!("stderr:\n{}", String::from_utf8_lossy(&gcc_cmd.stderr));
+        println!("stdout:\n{}", String::from_utf8_lossy(&gcc_cmd.stdout));
+
+        return Ok(());
+    }
 
     Ok(())
 }
