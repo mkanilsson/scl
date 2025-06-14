@@ -35,6 +35,16 @@ impl Package {
         })
     }
 
+    pub fn from_file(path: PathBuf) -> Result<Self> {
+        let path = Self::to_absolute_path(path);
+
+        Ok(Self {
+            path,
+            name: "main".to_string(),
+            modules: vec![],
+        })
+    }
+
     fn find_modules(path: PathBuf) -> Result<Vec<Module>> {
         Ok(Self::build_module_from_directory("", path, true)?.children)
     }
@@ -156,7 +166,7 @@ pub struct ParsedModule {
 
 #[derive(Debug)]
 pub struct CheckedPackage {
-    package_id: ModuleId,
+    pub package_id: ModuleId,
     pub units: Vec<CheckedTranslationUnit>,
 }
 

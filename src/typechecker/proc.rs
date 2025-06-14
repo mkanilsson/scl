@@ -73,6 +73,17 @@ impl ProcCollection {
     pub fn find(&self, module_id: ModuleId, ident: &Ident) -> Option<ProcId> {
         self.parsed.get(&module_id)?.get(ident).copied()
     }
+
+    pub fn for_scope(&self, module_id: ModuleId) -> Vec<(Ident, TypeId)> {
+        let Some(module) = self.parsed.get(&module_id) else {
+            return vec![];
+        };
+
+        module
+            .iter()
+            .map(|(k, v)| (k.clone(), self.procs[v.0].type_id))
+            .collect()
+    }
 }
 
 #[derive(Debug)]

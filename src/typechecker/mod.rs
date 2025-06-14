@@ -3,6 +3,7 @@ use std::{fmt::Debug, path::PathBuf, str::FromStr};
 use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
 use miette::{NamedSource, SourceSpan};
 use module::{Module, ModuleCollection, ModuleId};
+use package::PackageCollection;
 use proc::{Proc, ProcCollection};
 use scope::Scope;
 use tajp::{
@@ -22,6 +23,7 @@ use crate::{
 
 pub mod ast;
 pub mod module;
+mod package;
 mod proc;
 mod scope;
 pub mod tajp;
@@ -32,6 +34,7 @@ pub struct Checker {
     scope: Scope,
     modules: ModuleCollection,
     procs: ProcCollection,
+    packages: PackageCollection,
 }
 
 struct CheckerContext<'a> {
@@ -47,16 +50,25 @@ impl Checker {
             scope: Scope::new(),
             modules: ModuleCollection::new(),
             procs: ProcCollection::new(),
-            // TODO: Add a packages thingy
+            packages: PackageCollection::new(),
         }
     }
 
-    pub fn add_package(&mut self, package: &ParsedPackage) -> Result<CheckedPackage> {
+    pub fn add_package(
+        &mut self,
+        package: &ParsedPackage,
+        dependencies: &Vec<(String, ModuleId)>,
+    ) -> Result<CheckedPackage> {
         let package_id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
 
         // TODO: Find a way to limit struct and proc lookups in these functions
         self.declare_structs(&package.path, &package.unit, &package.modules)?;
         self.declare_procs(&package.path, &package.unit, &package.modules)?;
+
+        for dependency in dependencies {
+            self.add_dependency(package_id, dependency);
+        }
+
         self.resolve_imports(package_id, &package.path, &package.unit, &package.modules)?;
         self.define_structs(&package.path, &package.unit, &package.modules)?;
         self.define_procs(&package.path, &package.unit, &package.modules)?;
@@ -64,6 +76,11 @@ impl Checker {
 
         Ok(CheckedPackage::new(package_id, units))
     }
+
+    fn add_dependency(&mut self, package_id: ModuleId, dependency: &(String, ModuleId)) {
+        self.packages.register_dependency(package_id, dependency);
+    }
+
     fn resolve_imports(
         &mut self,
         package_id: ModuleId,
@@ -101,7 +118,14 @@ impl Checker {
                     if ident.name == "package" {
                         return self.resolve_import_part(import_to, module_id, import, false, ctx);
                     } else {
-                        todo!("Import from another package, requires a package collection")
+                        return self.resolve_import_part(
+                            import_to,
+                            self.packages
+                                .force_find_dependency(module_id, &ident.name)?,
+                            import,
+                            false,
+                            ctx,
+                        );
                     }
                 } else {
                     let module_id = self.modules.force_find_in(ctx.source, module_id, ident)?;
@@ -300,12 +324,8 @@ impl Checker {
     ) -> Result<CheckedTranslationUnit> {
         self.scope.enter();
 
-        for proc in &unit.procs {
-            self.scope.add_to_scope(
-                &proc.ident,
-                self.procs
-                    .force_find_type_of(ctx.source, ctx.module_id, &proc.ident)?,
-            );
+        for proc in self.procs.for_scope(ctx.module_id) {
+            self.scope.add_to_scope(&proc.0, proc.1);
         }
 
         let mut checked_procs = vec![];
@@ -345,11 +365,14 @@ impl Checker {
             self.types
                 .force_find(&ctx.source, ctx.module_id, &definition.return_type)?;
 
-        self.types.define_proc(type_id, Type::Proc {
-            params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
-            return_type,
-            variadic: false,
-        });
+        self.types.define_proc(
+            type_id,
+            Type::Proc {
+                params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
+                return_type,
+                variadic: false,
+            },
+        );
 
         Ok(())
     }
@@ -365,10 +388,13 @@ impl Checker {
     fn add_proc(&mut self, ident: Ident, ctx: &CheckerContext) -> Result<TypeId> {
         // TODO: Verify that the name is unique
         let type_id = self.types.register_undefined_proc();
-        self.procs.add(ctx.module_id, Proc {
-            type_id,
-            name: ident,
-        });
+        self.procs.add(
+            ctx.module_id,
+            Proc {
+                type_id,
+                name: ident,
+            },
+        );
 
         Ok(type_id)
     }
@@ -406,11 +432,14 @@ impl Checker {
             fields.push((field.0.clone(), type_id));
         }
 
-        self.types.define_struct(type_id, Type::Struct {
-            module_id: ctx.module_id,
-            name: s.ident.clone(),
-            fields,
-        });
+        self.types.define_struct(
+            type_id,
+            Type::Struct {
+                module_id: ctx.module_id,
+                name: s.ident.clone(),
+                fields,
+            },
+        );
 
         Ok(())
     }
@@ -433,11 +462,14 @@ impl Checker {
             self.types
                 .force_find(ctx.source, ctx.module_id, &definition.return_type)?;
 
-        self.types.define_proc(type_id, Type::Proc {
-            params: params.clone(),
-            return_type,
-            variadic: definition.variadic,
-        });
+        self.types.define_proc(
+            type_id,
+            Type::Proc {
+                params: params.clone(),
+                return_type,
+                variadic: definition.variadic,
+            },
+        );
 
         Ok(())
     }

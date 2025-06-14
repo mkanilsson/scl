@@ -1,20 +1,6 @@
 use std::io::printf 
 
-struct Vec {
-    x: u32,
-    y: u32,
-}
-
-proc vecadd() Vec {
-    ret Vec {
-        x: 50,
-        y: 60,
-    };
-}
-
 proc main() i32 {
-    let result = vecadd();
-    printf("x = %d\n", result.x);
-    printf("y = %d\n", result.y);
+    printf("x = %s\n", "it's working!!!");
     ret 0;
 }

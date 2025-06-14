@@ -30,12 +30,23 @@ fn run() -> Result<()> {
     let std_package = Package::from_path("std", "std".into())?;
     let std_package = std_package.parse()?;
 
+    let main_package = Package::from_file("examples/expressions.scl".into())?;
+    let main_package = main_package.parse()?;
+
     let mut checker = Checker::new();
-    let checked_package = checker.add_package(&std_package)?;
+    let checked_std_package = checker.add_package(&std_package, &vec![])?;
+    let checked_main_package = checker.add_package(
+        &main_package,
+        &vec![("std".into(), checked_std_package.package_id)],
+    )?;
 
-    println!("{:#?}", checked_package);
+    let all_units = checked_std_package
+        .units
+        .into_iter()
+        .chain(checked_main_package.units.into_iter())
+        .collect::<Vec<_>>();
 
-    let mut codegener = Codegen::new(checked_package.units, checker);
+    let mut codegener = Codegen::new(all_units, checker);
     let code = codegener.generate();
 
     std::fs::create_dir_all("out/").unwrap();
