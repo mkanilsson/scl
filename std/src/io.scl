@@ -1,6 +1,1 @@
 extern proc printf(string, ...) u32
-
-struct Thing {
-    a: u32,
-    b: i32
-}

@@ -1,2 +1,1 @@
-use package::io::printf
-use package::io::Thing
+extern proc exit(u32) !

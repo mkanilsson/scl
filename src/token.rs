@@ -124,6 +124,9 @@ pub enum TokenKind {
     #[name("!=")]
     ExclamationEqual,
 
+    #[name("!")]
+    Exclamation,
+
     #[name("{")]
     #[led(BindingPower::Multiplicative, Parser::parse_struct_instantation)]
     OpenCurly,

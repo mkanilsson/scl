@@ -19,12 +19,14 @@ impl Type {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeKind {
     Named(Ident),
+    Never,
 }
 
 impl ToString for TypeKind {
     fn to_string(&self) -> String {
         match self {
             TypeKind::Named(ident) => ident.name.to_string(),
+            TypeKind::Never => "!".to_string(),
         }
     }
 }

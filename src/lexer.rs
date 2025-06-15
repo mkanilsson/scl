@@ -181,7 +181,7 @@ impl Lexer {
         }
     }
 
-    fn read_exclamation_equal(&mut self) -> Option<Token> {
+    fn read_exclamation_or_exclamation_equal(&mut self) -> Option<Token> {
         let start = self.position - 1;
 
         if let Some('=') = self.peek() {
@@ -191,8 +191,10 @@ impl Lexer {
                 TokenKind::ExclamationEqual,
             ))
         } else {
-            // TODO: Find a way to handle errors
-            panic!("! not followed by =, no token to generate")
+            Some(Token::new(
+                (start..self.position).into(),
+                TokenKind::Exclamation,
+            ))
         }
     }
 
@@ -249,7 +251,7 @@ impl Iterator for Lexer {
             '(' => Some(self.char(TokenKind::OpenParen)),
             ')' => Some(self.char(TokenKind::CloseParen)),
             '"' => Some(self.read_string()),
-            '!' => self.read_exclamation_equal(),
+            '!' => self.read_exclamation_or_exclamation_equal(),
             '@' => Some(self.read_builtin()),
             c if c.is_ascii_digit() => Some(self.read_number(c)),
             c if c.is_alphabetic() => Some(self.read_identifier(c)),

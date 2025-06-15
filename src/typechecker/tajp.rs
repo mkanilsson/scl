@@ -15,6 +15,7 @@ pub const BOOL_TYPE_ID: TypeId = TypeId(1);
 pub const I32_TYPE_ID: TypeId = TypeId(2);
 pub const U32_TYPE_ID: TypeId = TypeId(3);
 pub const STRING_TYPE_ID: TypeId = TypeId(4);
+pub const NEVER_TYPE_ID: TypeId = TypeId(5);
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum Type {
@@ -25,6 +26,7 @@ pub enum Type {
     I32,
     U32,
     String,
+    Never,
     Proc {
         params: Vec<TypeId>,
         return_type: TypeId,
@@ -74,6 +76,7 @@ impl Type {
             Type::I32 => "i32".into(),
             Type::U32 => "u32".into(),
             Type::String => "string".into(),
+            Type::Never => "!".into(),
             Type::Proc {
                 params,
                 return_type,
@@ -216,6 +219,7 @@ impl TypeCollection {
                 "string" => STRING_TYPE_ID,
                 _ => return None,
             }),
+            ast::tajp::TypeKind::Never => Some(NEVER_TYPE_ID),
         }
     }
 
@@ -277,6 +281,7 @@ impl TypeCollection {
             Type::Struct { .. } => {
                 qbe::Type::Aggregate(self.qbe_type_def_of_definition(definition))
             }
+            Type::Never => qbe::Type::Word,
             Type::Void => unreachable!(),
             Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
@@ -311,7 +316,7 @@ impl TypeCollection {
 
     pub fn memory_layout_of_definition(&self, definition: &Type) -> MemoryLayout {
         match definition {
-            Type::I32 | Type::Bool | Type::U32 | Type::String | Type::Proc { .. } => {
+            Type::I32 | Type::Bool | Type::U32 | Type::String | Type::Proc { .. } | Type::Never => {
                 MemoryLayout::new(
                     self.size_of_definition(definition),
                     self.alignment_of_definition(definition),

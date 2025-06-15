@@ -220,9 +220,23 @@ impl Parser {
     }
 
     fn parse_type(&mut self) -> Result<Type> {
-        let ident = self.expect_ident()?;
+        let Some(current) = self.current() else {
+            todo!("Nice error message");
+        };
 
-        Ok(Type::new(ident.span, TypeKind::Named(ident)))
+        Ok(match current.kind {
+            TokenKind::Identifier(_) => {
+                let ident = self.expect_ident()?;
+                Type::new(ident.span, TypeKind::Named(ident))
+            }
+            TokenKind::Exclamation => {
+                let token = self.expect(TokenKind::Exclamation)?;
+                Type::new(token.span, TypeKind::Never)
+            }
+            _ => {
+                todo!("Show error message about invalid type token")
+            }
+        })
     }
 
     fn parse_block(&mut self) -> Result<Block> {
