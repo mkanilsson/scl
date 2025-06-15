@@ -1,6 +1,8 @@
 use std::{fmt::Debug, path::PathBuf, str::FromStr};
 
-use ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit};
+use ast::{
+    CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit,
+};
 use miette::{NamedSource, SourceSpan};
 use module::{Module, ModuleCollection, ModuleId};
 use package::PackageCollection;
@@ -13,8 +15,8 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        self, BinOp, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt,
-        StmtKind, StructDefinition, TranslationUnit,
+        self, BinOp, Block, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition,
+        Stmt, StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
@@ -494,17 +496,15 @@ impl Checker {
             params.push((param.0.name.clone(), param.1));
         }
 
-        let mut stmts = vec![];
+        let return_type = (definition.1, proc.return_type.span);
 
-        for stmt in &proc.stmts {
-            stmts.push(self.typecheck_stmt((definition.1, proc.return_type.span), stmt, ctx)?);
-        }
+        let body = self.typecheck_block(&proc.body, Some(return_type), return_type, ctx)?;
 
         self.scope.exit();
 
         Ok(CheckedProc {
             type_id,
-            stmts,
+            body,
             name: proc.ident.name.clone(),
             params,
             return_type: definition.1,
@@ -513,16 +513,26 @@ impl Checker {
 
     fn typecheck_block(
         &mut self,
-        stmts: &Vec<Stmt>,
+        block: &Block,
+        wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<Vec<CheckedStmt>> {
+    ) -> Result<CheckedBlock> {
         let mut checked_stmts = vec![];
-        for stmt in stmts {
+        for stmt in &block.stmts {
             checked_stmts.push(self.typecheck_stmt(return_type, stmt, ctx)?);
         }
 
-        Ok(checked_stmts)
+        let last = if let Some(expr) = &block.last {
+            Some(self.typecheck_expr(&expr, wanted, return_type, ctx)?)
+        } else {
+            None
+        };
+
+        Ok(CheckedBlock {
+            stmts: checked_stmts,
+            last,
+        })
     }
 
     fn typecheck_stmt(
@@ -1012,8 +1022,8 @@ impl Checker {
     fn typecheck_if_expr(
         &mut self,
         condition: &Expr,
-        true_block: &Vec<Stmt>,
-        false_block: &Vec<Stmt>,
+        true_block: &Block,
+        false_block: &Block,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
@@ -1023,8 +1033,8 @@ impl Checker {
             return_type,
             ctx,
         )?;
-        let checked_true_block = self.typecheck_block(true_block, return_type, ctx)?;
-        let checked_false_block = self.typecheck_block(false_block, return_type, ctx)?;
+        let checked_true_block = self.typecheck_block(true_block, None, return_type, ctx)?;
+        let checked_false_block = self.typecheck_block(false_block, None, return_type, ctx)?;
 
         if checked_condition.type_id != BOOL_TYPE_ID {
             return Err(Error::ExpectedButGot {
@@ -1038,8 +1048,8 @@ impl Checker {
         Ok(CheckedExpr {
             kind: CheckedExprKind::If {
                 condition: Box::new(checked_condition),
-                true_block: checked_true_block,
-                false_block: checked_false_block,
+                true_block: Box::new(checked_true_block),
+                false_block: Box::new(checked_false_block),
             },
             // TODO: Actually check what type it yields
             type_id: I32_TYPE_ID,

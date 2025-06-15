@@ -79,8 +79,8 @@ pub enum ExprKind {
     },
     If {
         condition: Box<Expr>,
-        true_block: Vec<Stmt>,
-        false_block: Vec<Stmt>,
+        true_block: Box<Block>,
+        false_block: Box<Block>,
     },
 }
 
@@ -98,7 +98,6 @@ impl Stmt {
 
 #[derive(Debug, Clone, Display)]
 pub enum StmtKind {
-    Block { stmts: Vec<Stmt> },
     VariableDeclaration { name: Ident, value: Expr },
     Return { value: Option<Expr> },
     Expr(Expr),
@@ -134,7 +133,7 @@ pub struct ProcDefinition {
     pub ident: Ident,
     pub params: Vec<(Ident, Type)>,
     pub return_type: Type,
-    pub stmts: Vec<Stmt>,
+    pub body: Block,
 }
 
 #[derive(Debug, Clone)]
@@ -149,4 +148,10 @@ pub struct ExternProcDefinition {
 pub struct StructDefinition {
     pub ident: Ident,
     pub fields: Vec<(Ident, Type)>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Block {
+    pub stmts: Vec<Stmt>,
+    pub last: Option<Expr>,
 }

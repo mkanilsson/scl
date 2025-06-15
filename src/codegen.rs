@@ -4,7 +4,10 @@ use crate::{
     ast::parsed::BinOp,
     typechecker::{
         Checker,
-        ast::{CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit},
+        ast::{
+            CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt,
+            CheckedTranslationUnit,
+        },
         tajp::{MemoryLayout, VOID_TYPE_ID},
     },
 };
@@ -60,10 +63,8 @@ impl Codegen {
         };
 
         let mut func = Function::new(Linkage::public(), proc.name.clone(), params, return_type);
-        let block = func.add_block("start");
-
-        for stmt in &proc.stmts {
-            self.codegen_stmt(stmt, &mut func, module);
+        if let Some(result) = self.codegen_block("start", &proc.body, &mut func, module) {
+            func.add_instr(Instr::Ret(Some(result.1)));
         }
 
         module.add_function(func);
@@ -309,8 +310,8 @@ impl Codegen {
     fn codegen_if_expr<'a>(
         &'a self,
         condition: &CheckedExpr,
-        true_block: &Vec<CheckedStmt>,
-        false_block: &Vec<CheckedStmt>,
+        true_block: &CheckedBlock,
+        false_block: &CheckedBlock,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
@@ -341,14 +342,20 @@ impl Codegen {
     fn codegen_block<'a>(
         &'a self,
         name: &str,
-        stmts: &Vec<CheckedStmt>,
+        block: &CheckedBlock,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
-    ) {
+    ) -> Option<(Type<'a>, Value)> {
         function.add_block(name);
 
-        for stmt in stmts {
-            self.codegen_stmt(stmt, function, module);
+        for stmt in &block.stmts {
+            self.codegen_stmt(&stmt, function, module);
+        }
+
+        if let Some(expr) = &block.last {
+            Some(self.codegen_expr(&expr, function, module))
+        } else {
+            None
         }
     }
 

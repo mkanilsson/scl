@@ -1,11 +1,8 @@
 use std::io::printf 
 
 proc main() i32 {
-    if (7 == 7) {
-        printf("True!\n");
-    } else {
-        printf("False!\n");
-    }
+    let a = 5;
+    let b = 10;
 
-    ret 0;
+    a + b
 }

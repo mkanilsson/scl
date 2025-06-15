@@ -13,7 +13,7 @@ pub struct CheckedTranslationUnit {
 pub struct CheckedProc {
     pub name: String,
     pub type_id: TypeId,
-    pub stmts: Vec<CheckedStmt>,
+    pub body: CheckedBlock,
     pub params: Vec<(String, TypeId)>,
     pub return_type: TypeId,
 }
@@ -56,7 +56,13 @@ pub enum CheckedExprKind {
     },
     If {
         condition: Box<CheckedExpr>,
-        false_block: Vec<CheckedStmt>,
-        true_block: Vec<CheckedStmt>,
+        false_block: Box<CheckedBlock>,
+        true_block: Box<CheckedBlock>,
     },
+}
+
+#[derive(Debug, Clone)]
+pub struct CheckedBlock {
+    pub stmts: Vec<CheckedStmt>,
+    pub last: Option<CheckedExpr>,
 }

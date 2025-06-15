@@ -1,7 +1,7 @@
 use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::{
-    Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt, StmtKind,
+    Block, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt, StmtKind,
     StructDefinition, TranslationUnit,
 };
 use crate::ast::tajp::{Type, TypeKind};
@@ -138,13 +138,13 @@ impl Parser {
         self.expect(TokenKind::CloseParen)?;
 
         let return_type = self.parse_type()?;
-        let stmts = self.parse_block()?;
+        let body = self.parse_block()?;
 
         Ok(ProcDefinition {
             ident,
             params,
             return_type,
-            stmts,
+            body,
         })
     }
 
@@ -225,22 +225,42 @@ impl Parser {
         Ok(Type::new(ident.span, TypeKind::Named(ident)))
     }
 
-    fn parse_block(&mut self) -> Result<Vec<Stmt>> {
+    fn parse_block(&mut self) -> Result<Block> {
         self.expect(TokenKind::OpenCurly)?;
 
         let mut stmts = vec![];
+        let mut last = None;
 
         while let Some(c) = self.current() {
             if c.kind == TokenKind::CloseCurly {
                 break;
             }
 
-            stmts.push(self.parse_stmt()?);
+            let stmt = self.parse_stmt()?;
+
+            match stmt.kind {
+                StmtKind::Expr(expr) => {
+                    if self.peek().kind != TokenKind::CloseCurly {
+                        self.expect(TokenKind::Semicolon)?;
+                        continue;
+                    }
+
+                    last = Some(expr);
+                }
+                _ => {
+                    self.expect(TokenKind::Semicolon)?;
+
+                    stmts.push(stmt);
+                    if self.peek().kind == TokenKind::CloseCurly {
+                        break;
+                    }
+                }
+            }
         }
 
         self.expect(TokenKind::CloseCurly)?;
 
-        Ok(stmts)
+        Ok(Block { stmts, last })
     }
 
     fn parse_stmt(&mut self) -> Result<Stmt> {
@@ -249,23 +269,6 @@ impl Parser {
         } else {
             let expr = self.parse_expr(BindingPower::Default)?;
             Stmt::new(expr.span, StmtKind::Expr(expr))
-        };
-
-        match &stmt.kind {
-            StmtKind::Expr(expr) => match &expr.kind {
-                // If statements can be without semicolon
-                ExprKind::If { .. } => {
-                    if self.peek().kind == TokenKind::Semicolon {
-                        self.expect(TokenKind::Semicolon)?;
-                    }
-                }
-                _ => {
-                    self.expect(TokenKind::Semicolon)?;
-                }
-            },
-            _ => {
-                self.expect(TokenKind::Semicolon)?;
-            }
         };
 
         Ok(stmt)
@@ -309,8 +312,8 @@ impl Parser {
                     self.prev().span,
                     ExprKind::If {
                         condition: Box::new(condition),
-                        true_block,
-                        false_block,
+                        true_block: Box::new(true_block),
+                        false_block: Box::new(false_block),
                     },
                 ));
             }
