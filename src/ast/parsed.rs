@@ -154,4 +154,5 @@ pub struct StructDefinition {
 pub struct Block {
     pub stmts: Vec<Stmt>,
     pub last: Option<Expr>,
+    pub span: SourceSpan,
 }

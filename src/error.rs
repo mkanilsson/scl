@@ -335,4 +335,26 @@ pub enum Error {
         wanted_name: String,
         module_name: String,
     },
+    #[error("Block expects to return a value but nothing is yielded")]
+    BlockRequiresValue {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
+
+    #[error("If blocks type mismatch")]
+    IfTypeMismatch {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("this evaluates to '{true_block_type}'")]
+        true_block_span: SourceSpan,
+        true_block_type: String,
+
+        #[label("but this evaluates to '{false_block_type}'")]
+        false_block_span: SourceSpan,
+        false_block_type: String,
+    },
 }
