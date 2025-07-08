@@ -122,7 +122,14 @@ pub struct TypeCollection {
 impl TypeCollection {
     pub fn new() -> Self {
         Self {
-            types: vec![Type::Void, Type::Bool, Type::I32, Type::U32, Type::String],
+            types: vec![
+                Type::Void,
+                Type::Bool,
+                Type::I32,
+                Type::U32,
+                Type::String,
+                Type::Never,
+            ],
             parsed: HashMap::new(),
             structs: vec![],
         }

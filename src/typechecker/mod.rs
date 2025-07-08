@@ -9,8 +9,8 @@ use package::PackageCollection;
 use proc::{Proc, ProcCollection};
 use scope::Scope;
 use tajp::{
-    BOOL_TYPE_ID, I32_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId, U32_TYPE_ID,
-    VOID_TYPE_ID,
+    BOOL_TYPE_ID, I32_TYPE_ID, NEVER_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId,
+    U32_TYPE_ID, VOID_TYPE_ID,
 };
 
 use crate::{
@@ -498,13 +498,33 @@ impl Checker {
 
         let return_type = (definition.1, proc.return_type.span);
 
-        let body = self.typecheck_block(&proc.body, Some(return_type), return_type, ctx)?;
+        let body = self.typecheck_block(
+            &proc.body,
+            Some(return_type),
+            return_type,
+            ctx,
+            return_type.0 != VOID_TYPE_ID,
+        )?;
+
+        if body.value.type_id != return_type.0 && !body.never {
+            return Err(Error::ReturnValueDoesntMatch {
+                src: ctx.source.clone(),
+                return_type_span: return_type.1,
+                expr_span: if let Some(last) = &proc.body.last {
+                    last.span
+                } else {
+                    proc.body.span
+                },
+                return_type: self.types.name_of(return_type.0),
+                actual_type: self.types.name_of(body.value.type_id),
+            });
+        }
 
         self.scope.exit();
 
         Ok(CheckedProc {
             type_id,
-            body,
+            body: body.value,
             name: proc.ident.name.clone(),
             params,
             return_type: definition.1,
@@ -517,22 +537,45 @@ impl Checker {
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<CheckedBlock> {
+        requires_value: bool,
+    ) -> Result<HasNever<CheckedBlock>> {
         let mut checked_stmts = vec![];
+        let mut has_encountered_never = false;
         for stmt in &block.stmts {
-            checked_stmts.push(self.typecheck_stmt(return_type, stmt, ctx)?);
+            let stmt = self.typecheck_stmt(return_type, stmt, ctx)?;
+            has_encountered_never |= stmt.never;
+            checked_stmts.push(stmt.value);
         }
 
         let last = if let Some(expr) = &block.last {
-            Some(self.typecheck_expr(&expr, wanted, return_type, ctx)?)
+            let expr = self.typecheck_expr(&expr, wanted, return_type, ctx, requires_value)?;
+            has_encountered_never |= expr.never;
+            Some(expr.value)
         } else {
+            if requires_value && !has_encountered_never {
+                return Err(Error::BlockRequiresValue {
+                    src: ctx.source.clone(),
+                    span: block.span,
+                });
+            }
+
             None
         };
 
-        Ok(CheckedBlock {
-            stmts: checked_stmts,
-            last,
-        })
+        let type_id = if let Some(last) = &last {
+            last.type_id
+        } else {
+            VOID_TYPE_ID
+        };
+
+        Ok(HasNever::new(
+            CheckedBlock {
+                stmts: checked_stmts,
+                last,
+                type_id,
+            },
+            has_encountered_never,
+        ))
     }
 
     fn typecheck_stmt(
@@ -540,7 +583,7 @@ impl Checker {
         return_type: (TypeId, SourceSpan),
         stmt: &Stmt,
         ctx: &CheckerContext,
-    ) -> Result<CheckedStmt> {
+    ) -> Result<HasNever<CheckedStmt>> {
         match &stmt.kind {
             StmtKind::Return { value } => {
                 self.typecheck_return_stmt(return_type, stmt.span, value, ctx)
@@ -549,8 +592,8 @@ impl Checker {
                 self.typecheck_variable_declaration_stmt(name, value, return_type, ctx)
             }
             StmtKind::Expr(expr) => {
-                let expr = self.typecheck_expr(expr, None, return_type, ctx)?;
-                Ok(CheckedStmt::Expr(expr))
+                let expr = self.typecheck_expr(expr, None, return_type, ctx, false)?;
+                Ok(HasNever::new(CheckedStmt::Expr(expr.value), expr.never))
             }
             stmt => todo!("typecheck_stmt: {}", stmt),
         }
@@ -562,7 +605,7 @@ impl Checker {
         span: SourceSpan,
         value: &Option<Expr>,
         ctx: &CheckerContext,
-    ) -> Result<CheckedStmt> {
+    ) -> Result<HasNever<CheckedStmt>> {
         match value {
             Some(value) => {
                 if return_type.0 == VOID_TYPE_ID {
@@ -572,18 +615,23 @@ impl Checker {
                     });
                 }
 
-                let expr = self.typecheck_expr(value, Some(return_type), return_type, ctx)?;
+                let expr = self.typecheck_expr(value, Some(return_type), return_type, ctx, true)?;
 
-                if expr.type_id != return_type.0 {
+                if expr.value.type_id != return_type.0 && !expr.never {
                     return Err(Error::ReturnValueDoesntMatch {
                         src: ctx.source.clone(),
                         return_type_span: return_type.1,
                         expr_span: value.span,
                         return_type: self.types.name_of(return_type.0),
-                        actual_type: self.types.name_of(expr.type_id),
+                        actual_type: self.types.name_of(expr.value.type_id),
                     });
                 }
-                Ok(CheckedStmt::Return { value: Some(expr) })
+                Ok(HasNever::new(
+                    CheckedStmt::Return {
+                        value: Some(expr.value),
+                    },
+                    true,
+                ))
             }
             None => {
                 if return_type.0 != VOID_TYPE_ID {
@@ -594,7 +642,7 @@ impl Checker {
                     });
                 }
 
-                Ok(CheckedStmt::Return { value: None })
+                Ok(HasNever::new(CheckedStmt::Return { value: None }, true))
             }
         }
     }
@@ -605,14 +653,17 @@ impl Checker {
         expr: &Expr,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<CheckedStmt> {
-        let expr = self.typecheck_expr(expr, None, return_type, ctx)?;
-        self.scope.add_to_scope(ident, expr.type_id);
+    ) -> Result<HasNever<CheckedStmt>> {
+        let expr = self.typecheck_expr(expr, None, return_type, ctx, true)?;
+        self.scope.add_to_scope(ident, expr.value.type_id);
 
-        Ok(CheckedStmt::VariableDeclaration {
-            name: ident.name.clone(),
-            value: expr,
-        })
+        Ok(HasNever::new(
+            CheckedStmt::VariableDeclaration {
+                name: ident.name.clone(),
+                value: expr.value,
+            },
+            expr.never,
+        ))
     }
 
     fn typecheck_expr(
@@ -621,15 +672,19 @@ impl Checker {
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<CheckedExpr> {
+        requires_value: bool,
+    ) -> Result<HasNever<CheckedExpr>> {
         match &expr.kind {
             ExprKind::Identifier(ident) => {
                 let type_id = self.scope.force_find(ctx.source, ident)?;
 
-                Ok(CheckedExpr {
-                    type_id,
-                    kind: ast::CheckedExprKind::Identifier(ident.name.clone()),
-                })
+                Ok(HasNever::new(
+                    CheckedExpr {
+                        type_id,
+                        kind: ast::CheckedExprKind::Identifier(ident.name.clone()),
+                    },
+                    false,
+                ))
             }
             ExprKind::Number(value) => {
                 if let Some(wanted) = wanted {
@@ -641,10 +696,13 @@ impl Checker {
                                 U32_TYPE_ID,
                                 ctx,
                             )?;
-                            Ok(CheckedExpr {
-                                type_id: U32_TYPE_ID,
-                                kind: ast::CheckedExprKind::Number(value as u64),
-                            })
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: U32_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                },
+                                false,
+                            ))
                         }
                         I32_TYPE_ID | _ => {
                             let value = self.verify_number::<i32>(
@@ -653,49 +711,70 @@ impl Checker {
                                 I32_TYPE_ID,
                                 ctx,
                             )?;
-                            Ok(CheckedExpr {
-                                type_id: I32_TYPE_ID,
-                                kind: ast::CheckedExprKind::Number(value as u64),
-                            })
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: I32_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                },
+                                false,
+                            ))
                         }
                     }
                 } else {
                     let value =
                         self.verify_number::<i32>(value.as_str(), expr.span, U32_TYPE_ID, ctx)?;
-                    Ok(CheckedExpr {
-                        type_id: I32_TYPE_ID,
-                        kind: ast::CheckedExprKind::Number(value as u64),
-                    })
+                    Ok(HasNever::new(
+                        CheckedExpr {
+                            type_id: I32_TYPE_ID,
+                            kind: ast::CheckedExprKind::Number(value as u64),
+                        },
+                        false,
+                    ))
                 }
             }
             ExprKind::BinOp { lhs, op, rhs } => {
                 self.typecheck_binop_expr(lhs, *op, rhs, wanted, return_type, ctx)
             }
-            ExprKind::String(value) => Ok(CheckedExpr {
-                type_id: STRING_TYPE_ID,
-                kind: ast::CheckedExprKind::String(value.clone()),
-            }),
+            ExprKind::String(value) => Ok(HasNever::new(
+                CheckedExpr {
+                    type_id: STRING_TYPE_ID,
+                    kind: ast::CheckedExprKind::String(value.clone()),
+                },
+                false,
+            )),
             ExprKind::Call { expr, params } => {
                 self.typecheck_call_expr(expr, params, wanted, return_type, ctx)
             }
-            ExprKind::Bool(value) => Ok(CheckedExpr {
-                type_id: BOOL_TYPE_ID,
-                kind: ast::CheckedExprKind::Number(if *value { 1 } else { 0 }),
-            }),
-            ExprKind::Builtin(name, params) => {
-                self.typecheck_builtin_expr(expr, name, params, return_type, ctx)
-            }
+            ExprKind::Bool(value) => Ok(HasNever::new(
+                CheckedExpr {
+                    type_id: BOOL_TYPE_ID,
+                    kind: ast::CheckedExprKind::Number(if *value { 1 } else { 0 }),
+                },
+                false,
+            )),
+            ExprKind::Builtin(name, params) => Ok(HasNever::new(
+                self.typecheck_builtin_expr(expr, name, params, return_type, ctx)?,
+                false,
+            )),
             ExprKind::StructInstantiation { name, members } => {
                 self.typecheck_struct_instantiation_expr(expr, name, members, return_type, ctx)
             }
-            ExprKind::MemberAccess { lhs, member } => {
-                self.typecheck_member_access_expr(lhs, member, return_type, ctx)
-            }
+            ExprKind::MemberAccess { lhs, member } => Ok(HasNever::new(
+                self.typecheck_member_access_expr(lhs, member, return_type, ctx)?,
+                false,
+            )),
             ExprKind::If {
                 condition,
                 true_block,
                 false_block,
-            } => self.typecheck_if_expr(condition, true_block, false_block, return_type, ctx),
+            } => self.typecheck_if_expr(
+                condition,
+                true_block,
+                false_block,
+                return_type,
+                ctx,
+                requires_value,
+            ),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -708,28 +787,39 @@ impl Checker {
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, wanted, return_type, ctx)?;
-        let checked_rhs = self.typecheck_expr(rhs, wanted, return_type, ctx)?;
+    ) -> Result<HasNever<CheckedExpr>> {
+        let checked_lhs = self.typecheck_expr(lhs, wanted, return_type, ctx, true)?;
+        let checked_rhs = self.typecheck_expr(rhs, wanted, return_type, ctx, true)?;
 
-        if checked_lhs.type_id != checked_rhs.type_id {
+        let has_encountered_never = checked_lhs.never || checked_rhs.never;
+
+        if checked_lhs.value.type_id != checked_rhs.value.type_id && !has_encountered_never {
             return Err(Error::BinOpSidesMismatch {
                 src: ctx.source.clone(),
                 lhs_span: lhs.span,
                 rhs_span: rhs.span,
-                lhs_type_name: self.types.name_of(checked_lhs.type_id),
-                rhs_type_name: self.types.name_of(checked_rhs.type_id),
+                lhs_type_name: self.types.name_of(checked_lhs.value.type_id),
+                rhs_type_name: self.types.name_of(checked_rhs.value.type_id),
             });
         }
 
-        match op {
-            BinOp::Divide | BinOp::Multiply | BinOp::Add | BinOp::Subtract => {
-                self.typecheck_other_binop_expr(lhs, checked_lhs, op, rhs, checked_rhs, ctx)
-            }
-            BinOp::Equal | BinOp::NotEqual => {
-                self.typecheck_boolable_binop_expr(checked_lhs, op, checked_rhs)
-            }
-        }
+        Ok(HasNever::new(
+            match op {
+                BinOp::Divide | BinOp::Multiply | BinOp::Add | BinOp::Subtract => self
+                    .typecheck_other_binop_expr(
+                        lhs,
+                        checked_lhs.value,
+                        op,
+                        rhs,
+                        checked_rhs.value,
+                        ctx,
+                    )?,
+                BinOp::Equal | BinOp::NotEqual => {
+                    self.typecheck_boolable_binop_expr(checked_lhs.value, op, checked_rhs.value)?
+                }
+            },
+            has_encountered_never,
+        ))
     }
 
     fn typecheck_other_binop_expr(
@@ -777,10 +867,10 @@ impl Checker {
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<CheckedExpr> {
-        let checked_expr = self.typecheck_expr(expr, wanted, return_type, ctx)?;
+    ) -> Result<HasNever<CheckedExpr>> {
+        let checked_expr = self.typecheck_expr(expr, wanted, return_type, ctx, true)?;
 
-        let ident = match checked_expr.kind {
+        let ident = match checked_expr.value.kind {
             CheckedExprKind::Identifier(name) => name,
             _ => todo!("Indirect calls"),
         };
@@ -804,6 +894,7 @@ impl Checker {
         let non_variadic_params = params.drain(0..proc_type.0.len()).zip(&proc_type.0);
 
         let mut checked_params = vec![];
+        let mut has_encountered_never = false;
         for (param, expected_type) in non_variadic_params {
             // TODO: Get the location of the suspected span or allow the span to be optional
             let checked_expr = self.typecheck_expr(
@@ -811,35 +902,46 @@ impl Checker {
                 Some((*expected_type, (0..0).into())),
                 return_type,
                 ctx,
+                true,
             )?;
-            if checked_expr.type_id != *expected_type {
+
+            has_encountered_never |= checked_expr.never;
+
+            if checked_expr.value.type_id != *expected_type && !checked_expr.never {
                 return Err(Error::ProcCallParamTypeMismatch {
                     src: ctx.source.clone(),
                     span: param.span,
                     expected: self.types.name_of(*expected_type),
-                    got: self.types.name_of(checked_expr.type_id),
+                    got: self.types.name_of(checked_expr.value.type_id),
                 });
             }
 
-            checked_params.push(checked_expr);
+            checked_params.push(checked_expr.value);
         }
 
         for param in &params {
-            checked_params.push(self.typecheck_expr(param, None, return_type, ctx)?);
+            let checked_expr = self.typecheck_expr(param, None, return_type, ctx, true)?;
+
+            has_encountered_never |= checked_expr.never;
+
+            checked_params.push(checked_expr.value);
         }
 
-        Ok(CheckedExpr {
-            type_id: proc_type.1,
-            kind: CheckedExprKind::DirectCall {
-                name: ident,
-                params: checked_params,
-                variadic_after: if proc_type.2 {
-                    Some(proc_type.0.len() as u64)
-                } else {
-                    None
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: proc_type.1,
+                kind: CheckedExprKind::DirectCall {
+                    name: ident,
+                    params: checked_params,
+                    variadic_after: if proc_type.2 {
+                        Some(proc_type.0.len() as u64)
+                    } else {
+                        None
+                    },
                 },
             },
-        })
+            has_encountered_never || proc_type.1 == NEVER_TYPE_ID,
+        ))
     }
 
     fn typecheck_builtin_expr(
@@ -863,11 +965,12 @@ impl Checker {
                     });
                 }
 
-                let checked_param = self.typecheck_expr(&params[0], None, return_type, ctx)?;
+                let checked_param =
+                    self.typecheck_expr(&params[0], None, return_type, ctx, false)?;
 
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
-                    kind: CheckedExprKind::String(self.types.name_of(checked_param.type_id)),
+                    kind: CheckedExprKind::String(self.types.name_of(checked_param.value.type_id)),
                 })
             }
             name => Err(Error::UnknownBuiltin {
@@ -885,7 +988,7 @@ impl Checker {
         fields: &Vec<(Ident, Expr)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<CheckedExpr> {
+    ) -> Result<HasNever<CheckedExpr>> {
         let struct_type_id = self
             .types
             .force_find_by_name(ctx.source, ctx.module_id, name)?;
@@ -901,6 +1004,8 @@ impl Checker {
         let s = definition.as_struct();
 
         let mut checked_fields: Vec<(Ident, CheckedExpr)> = vec![];
+
+        let mut has_encountered_never = false;
 
         for field in fields {
             let defined_field = s.1.iter().find(|f| f.0 == field.0);
@@ -927,20 +1032,23 @@ impl Checker {
                 Some((defined_field.1, defined_field.0.span)),
                 return_type,
                 ctx,
+                true,
             )?;
 
-            if checked_expr.type_id != defined_field.1 {
+            has_encountered_never |= checked_expr.never;
+
+            if checked_expr.value.type_id != defined_field.1 && !checked_expr.never {
                 return Err(Error::StructInstantiationFieldTypeMismatch {
                     src: ctx.source.clone(),
                     span: field.1.span,
                     struct_name: name.name.clone(),
                     field_name: field.0.name.clone(),
                     expected: self.types.name_of(defined_field.1),
-                    got: self.types.name_of(checked_expr.type_id),
+                    got: self.types.name_of(checked_expr.value.type_id),
                 });
             }
 
-            checked_fields.push((field.0.clone(), checked_expr));
+            checked_fields.push((field.0.clone(), checked_expr.value));
         }
 
         if checked_fields.len() != s.1.len() {
@@ -967,16 +1075,19 @@ impl Checker {
             });
         }
 
-        Ok(CheckedExpr {
-            type_id: struct_type_id,
-            kind: CheckedExprKind::StructInstantiation {
-                name: name.name.clone(),
-                fields: checked_fields
-                    .drain(0..)
-                    .map(|f| (f.0.name.clone(), f.1))
-                    .collect(),
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: struct_type_id,
+                kind: CheckedExprKind::StructInstantiation {
+                    name: name.name.clone(),
+                    fields: checked_fields
+                        .drain(0..)
+                        .map(|f| (f.0.name.clone(), f.1))
+                        .collect(),
+                },
             },
-        })
+            has_encountered_never,
+        ))
     }
 
     fn typecheck_member_access_expr(
@@ -986,14 +1097,14 @@ impl Checker {
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, None, return_type, ctx)?;
+        let checked_lhs = self.typecheck_expr(lhs, None, return_type, ctx, true)?;
 
-        let definition = self.types.get_definition(checked_lhs.type_id);
+        let definition = self.types.get_definition(checked_lhs.value.type_id);
         if !definition.is_struct() {
             return Err(Error::MemberAccessNotAStruct {
                 src: ctx.source.clone(),
                 span: lhs.span,
-                got: self.types.name_of(checked_lhs.type_id),
+                got: self.types.name_of(checked_lhs.value.type_id),
             });
         }
 
@@ -1003,7 +1114,7 @@ impl Checker {
             return Err(Error::MemberAccessUnknownField {
                 src: ctx.source.clone(),
                 span: member.span,
-                struct_name: self.types.name_of(checked_lhs.type_id),
+                struct_name: self.types.name_of(checked_lhs.value.type_id),
                 field_name: member.name.clone(),
             });
         };
@@ -1011,7 +1122,7 @@ impl Checker {
         Ok(CheckedExpr {
             type_id: field.1,
             kind: CheckedExprKind::MemberAccess {
-                lhs: Box::new(checked_lhs),
+                lhs: Box::new(checked_lhs.value),
                 name: field.0.name.clone(),
             },
         })
@@ -1026,34 +1137,65 @@ impl Checker {
         false_block: &Block,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
-    ) -> Result<CheckedExpr> {
+        requires_value: bool,
+    ) -> Result<HasNever<CheckedExpr>> {
         let checked_condition = self.typecheck_expr(
             condition,
             Some((BOOL_TYPE_ID, (0..0).into())),
             return_type,
             ctx,
+            true,
         )?;
-        let checked_true_block = self.typecheck_block(true_block, None, return_type, ctx)?;
-        let checked_false_block = self.typecheck_block(false_block, None, return_type, ctx)?;
+        let checked_true_block =
+            self.typecheck_block(true_block, None, return_type, ctx, requires_value)?;
 
-        if checked_condition.type_id != BOOL_TYPE_ID {
+        let checked_false_block = self.typecheck_block(
+            false_block,
+            Some((checked_true_block.value.type_id, true_block.span)),
+            return_type,
+            ctx,
+            requires_value,
+        )?;
+
+        if checked_condition.value.type_id != BOOL_TYPE_ID && !checked_condition.never {
             return Err(Error::ExpectedButGot {
                 src: ctx.source.clone(),
                 span: condition.span,
                 expected: "bool".to_string(),
-                got: self.types.name_of(checked_condition.type_id),
+                got: self.types.name_of(checked_condition.value.type_id),
             });
         }
 
-        Ok(CheckedExpr {
-            kind: CheckedExprKind::If {
-                condition: Box::new(checked_condition),
-                true_block: Box::new(checked_true_block),
-                false_block: Box::new(checked_false_block),
+        if requires_value
+            && checked_true_block.value.type_id != checked_false_block.value.type_id
+            && !(checked_true_block.never || checked_false_block.never)
+        {
+            return Err(Error::IfTypeMismatch {
+                src: ctx.source.clone(),
+                true_block_span: true_block.span,
+                true_block_type: self.types.name_of(checked_true_block.value.type_id),
+                false_block_span: false_block.span,
+                false_block_type: self.types.name_of(checked_false_block.value.type_id),
+            });
+        }
+
+        let type_id = if requires_value {
+            checked_true_block.value.type_id
+        } else {
+            VOID_TYPE_ID
+        };
+
+        Ok(HasNever::new(
+            CheckedExpr {
+                kind: CheckedExprKind::If {
+                    condition: Box::new(checked_condition.value),
+                    true_block: Box::new(checked_true_block.value),
+                    false_block: Box::new(checked_false_block.value),
+                },
+                type_id,
             },
-            // TODO: Actually check what type it yields
-            type_id: I32_TYPE_ID,
-        })
+            checked_condition.never || (checked_true_block.never && checked_false_block.never),
+        ))
     }
 
     fn expect_number(
@@ -1091,5 +1233,17 @@ impl Checker {
                 type_name: self.types.name_of(type_id),
             })
         }
+    }
+}
+
+#[derive(Debug)]
+struct HasNever<T> {
+    value: T,
+    never: bool,
+}
+
+impl<T> HasNever<T> {
+    pub fn new(value: T, never: bool) -> Self {
+        Self { value, never }
     }
 }

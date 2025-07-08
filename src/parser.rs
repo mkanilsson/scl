@@ -240,7 +240,7 @@ impl Parser {
     }
 
     fn parse_block(&mut self) -> Result<Block> {
-        self.expect(TokenKind::OpenCurly)?;
+        let first = self.expect(TokenKind::OpenCurly)?;
 
         let mut stmts = vec![];
         let mut last = None;
@@ -272,9 +272,13 @@ impl Parser {
             }
         }
 
-        self.expect(TokenKind::CloseCurly)?;
+        let last_token = self.expect(TokenKind::CloseCurly)?;
 
-        Ok(Block { stmts, last })
+        Ok(Block {
+            stmts,
+            last,
+            span: Self::span_from_first_and_last(first.span, last_token.span),
+        })
     }
 
     fn parse_stmt(&mut self) -> Result<Stmt> {

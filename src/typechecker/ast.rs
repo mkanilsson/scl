@@ -65,4 +65,5 @@ pub enum CheckedExprKind {
 pub struct CheckedBlock {
     pub stmts: Vec<CheckedStmt>,
     pub last: Option<CheckedExpr>,
+    pub type_id: TypeId,
 }
