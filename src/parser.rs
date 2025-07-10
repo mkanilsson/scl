@@ -253,13 +253,15 @@ impl Parser {
             let stmt = self.parse_stmt()?;
 
             match stmt.kind {
-                StmtKind::Expr(expr) => {
+                StmtKind::Expr(ref expr) => {
                     if self.peek().kind != TokenKind::CloseCurly {
                         self.expect(TokenKind::Semicolon)?;
+                        stmts.push(stmt);
                         continue;
+                    } else {
+                        last = Some(expr.clone());
+                        break;
                     }
-
-                    last = Some(expr);
                 }
                 _ => {
                     self.expect(TokenKind::Semicolon)?;
