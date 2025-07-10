@@ -357,4 +357,16 @@ pub enum Error {
         false_block_span: SourceSpan,
         false_block_type: String,
     },
+
+    #[error("Can't cast from '{got}' to '{wanted}'")]
+    InvalidCast {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        got: String,
+        wanted: String,
+    },
 }

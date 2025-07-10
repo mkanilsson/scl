@@ -1,1 +1,1 @@
-extern proc exit(u32) !
+extern proc exit(i32) !

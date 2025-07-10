@@ -155,6 +155,10 @@ pub enum TokenKind {
     Struct,
     Use,
 
+    #[name("as")]
+    #[led(BindingPower::Member, Parser::parse_cast_expr)]
+    As,
+
     #[name("EOF")]
     EOF,
 }

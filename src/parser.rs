@@ -568,4 +568,18 @@ impl Parser {
             },
         ))
     }
+
+    pub fn parse_cast_expr(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
+        self.expect(TokenKind::As)?;
+        let tajp = self.parse_type()?;
+
+        Ok(Self::new_expr(
+            lhs.span,
+            tajp.span,
+            ExprKind::Cast {
+                lhs: Box::new(lhs),
+                tajp,
+            },
+        ))
+    }
 }

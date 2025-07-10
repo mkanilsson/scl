@@ -21,6 +21,7 @@ use crate::{
     error::{Error, Result},
     helpers::string_join_with_and,
     package::{CheckedPackage, ParsedModule, ParsedPackage},
+    token::TokenKind,
 };
 
 pub mod ast;
@@ -775,6 +776,9 @@ impl Checker {
                 ctx,
                 requires_value,
             ),
+            ExprKind::Cast { lhs, tajp } => {
+                self.typecheck_cast_expr(lhs, tajp, expr.span, return_type, ctx)
+            }
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -1195,6 +1199,55 @@ impl Checker {
                 type_id,
             },
             checked_condition.never || (checked_true_block.never && checked_false_block.never),
+        ))
+    }
+
+    fn typecheck_cast_expr(
+        &mut self,
+        lhs: &Expr,
+        t: &crate::ast::tajp::Type,
+        span: SourceSpan,
+        return_type: (TypeId, SourceSpan),
+        ctx: &CheckerContext,
+    ) -> Result<HasNever<CheckedExpr>> {
+        let wanted = self.types.force_find(ctx.source, ctx.module_id, t)?;
+        let checked_lhs =
+            self.typecheck_expr(lhs, Some((wanted, t.span)), return_type, ctx, true)?;
+
+        if checked_lhs.never {
+            return Ok(checked_lhs);
+        }
+
+        let kind = match (checked_lhs.value.type_id, wanted) {
+            (U32_TYPE_ID, I32_TYPE_ID)
+            | (I32_TYPE_ID, U32_TYPE_ID)
+            | (BOOL_TYPE_ID, I32_TYPE_ID)
+            | (BOOL_TYPE_ID, U32_TYPE_ID) => checked_lhs.value.kind,
+            (U32_TYPE_ID, BOOL_TYPE_ID) | (I32_TYPE_ID, BOOL_TYPE_ID) => CheckedExprKind::BinOp {
+                lhs: Box::new(checked_lhs.value),
+                op: BinOp::NotEqual,
+                rhs: Box::new(CheckedExpr {
+                    type_id: BOOL_TYPE_ID,
+                    kind: CheckedExprKind::Number(0),
+                }),
+            },
+            (got, wanted) if got == wanted => checked_lhs.value.kind,
+            (VOID_TYPE_ID, _) | (_, VOID_TYPE_ID) | _ => {
+                return Err(Error::InvalidCast {
+                    src: ctx.source.clone(),
+                    span,
+                    got: self.types.name_of(checked_lhs.value.type_id),
+                    wanted: self.types.name_of(wanted),
+                });
+            }
+        };
+
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: wanted,
+                kind,
+            },
+            false,
         ))
     }
 

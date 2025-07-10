@@ -1,8 +1,14 @@
 use std::io::printf 
+use std::exit 
 
-proc main() i32 {
-    let a = 5;
-    let b = 10;
+struct T {
+    a: i32
+}
 
-    a + b
+proc main() u32 {
+    let t = T {
+        a: 125
+    };
+
+    t.a as u32
 }

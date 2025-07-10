@@ -73,6 +73,10 @@ pub enum ExprKind {
         lhs: Box<Expr>,
         member: Ident,
     },
+    Cast {
+        lhs: Box<Expr>,
+        tajp: Type,
+    },
     Call {
         expr: Box<Expr>,
         params: Vec<Expr>,
