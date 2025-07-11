@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use miette::NamedSource;
+use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::Ident;
 use crate::error::{Error, Result};
@@ -83,6 +83,11 @@ impl ProcCollection {
             .iter()
             .map(|(k, v)| (k.clone(), self.procs[v.0].type_id))
             .collect()
+    }
+
+    pub fn find_original_span(&self, module_id: ModuleId, ident: &Ident) -> Option<SourceSpan> {
+        let module = self.parsed.get(&module_id)?;
+        Some(module.get_key_value(ident)?.0.span)
     }
 }
 

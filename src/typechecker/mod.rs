@@ -390,7 +390,15 @@ impl Checker {
     }
 
     fn add_proc(&mut self, ident: Ident, ctx: &CheckerContext) -> Result<TypeId> {
-        // TODO: Verify that the name is unique
+        if let Some(span) = self.procs.find_original_span(ctx.module_id, &ident) {
+            return Err(Error::ProcNameCollision {
+                src: ctx.source.clone(),
+                original_span: span,
+                redefined_span: ident.span,
+                name: ident.name,
+            });
+        }
+
         let type_id = self.types.register_undefined_proc();
         self.procs.add(
             ctx.module_id,
