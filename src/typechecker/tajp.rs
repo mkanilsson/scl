@@ -267,7 +267,7 @@ impl TypeCollection {
                 module_id: _,
             } => qbe::TypeDef {
                 align: None,
-                items: fields.iter().map(|f| (self.qbe_type_of(f.1), 0)).collect(),
+                items: fields.iter().map(|f| (self.qbe_type_of(f.1), 1)).collect(),
                 name: name.name.clone(),
             },
             _ => unreachable!(),

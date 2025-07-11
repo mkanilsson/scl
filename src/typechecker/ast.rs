@@ -2,7 +2,10 @@ use strum::Display;
 
 use crate::ast::parsed::BinOp;
 
-use super::tajp::TypeId;
+use super::{
+    stack::{StackSlotId, StackSlots},
+    tajp::TypeId,
+};
 
 #[derive(Debug, Clone)]
 pub struct CheckedTranslationUnit {
@@ -14,14 +17,20 @@ pub struct CheckedProc {
     pub name: String,
     pub type_id: TypeId,
     pub body: CheckedBlock,
-    pub params: Vec<(String, TypeId)>,
+    pub params: Vec<(String, StackSlotId)>,
     pub return_type: TypeId,
+    pub stack_slots: StackSlots,
 }
 
 #[derive(Debug, Clone, Display)]
 pub enum CheckedStmt {
-    Return { value: Option<CheckedExpr> },
-    VariableDeclaration { name: String, value: CheckedExpr },
+    Return {
+        value: Option<CheckedExpr>,
+    },
+    VariableDeclaration {
+        stack_slot: StackSlotId,
+        value: CheckedExpr,
+    },
     Expr(CheckedExpr),
 }
 
@@ -34,6 +43,7 @@ pub struct CheckedExpr {
 #[derive(Debug, Clone, Display)]
 pub enum CheckedExprKind {
     Identifier(String),
+    StackValue(StackSlotId),
     Number(u64),
     String(String),
     BinOp {
@@ -45,9 +55,11 @@ pub enum CheckedExprKind {
         name: String,
         params: Vec<CheckedExpr>,
         variadic_after: Option<u64>,
+        stack_slot: StackSlotId,
     },
     StructInstantiation {
         name: String,
+        stack_slot: StackSlotId,
         fields: Vec<(String, CheckedExpr)>,
     },
     MemberAccess {

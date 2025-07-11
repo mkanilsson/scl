@@ -8,6 +8,7 @@ use module::{Module, ModuleCollection, ModuleId};
 use package::PackageCollection;
 use proc::{Proc, ProcCollection};
 use scope::Scope;
+use stack::StackSlots;
 use tajp::{
     BOOL_TYPE_ID, I32_TYPE_ID, NEVER_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId,
     U32_TYPE_ID, VOID_TYPE_ID,
@@ -29,6 +30,7 @@ pub mod module;
 mod package;
 mod proc;
 mod scope;
+pub mod stack;
 pub mod tajp;
 
 #[derive(Debug)]
@@ -328,7 +330,7 @@ impl Checker {
         self.scope.enter();
 
         for proc in self.procs.for_scope(ctx.module_id) {
-            self.scope.add_to_scope(&proc.0, proc.1);
+            self.scope.add_to_scope(&proc.0, proc.1, None);
         }
 
         let mut checked_procs = vec![];
@@ -482,19 +484,22 @@ impl Checker {
         proc: &ProcDefinition,
         ctx: &CheckerContext,
     ) -> Result<CheckedProc> {
-        let type_id = self
+        let scope_data = self
             .scope
             .find(&proc.ident)
             .expect("Proc to have been added to scope");
 
-        let definition = self.types.get_definition(type_id).as_proc();
+        let definition = self.types.get_definition(scope_data.type_id).as_proc();
 
         self.scope.enter();
 
+        let mut ss = StackSlots::new();
+
         let mut params = vec![];
         for param in proc.params.iter().map(|p| &p.0).zip(definition.0) {
-            self.scope.add_to_scope(param.0, param.1);
-            params.push((param.0.name.clone(), param.1));
+            let stack_slot = ss.allocate(param.1);
+            self.scope.add_to_scope(param.0, param.1, Some(stack_slot));
+            params.push((param.0.name.clone(), stack_slot));
         }
 
         let return_type = (definition.1, proc.return_type.span);
@@ -505,6 +510,7 @@ impl Checker {
             return_type,
             ctx,
             return_type.0 != VOID_TYPE_ID,
+            &mut ss,
         )?;
 
         if body.value.type_id != return_type.0 && !body.never {
@@ -524,11 +530,12 @@ impl Checker {
         self.scope.exit();
 
         Ok(CheckedProc {
-            type_id,
+            type_id: scope_data.type_id,
             body: body.value,
             name: proc.ident.name.clone(),
             params,
             return_type: definition.1,
+            stack_slots: ss,
         })
     }
 
@@ -539,17 +546,18 @@ impl Checker {
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
         requires_value: bool,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedBlock>> {
         let mut checked_stmts = vec![];
         let mut has_encountered_never = false;
         for stmt in &block.stmts {
-            let stmt = self.typecheck_stmt(return_type, stmt, ctx)?;
+            let stmt = self.typecheck_stmt(return_type, stmt, ctx, ss)?;
             has_encountered_never |= stmt.never;
             checked_stmts.push(stmt.value);
         }
 
         let last = if let Some(expr) = &block.last {
-            let expr = self.typecheck_expr(&expr, wanted, return_type, ctx, requires_value)?;
+            let expr = self.typecheck_expr(&expr, wanted, return_type, ctx, requires_value, ss)?;
             has_encountered_never |= expr.never;
             Some(expr.value)
         } else {
@@ -584,16 +592,17 @@ impl Checker {
         return_type: (TypeId, SourceSpan),
         stmt: &Stmt,
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedStmt>> {
         match &stmt.kind {
             StmtKind::Return { value } => {
-                self.typecheck_return_stmt(return_type, stmt.span, value, ctx)
+                self.typecheck_return_stmt(return_type, stmt.span, value, ctx, ss)
             }
             StmtKind::VariableDeclaration { name, value } => {
-                self.typecheck_variable_declaration_stmt(name, value, return_type, ctx)
+                self.typecheck_variable_declaration_stmt(name, value, return_type, ctx, ss)
             }
             StmtKind::Expr(expr) => {
-                let expr = self.typecheck_expr(expr, None, return_type, ctx, false)?;
+                let expr = self.typecheck_expr(expr, None, return_type, ctx, false, ss)?;
                 Ok(HasNever::new(CheckedStmt::Expr(expr.value), expr.never))
             }
             stmt => todo!("typecheck_stmt: {}", stmt),
@@ -606,6 +615,7 @@ impl Checker {
         span: SourceSpan,
         value: &Option<Expr>,
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedStmt>> {
         match value {
             Some(value) => {
@@ -616,7 +626,8 @@ impl Checker {
                     });
                 }
 
-                let expr = self.typecheck_expr(value, Some(return_type), return_type, ctx, true)?;
+                let expr =
+                    self.typecheck_expr(value, Some(return_type), return_type, ctx, true, ss)?;
 
                 if expr.value.type_id != return_type.0 && !expr.never {
                     return Err(Error::ReturnValueDoesntMatch {
@@ -654,13 +665,16 @@ impl Checker {
         expr: &Expr,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedStmt>> {
-        let expr = self.typecheck_expr(expr, None, return_type, ctx, true)?;
-        self.scope.add_to_scope(ident, expr.value.type_id);
+        let expr = self.typecheck_expr(expr, None, return_type, ctx, true, ss)?;
+        let stack_slot = ss.allocate(expr.value.type_id);
+        self.scope
+            .add_to_scope(ident, expr.value.type_id, Some(stack_slot));
 
         Ok(HasNever::new(
             CheckedStmt::VariableDeclaration {
-                name: ident.name.clone(),
+                stack_slot,
                 value: expr.value,
             },
             expr.never,
@@ -674,15 +688,20 @@ impl Checker {
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
         requires_value: bool,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
         match &expr.kind {
             ExprKind::Identifier(ident) => {
-                let type_id = self.scope.force_find(ctx.source, ident)?;
+                let scope_data = self.scope.force_find(ctx.source, ident)?;
 
                 Ok(HasNever::new(
                     CheckedExpr {
-                        type_id,
-                        kind: ast::CheckedExprKind::Identifier(ident.name.clone()),
+                        type_id: scope_data.type_id,
+                        kind: if let Some(stack_slot) = scope_data.stack_slot {
+                            ast::CheckedExprKind::StackValue(stack_slot)
+                        } else {
+                            ast::CheckedExprKind::Identifier(ident.name.clone())
+                        },
                     },
                     false,
                 ))
@@ -734,7 +753,7 @@ impl Checker {
                 }
             }
             ExprKind::BinOp { lhs, op, rhs } => {
-                self.typecheck_binop_expr(lhs, *op, rhs, wanted, return_type, ctx)
+                self.typecheck_binop_expr(lhs, *op, rhs, wanted, return_type, ctx, ss)
             }
             ExprKind::String(value) => Ok(HasNever::new(
                 CheckedExpr {
@@ -744,7 +763,7 @@ impl Checker {
                 false,
             )),
             ExprKind::Call { expr, params } => {
-                self.typecheck_call_expr(expr, params, wanted, return_type, ctx)
+                self.typecheck_call_expr(expr, params, wanted, return_type, ctx, ss)
             }
             ExprKind::Bool(value) => Ok(HasNever::new(
                 CheckedExpr {
@@ -754,14 +773,14 @@ impl Checker {
                 false,
             )),
             ExprKind::Builtin(name, params) => Ok(HasNever::new(
-                self.typecheck_builtin_expr(expr, name, params, return_type, ctx)?,
+                self.typecheck_builtin_expr(expr, name, params, return_type, ctx, ss)?,
                 false,
             )),
             ExprKind::StructInstantiation { name, members } => {
-                self.typecheck_struct_instantiation_expr(expr, name, members, return_type, ctx)
+                self.typecheck_struct_instantiation_expr(expr, name, members, return_type, ctx, ss)
             }
             ExprKind::MemberAccess { lhs, member } => Ok(HasNever::new(
-                self.typecheck_member_access_expr(lhs, member, return_type, ctx)?,
+                self.typecheck_member_access_expr(lhs, member, return_type, ctx, ss)?,
                 false,
             )),
             ExprKind::If {
@@ -775,9 +794,10 @@ impl Checker {
                 return_type,
                 ctx,
                 requires_value,
+                ss,
             ),
             ExprKind::Cast { lhs, tajp } => {
-                self.typecheck_cast_expr(lhs, tajp, expr.span, return_type, ctx)
+                self.typecheck_cast_expr(lhs, tajp, expr.span, return_type, ctx, ss)
             }
             kind => todo!("typecheck_expr: {}", kind),
         }
@@ -791,9 +811,10 @@ impl Checker {
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
-        let checked_lhs = self.typecheck_expr(lhs, wanted, return_type, ctx, true)?;
-        let checked_rhs = self.typecheck_expr(rhs, wanted, return_type, ctx, true)?;
+        let checked_lhs = self.typecheck_expr(lhs, wanted, return_type, ctx, true, ss)?;
+        let checked_rhs = self.typecheck_expr(rhs, wanted, return_type, ctx, true, ss)?;
 
         let has_encountered_never = checked_lhs.never || checked_rhs.never;
 
@@ -871,8 +892,9 @@ impl Checker {
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
-        let checked_expr = self.typecheck_expr(expr, wanted, return_type, ctx, true)?;
+        let checked_expr = self.typecheck_expr(expr, wanted, return_type, ctx, true, ss)?;
 
         let ident = match checked_expr.value.kind {
             CheckedExprKind::Identifier(name) => name,
@@ -881,7 +903,11 @@ impl Checker {
 
         let proc_type = self
             .types
-            .get_definition(self.scope.force_find_from_string(ctx.source, &ident)?)
+            .get_definition(
+                self.scope
+                    .force_find_from_string(ctx.source, &ident)?
+                    .type_id,
+            )
             .as_proc();
 
         if params.len() < proc_type.0.len() || (params.len() > proc_type.0.len() && !proc_type.2) {
@@ -907,6 +933,7 @@ impl Checker {
                 return_type,
                 ctx,
                 true,
+                ss,
             )?;
 
             has_encountered_never |= checked_expr.never;
@@ -924,7 +951,7 @@ impl Checker {
         }
 
         for param in &params {
-            let checked_expr = self.typecheck_expr(param, None, return_type, ctx, true)?;
+            let checked_expr = self.typecheck_expr(param, None, return_type, ctx, true, ss)?;
 
             has_encountered_never |= checked_expr.never;
 
@@ -942,6 +969,7 @@ impl Checker {
                     } else {
                         None
                     },
+                    stack_slot: ss.allocate(proc_type.1),
                 },
             },
             has_encountered_never || proc_type.1 == NEVER_TYPE_ID,
@@ -955,6 +983,7 @@ impl Checker {
         params: &Vec<Expr>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<CheckedExpr> {
         match name {
             "type_name" => {
@@ -970,7 +999,7 @@ impl Checker {
                 }
 
                 let checked_param =
-                    self.typecheck_expr(&params[0], None, return_type, ctx, false)?;
+                    self.typecheck_expr(&params[0], None, return_type, ctx, false, ss)?;
 
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
@@ -992,6 +1021,7 @@ impl Checker {
         fields: &Vec<(Ident, Expr)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
         let struct_type_id = self
             .types
@@ -1037,6 +1067,7 @@ impl Checker {
                 return_type,
                 ctx,
                 true,
+                ss,
             )?;
 
             has_encountered_never |= checked_expr.never;
@@ -1088,6 +1119,7 @@ impl Checker {
                         .drain(0..)
                         .map(|f| (f.0.name.clone(), f.1))
                         .collect(),
+                    stack_slot: ss.allocate(struct_type_id),
                 },
             },
             has_encountered_never,
@@ -1100,8 +1132,9 @@ impl Checker {
         member: &Ident,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, None, return_type, ctx, true)?;
+        let checked_lhs = self.typecheck_expr(lhs, None, return_type, ctx, true, ss)?;
 
         let definition = self.types.get_definition(checked_lhs.value.type_id);
         if !definition.is_struct() {
@@ -1142,6 +1175,7 @@ impl Checker {
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
         requires_value: bool,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
         let checked_condition = self.typecheck_expr(
             condition,
@@ -1149,9 +1183,10 @@ impl Checker {
             return_type,
             ctx,
             true,
+            ss,
         )?;
         let checked_true_block =
-            self.typecheck_block(true_block, None, return_type, ctx, requires_value)?;
+            self.typecheck_block(true_block, None, return_type, ctx, requires_value, ss)?;
 
         let checked_false_block = self.typecheck_block(
             false_block,
@@ -1159,6 +1194,7 @@ impl Checker {
             return_type,
             ctx,
             requires_value,
+            ss,
         )?;
 
         if checked_condition.value.type_id != BOOL_TYPE_ID && !checked_condition.never {
@@ -1209,10 +1245,11 @@ impl Checker {
         span: SourceSpan,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
+        ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
         let wanted = self.types.force_find(ctx.source, ctx.module_id, t)?;
         let checked_lhs =
-            self.typecheck_expr(lhs, Some((wanted, t.span)), return_type, ctx, true)?;
+            self.typecheck_expr(lhs, Some((wanted, t.span)), return_type, ctx, true, ss)?;
 
         if checked_lhs.never {
             return Ok(checked_lhs);

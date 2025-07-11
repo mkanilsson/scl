@@ -1,14 +1,15 @@
-use std::io::printf 
-use std::exit 
+use std::math::add
 
-struct T {
-    a: i32
+struct Thing {
+    a: i32,
+    b: i32
 }
 
-proc main() u32 {
-    let t = T {
-        a: 125
+proc main() i32 {
+    let t = Thing {
+        a: 5,
+        b: 10,
     };
 
-    t.a as u32
+    add(t.a, t.b)
 }

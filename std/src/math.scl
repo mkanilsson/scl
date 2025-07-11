@@ -1,3 +1,3 @@
-proc add(a: u32, b: u32) u32 {
+proc add(a: i32, b: i32) i32 {
     ret a + b; 
 }

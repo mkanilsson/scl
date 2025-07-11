@@ -8,7 +8,8 @@ use crate::{
             CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt,
             CheckedTranslationUnit,
         },
-        tajp::{MemoryLayout, VOID_TYPE_ID},
+        stack::StackSlotId,
+        tajp::{TypeId, VOID_TYPE_ID},
     },
 };
 
@@ -50,7 +51,9 @@ impl Codegen {
             .iter()
             .map(|p| {
                 (
-                    self.checker.types.qbe_type_of(p.1),
+                    self.checker
+                        .types
+                        .qbe_type_of(proc.stack_slots.type_of(p.1)),
                     Value::Temporary(p.0.clone()),
                 )
             })
@@ -63,11 +66,58 @@ impl Codegen {
         };
 
         let mut func = Function::new(Linkage::public(), proc.name.clone(), params, return_type);
-        if let Some(result) = self.codegen_block("start", &proc.body, &mut func, module) {
+
+        func.add_block("start");
+        for (slot, type_id) in proc.stack_slots.slots.iter().enumerate() {
+            self.allocate_stack_slot(slot.into(), *type_id, &mut func);
+        }
+
+        for param in &proc.params {
+            let type_id = proc.stack_slots.type_of(param.1);
+            let definition = self.checker.types.get_definition(type_id);
+
+            match definition {
+                crate::typechecker::tajp::Type::Struct { .. } => {
+                    let memory_layout = self.checker.types.memory_layout_of_definition(&definition);
+
+                    func.add_instr(Instr::Blit(
+                        Value::Temporary(param.0.clone()),
+                        Value::Temporary(param.1.qbe_name()),
+                        memory_layout.size as u64,
+                    ));
+                }
+                _ => func.add_instr(Instr::Store(
+                    self.checker.types.qbe_type_of(type_id),
+                    Value::Temporary(param.1.qbe_name()),
+                    Value::Temporary(param.0.clone()),
+                )),
+            }
+        }
+
+        if let Some(result) = self.codegen_block("body", &proc.body, &mut func, module) {
             func.add_instr(Instr::Ret(Some(result.1)));
         }
 
         module.add_function(func);
+    }
+
+    fn allocate_stack_slot<'a>(
+        &'a self,
+        id: StackSlotId,
+        type_id: TypeId,
+        function: &mut Function<'a>,
+    ) {
+        let definition = self.checker.types.get_definition(type_id);
+        let memory_layout = self.checker.types.memory_layout_of_definition(&definition);
+
+        let instr = match memory_layout.alignment {
+            1 | 2 | 4 => Instr::Alloc4(memory_layout.size as u32),
+            8 => Instr::Alloc8(memory_layout.size as u64),
+            16 => Instr::Alloc16(memory_layout.size as u128),
+            _ => unreachable!(),
+        };
+
+        function.assign_instr(Value::Temporary(id.qbe_name()), Type::Long, instr);
     }
 
     fn codegen_stmt<'a>(
@@ -79,8 +129,8 @@ impl Codegen {
         #[allow(unreachable_patterns)]
         match stmt {
             CheckedStmt::Return { value } => self.codegen_return_stmt(value, function, module),
-            CheckedStmt::VariableDeclaration { name, value } => {
-                self.codegen_variable_declaration_stmt(name, value, function, module)
+            CheckedStmt::VariableDeclaration { stack_slot, value } => {
+                self.codegen_variable_declaration_stmt(*stack_slot, value, function, module)
             }
             CheckedStmt::Expr(expr) => {
                 self.codegen_expr(expr, function, module);
@@ -104,17 +154,15 @@ impl Codegen {
 
     fn codegen_variable_declaration_stmt<'a>(
         &'a self,
-        name: &str,
+        stack_slot: StackSlotId,
         value: &CheckedExpr,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) {
         let expr = self.codegen_expr(value, function, module);
-        function.assign_instr(
-            Value::Temporary(name.to_string()),
-            expr.0,
-            Instr::Copy(expr.1),
-        );
+
+        let dest = Value::Temporary(stack_slot.qbe_name());
+        self.copy(expr.0, expr.1, dest, function);
     }
 
     fn codegen_expr<'a>(
@@ -135,12 +183,28 @@ impl Codegen {
                 name,
                 params,
                 variadic_after,
-            } => {
-                self.codegen_direct_call_expr(expr, name, params, *variadic_after, function, module)
-            }
-            CheckedExprKind::StructInstantiation { name, fields } => {
-                self.codegen_struct_instantation_expr(expr, name, fields, function, module)
-            }
+                stack_slot,
+            } => self.codegen_direct_call_expr(
+                expr,
+                name,
+                params,
+                *variadic_after,
+                *stack_slot,
+                function,
+                module,
+            ),
+            CheckedExprKind::StructInstantiation {
+                name,
+                fields,
+                stack_slot,
+            } => self.codegen_struct_instantation_expr(
+                expr,
+                name,
+                fields,
+                *stack_slot,
+                function,
+                module,
+            ),
             CheckedExprKind::MemberAccess { lhs, name } => {
                 self.codegen_member_access_expr(expr, lhs, name, function, module)
             }
@@ -149,6 +213,9 @@ impl Codegen {
                 false_block,
                 true_block,
             } => self.codegen_if_expr(condition, true_block, false_block, function, module),
+            CheckedExprKind::StackValue(stack_slot) => {
+                self.codegen_stack_value_expr(expr.type_id, *stack_slot, function)
+            }
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -194,6 +261,7 @@ impl Codegen {
         name: &str,
         params: &Vec<CheckedExpr>,
         variadic_after: Option<u64>,
+        stack_slot: StackSlotId,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
@@ -216,16 +284,10 @@ impl Codegen {
             Instr::Call(name.to_string(), generated_params, variadic_after),
         );
 
-        let definition = self.checker.types.get_definition(expr.type_id);
-        if definition.is_struct() {
-            let memory_layout = self.checker.types.memory_layout_of_definition(&definition);
-            let struct_storage = self.allocate(&memory_layout, function);
+        let dest = Value::Temporary(stack_slot.qbe_name());
+        let dest = self.copy_if_needed(result_type.clone(), result_value, dest, function);
 
-            self.copy_struct_fields(&memory_layout, &struct_storage, &result_value, function);
-            result_value = struct_storage;
-        }
-
-        (result_type, result_value)
+        (result_type, dest)
     }
 
     fn codegen_struct_instantation_expr<'a>(
@@ -233,14 +295,15 @@ impl Codegen {
         expr: &CheckedExpr,
         name: &str,
         fields: &Vec<(String, CheckedExpr)>,
+        stack_slot: StackSlotId,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         let memory_layout = self.checker.types.memory_layout_of(expr.type_id);
 
-        let struct_value = self.allocate(&memory_layout, function);
         let fields_offsets = memory_layout.fields.expect("Struct to have fields");
 
+        let dest = Value::Temporary(stack_slot.qbe_name());
         for field in fields {
             // TODO: Copy from other struct
             let expr = self.codegen_expr(&field.1, function, module);
@@ -256,18 +319,13 @@ impl Codegen {
             function.assign_instr(
                 offset_value.clone(),
                 Type::Long,
-                Instr::Add(
-                    struct_value.clone(),
-                    Value::Const(field_layout.offset as u64),
-                ),
+                Instr::Add(dest.clone(), Value::Const(field_layout.offset as u64)),
             );
 
-            // TODO: Copy struct fields if there is a nested struct
-            // Store value
             function.add_instr(Instr::Store(expr.0, offset_value, expr.1));
         }
 
-        (self.checker.types.qbe_type_of(expr.type_id), struct_value)
+        (self.checker.types.qbe_type_of(expr.type_id), dest)
     }
 
     fn codegen_member_access_expr<'a>(
@@ -305,6 +363,26 @@ impl Codegen {
         );
 
         (result_type, result_value)
+    }
+
+    fn codegen_stack_value_expr<'a>(
+        &'a self,
+        type_id: TypeId,
+        stack_slot: StackSlotId,
+        function: &mut Function<'a>,
+    ) -> (Type<'a>, Value) {
+        let tajp = self.checker.types.qbe_type_of(type_id);
+
+        let value = Value::Temporary(stack_slot.qbe_name());
+        match tajp {
+            Type::Aggregate(_) => (tajp, value),
+            _ => {
+                let name = format!("sv.{}", self.unique_tag());
+                let dest = Value::Temporary(name);
+                function.assign_instr(dest.clone(), tajp.clone(), Instr::Load(tajp.clone(), value));
+                (tajp, dest)
+            }
+        }
     }
 
     fn codegen_if_expr<'a>(
@@ -399,41 +477,41 @@ impl Codegen {
         (generated_lhs.0, binop_result)
     }
 
-    fn allocate<'a>(&'a self, memory_layout: &MemoryLayout, function: &mut Function<'a>) -> Value {
-        let instr = match memory_layout.alignment {
-            1 | 2 => todo!(),
-            4 => Instr::Alloc4(memory_layout.size as u32),
-            8 => Instr::Alloc8(memory_layout.size as u64),
-            16 => Instr::Alloc16(memory_layout.size as u128),
-            _ => unreachable!(),
-        };
-
-        let value_name = format!("allocated.{}", self.unique_tag());
-        let value = Value::Temporary(value_name);
-        function.assign_instr(value.clone(), Type::Long, instr);
-
-        value
-    }
-
-    fn copy_struct_fields<'a>(
-        &'a self,
-        memory_layout: &MemoryLayout,
-        destination: &Value,
-        source: &Value,
-        function: &mut Function<'a>,
-    ) {
-        function.add_instr(Instr::Blit(
-            source.clone(),
-            destination.clone(),
-            memory_layout.size as u64,
-        ));
-    }
-
     fn unique_tag(&self) -> usize {
         // SAFETY: Codegen is single threaded
         unsafe {
             UNIQUE_TAG_COUNT += 1;
             UNIQUE_TAG_COUNT
+        }
+    }
+
+    fn copy<'a>(
+        &'a self,
+        qbe_type: Type<'a>,
+        src_or_value: Value,
+        dest: Value,
+        function: &mut Function<'a>,
+    ) -> Value {
+        match qbe_type {
+            Type::Aggregate(_) => {
+                function.add_instr(Instr::Blit(src_or_value, dest.clone(), qbe_type.size()));
+            }
+            _ => function.add_instr(Instr::Store(qbe_type, dest.clone(), src_or_value)),
+        }
+
+        dest
+    }
+
+    fn copy_if_needed<'a>(
+        &'a self,
+        qbe_type: Type<'a>,
+        src_or_value: Value,
+        dest: Value,
+        function: &mut Function<'a>,
+    ) -> Value {
+        match qbe_type {
+            Type::Aggregate(_) => self.copy(qbe_type, src_or_value, dest, function),
+            _ => src_or_value,
         }
     }
 }
