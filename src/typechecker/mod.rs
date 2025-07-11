@@ -10,8 +10,8 @@ use proc::{Proc, ProcCollection};
 use scope::Scope;
 use stack::{StackSlotId, StackSlots};
 use tajp::{
-    BOOL_TYPE_ID, I32_TYPE_ID, NEVER_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId,
-    U32_TYPE_ID, VOID_TYPE_ID,
+    BOOL_TYPE_ID, I32_TYPE_ID, IdentTypeId, NEVER_TYPE_ID, ProcStructure, STRING_TYPE_ID,
+    StructStructure, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID,
 };
 
 use crate::{
@@ -372,11 +372,11 @@ impl Checker {
 
         self.types.define_proc(
             type_id,
-            Type::Proc {
+            Type::Proc(ProcStructure {
                 params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
                 return_type,
                 variadic: false,
-            },
+            }),
         );
 
         Ok(())
@@ -422,28 +422,31 @@ impl Checker {
         type_id: TypeId,
         ctx: &CheckerContext,
     ) -> Result<()> {
-        let mut fields: Vec<(Ident, TypeId)> = vec![];
+        let mut fields: Vec<IdentTypeId> = vec![];
         for field in &s.fields {
-            if let Some(original) = fields.iter().find(|p| p.0.name == field.0.name) {
+            if let Some(original) = fields.iter().find(|p| p.ident.name == field.0.name) {
                 return Err(Error::StructFieldNameCollision {
                     src: ctx.source.clone(),
-                    original_span: original.0.span,
+                    original_span: original.ident.span,
                     redefined_span: field.0.span,
                     name: field.0.name.clone(),
                 });
             }
 
             let type_id = self.types.force_find(ctx.source, ctx.module_id, &field.1)?;
-            fields.push((field.0.clone(), type_id));
+            fields.push(IdentTypeId {
+                ident: field.0.clone(),
+                type_id,
+            });
         }
 
         self.types.define_struct(
             type_id,
-            Type::Struct {
+            Type::Struct(StructStructure {
                 module_id: ctx.module_id,
-                name: s.ident.clone(),
+                ident: s.ident.clone(),
                 fields,
-            },
+            }),
         );
 
         Ok(())
@@ -469,11 +472,11 @@ impl Checker {
 
         self.types.define_proc(
             type_id,
-            Type::Proc {
+            Type::Proc(ProcStructure {
                 params: params.clone(),
                 return_type,
                 variadic: definition.variadic,
-            },
+            }),
         );
 
         Ok(())
@@ -496,13 +499,13 @@ impl Checker {
         let mut ss = StackSlots::new();
 
         let mut params = vec![];
-        for param in proc.params.iter().map(|p| &p.0).zip(definition.0) {
+        for param in proc.params.iter().map(|p| &p.0).zip(definition.params) {
             let stack_slot = ss.allocate(param.1);
             self.scope.add_to_scope(param.0, param.1, Some(stack_slot));
             params.push((param.0.name.clone(), stack_slot));
         }
 
-        let return_type = (definition.1, proc.return_type.span);
+        let return_type = (definition.return_type, proc.return_type.span);
 
         let body = self.typecheck_block(
             &proc.body,
@@ -534,7 +537,7 @@ impl Checker {
             body: body.value,
             name: proc.ident.name.clone(),
             params,
-            return_type: definition.1,
+            return_type: definition.return_type,
             stack_slots: ss,
         })
     }
@@ -921,18 +924,22 @@ impl Checker {
             )
             .as_proc();
 
-        if params.len() < proc_type.0.len() || (params.len() > proc_type.0.len() && !proc_type.2) {
+        if params.len() < proc_type.params.len()
+            || (params.len() > proc_type.params.len() && !proc_type.variadic)
+        {
             return Err(Error::ProcCallParamCountMismatch {
                 src: ctx.source.clone(),
                 span: expr.span,
-                expected: proc_type.0.len(),
+                expected: proc_type.params.len(),
                 got: params.len(),
-                variadic: proc_type.2,
+                variadic: proc_type.variadic,
             });
         }
 
         let mut params = params.clone();
-        let non_variadic_params = params.drain(0..proc_type.0.len()).zip(&proc_type.0);
+        let non_variadic_params = params
+            .drain(0..proc_type.params.len())
+            .zip(&proc_type.params);
 
         let mut checked_params = vec![];
         let mut has_encountered_never = false;
@@ -971,20 +978,20 @@ impl Checker {
 
         Ok(HasNever::new(
             CheckedExpr {
-                type_id: proc_type.1,
+                type_id: proc_type.return_type,
                 kind: CheckedExprKind::DirectCall {
                     name: ident,
                     params: checked_params,
-                    variadic_after: if proc_type.2 {
-                        Some(proc_type.0.len() as u64)
+                    variadic_after: if proc_type.variadic {
+                        Some(proc_type.params.len() as u64)
                     } else {
                         None
                     },
-                    stack_slot: ss.allocate(proc_type.1),
+                    stack_slot: ss.allocate(proc_type.return_type),
                 },
                 lvalue: true,
             },
-            has_encountered_never || proc_type.1 == NEVER_TYPE_ID,
+            has_encountered_never || proc_type.return_type == NEVER_TYPE_ID,
         ))
     }
 
@@ -1055,7 +1062,7 @@ impl Checker {
         let mut has_encountered_never = false;
 
         for field in fields {
-            let defined_field = s.1.iter().find(|f| f.0 == field.0);
+            let defined_field = s.fields.iter().find(|f| f.ident == field.0);
             let Some(defined_field) = defined_field else {
                 return Err(Error::StructInstantiationFieldDoesntExist {
                     src: ctx.source.clone(),
@@ -1076,7 +1083,7 @@ impl Checker {
 
             let checked_expr = self.typecheck_expr(
                 &field.1,
-                Some((defined_field.1, defined_field.0.span)),
+                Some((defined_field.type_id, defined_field.ident.span)),
                 return_type,
                 ctx,
                 true,
@@ -1085,13 +1092,13 @@ impl Checker {
 
             has_encountered_never |= checked_expr.never;
 
-            if checked_expr.value.type_id != defined_field.1 && !checked_expr.never {
+            if checked_expr.value.type_id != defined_field.type_id && !checked_expr.never {
                 return Err(Error::StructInstantiationFieldTypeMismatch {
                     src: ctx.source.clone(),
                     span: field.1.span,
                     struct_name: name.name.clone(),
                     field_name: field.0.name.clone(),
-                    expected: self.types.name_of(defined_field.1),
+                    expected: self.types.name_of(defined_field.type_id),
                     got: self.types.name_of(checked_expr.value.type_id),
                 });
             }
@@ -1099,12 +1106,12 @@ impl Checker {
             checked_fields.push((field.0.clone(), checked_expr.value));
         }
 
-        if checked_fields.len() != s.1.len() {
+        if checked_fields.len() != s.fields.len() {
             let mut missing_fields = vec![];
 
-            for known_fields in &s.1 {
-                if !checked_fields.iter().any(|c| c.0 == known_fields.0) {
-                    missing_fields.push(format!("'{}'", known_fields.0.name));
+            for known_fields in &s.fields {
+                if !checked_fields.iter().any(|c| c.0 == known_fields.ident) {
+                    missing_fields.push(format!("'{}'", known_fields.ident.name));
                 }
             }
 
@@ -1161,7 +1168,7 @@ impl Checker {
 
         let definition = definition.as_struct();
 
-        let Some(field) = definition.1.iter().find(|f| f.0 == *member) else {
+        let Some(field) = definition.fields.iter().find(|f| f.ident == *member) else {
             return Err(Error::MemberAccessUnknownField {
                 src: ctx.source.clone(),
                 span: member.span,
@@ -1174,10 +1181,10 @@ impl Checker {
         let lvalue = checked_lhs.value.lvalue;
 
         Ok(CheckedExpr {
-            type_id: field.1,
+            type_id: field.type_id,
             kind: CheckedExprKind::MemberAccess {
                 lhs: Box::new(checked_lhs.value),
-                name: field.0.name.clone(),
+                name: field.ident.name.clone(),
             },
             lvalue,
         })

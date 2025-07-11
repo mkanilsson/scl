@@ -27,37 +27,41 @@ pub enum Type {
     U32,
     String,
     Never,
-    Proc {
-        params: Vec<TypeId>,
-        return_type: TypeId,
-        variadic: bool,
-    },
-    Struct {
-        module_id: ModuleId,
-        name: Ident,
-        fields: Vec<(Ident, TypeId)>,
-    },
+    Proc(ProcStructure),
+    Struct(StructStructure),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProcStructure {
+    pub params: Vec<TypeId>,
+    pub return_type: TypeId,
+    pub variadic: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructStructure {
+    pub ident: Ident,
+    pub fields: Vec<IdentTypeId>,
+    pub module_id: ModuleId,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IdentTypeId {
+    pub ident: Ident,
+    pub type_id: TypeId,
 }
 
 impl Type {
-    pub fn as_proc(self) -> (Vec<TypeId>, TypeId, bool) {
+    pub fn as_proc(self) -> ProcStructure {
         match self {
-            Type::Proc {
-                params,
-                return_type,
-                variadic,
-            } => (params, return_type, variadic),
+            Type::Proc(structure) => structure,
             _ => unreachable!(),
         }
     }
 
-    pub fn as_struct(self) -> (Ident, Vec<(Ident, TypeId)>) {
+    pub fn as_struct(self) -> StructStructure {
         match self {
-            Type::Struct {
-                name,
-                fields,
-                module_id: _,
-            } => (name, fields),
+            Type::Struct(structure) => structure,
             _ => unreachable!(),
         }
     }
@@ -77,27 +81,24 @@ impl Type {
             Type::U32 => "u32".into(),
             Type::String => "string".into(),
             Type::Never => "!".into(),
-            Type::Proc {
-                params,
-                return_type,
-                variadic,
-            } => {
-                let mut params = params
+            Type::Proc(structure) => {
+                let mut params = structure
+                    .params
                     .iter()
                     .map(|param| collection.name_of(*param))
                     .collect::<Vec<_>>();
 
-                if *variadic {
+                if structure.variadic {
                     params.push("...".to_string());
                 }
 
                 let params = params.join(", ");
 
-                let return_type = collection.name_of(*return_type);
+                let return_type = collection.name_of(structure.return_type);
 
                 format!("proc ({params}) {return_type}")
             }
-            Type::Struct { name, .. } => name.name.clone(),
+            Type::Struct(structure) => structure.ident.name.clone(),
             Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
     }
@@ -261,14 +262,14 @@ impl TypeCollection {
         // What am i suppose to do here when the reference needs to point into the module
         // but then module gets locked becuase it's borrowed as mutable
         Box::leak(Box::new(match definition {
-            Type::Struct {
-                name,
-                fields,
-                module_id: _,
-            } => qbe::TypeDef {
+            Type::Struct(structure) => qbe::TypeDef {
                 align: None,
-                items: fields.iter().map(|f| (self.qbe_type_of(f.1), 1)).collect(),
-                name: name.name.clone(),
+                items: structure
+                    .fields
+                    .iter()
+                    .map(|f| (self.qbe_type_of(f.type_id), 1))
+                    .collect(),
+                name: structure.ident.name.clone(),
             },
             _ => unreachable!(),
         }))
@@ -312,7 +313,7 @@ impl TypeCollection {
         self.qbe_type_of_definition(definition).size() as usize
     }
 
-    fn size_of_struct(&self, fields: &Vec<(Ident, TypeId)>) -> usize {
+    fn size_of_struct(&self, fields: &Vec<IdentTypeId>) -> usize {
         self.memory_layout_of_struct(fields).size
     }
 
@@ -330,16 +331,12 @@ impl TypeCollection {
                     None,
                 )
             }
-            Type::Struct {
-                name: _,
-                fields,
-                module_id: _,
-            } => self.memory_layout_of_struct(fields),
+            Type::Struct(structure) => self.memory_layout_of_struct(&structure.fields),
             Type::Void | Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
     }
 
-    fn memory_layout_of_struct(&self, fields: &Vec<(Ident, TypeId)>) -> MemoryLayout {
+    fn memory_layout_of_struct(&self, fields: &Vec<IdentTypeId>) -> MemoryLayout {
         let mut offset = 0;
 
         let mut largest_alignment = 0;
@@ -347,12 +344,12 @@ impl TypeCollection {
         let mut layout_fields = HashMap::new();
 
         for field in fields {
-            let layout = self.memory_layout_of(field.1);
+            let layout = self.memory_layout_of(field.type_id);
 
             offset = self.round_up_to_alignment(offset, layout.alignment);
 
             layout_fields.insert(
-                field.0.name.clone(),
+                field.ident.name.clone(),
                 FieldLayout::new(offset, layout.size, layout.alignment),
             );
 
