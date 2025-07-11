@@ -275,8 +275,7 @@ impl Codegen {
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let result_value =
-            Value::Temporary(format!("{name}.return_value.{}", self.unique_tag()));
+        let result_value = Value::Temporary(format!("{name}.return_value.{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
         let mut generated_params = vec![];
@@ -473,7 +472,10 @@ impl Codegen {
             self.codegen_stmt(stmt, function, module);
         }
 
-        block.last.as_ref().map(|expr| self.codegen_expr(expr, function, module))
+        block
+            .last
+            .as_ref()
+            .map(|expr| self.codegen_expr(expr, function, module))
     }
 
     fn codegen_binop_expr<'a>(

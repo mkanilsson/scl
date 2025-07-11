@@ -16,8 +16,8 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        BinOp, Block, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition,
-        Stmt, StmtKind, StructDefinition, TranslationUnit,
+        BinOp, Block, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt,
+        StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
     helpers::string_join_with_and,

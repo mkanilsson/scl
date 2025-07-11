@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    hash::Hash,
-};
+use std::{collections::HashSet, hash::Hash};
 
 pub fn string_join_with_or(items: &[&str]) -> String {
     string_join_with(items, "or")

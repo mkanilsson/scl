@@ -15,10 +15,7 @@ impl PackageCollection {
     }
 
     pub fn register_dependency(&mut self, package_id: ModuleId, dependency: &(String, ModuleId)) {
-        let dependencies_for_package = self
-            .dependencies
-            .entry(package_id)
-            .or_default();
+        let dependencies_for_package = self.dependencies.entry(package_id).or_default();
 
         if dependencies_for_package.contains_key(&dependency.0) {
             todo!("Error message for duplicate dependencies");
