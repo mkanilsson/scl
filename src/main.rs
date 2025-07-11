@@ -13,6 +13,7 @@ mod lexer;
 mod package;
 mod parser;
 mod pratt;
+#[cfg(test)]
 mod tests;
 mod token;
 mod typechecker;

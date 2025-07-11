@@ -1,10 +1,10 @@
-use std::{env, io::Write, path::PathBuf, process::Command};
+use std::{env, path::PathBuf, process::Command};
 
 use insta::glob;
 use nanoid::nanoid;
-use tempfile::Builder;
 
 use crate::{codegen::Codegen, package::Package, typechecker::Checker};
+
 #[test]
 fn snapsnot_testing() {
     let std_package = Package::from_path("std", "std".into()).unwrap();

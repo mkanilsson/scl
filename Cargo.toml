@@ -10,5 +10,4 @@ nanoid = "0.4.0"
 pratt-derive = { path = "pratt-derive" }
 qbe = "2.5.0"
 strum = { version = "0.27.1", features = ["derive"] }
-tempfile = "3.20.0"
 thiserror = "2.0.12"
