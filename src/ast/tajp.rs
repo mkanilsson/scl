@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{fmt::Display, hash::Hash};
 
 use miette::SourceSpan;
 
@@ -22,11 +22,13 @@ pub enum TypeKind {
     Never,
 }
 
-impl ToString for TypeKind {
-    fn to_string(&self) -> String {
-        match self {
-            TypeKind::Named(ident) => ident.name.to_string(),
-            TypeKind::Never => "!".to_string(),
-        }
+impl Display for TypeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let text = match self {
+            TypeKind::Named(ident) => &ident.name,
+            TypeKind::Never => "!",
+        };
+
+        write!(f, "{text}")
     }
 }

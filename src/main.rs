@@ -1,3 +1,7 @@
+// This should be removed in the future when the errors are accumulated into
+// a Vec of errors, making the error variant a lot smaller
+#![allow(clippy::result_large_err)]
+
 use std::process::Command;
 
 use codegen::Codegen;
@@ -36,10 +40,10 @@ fn run() -> Result<()> {
     let main_package = main_package.parse()?;
 
     let mut checker = Checker::new();
-    let checked_std_package = checker.add_package(&std_package, &vec![])?;
+    let checked_std_package = checker.add_package(&std_package, &[])?;
     let checked_main_package = checker.add_package(
         &main_package,
-        &vec![("std".into(), checked_std_package.package_id)],
+        &[("std".into(), checked_std_package.package_id)],
     )?;
 
     let all_units = checked_std_package

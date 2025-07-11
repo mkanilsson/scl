@@ -162,7 +162,7 @@ pub enum TokenKind {
     As,
 
     #[name("EOF")]
-    EOF,
+    Eof,
 }
 
 impl TokenKind {

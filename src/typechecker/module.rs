@@ -4,7 +4,10 @@ use crate::{
     ast::parsed::Ident,
     error::{Error, Result},
 };
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModuleId(pub usize);
@@ -38,7 +41,7 @@ impl ModuleCollection {
         id.into()
     }
 
-    pub fn find_from_path(&self, path: &PathBuf) -> Option<ModuleId> {
+    pub fn find_from_path(&self, path: &Path) -> Option<ModuleId> {
         self.paths.get(path).copied()
     }
 

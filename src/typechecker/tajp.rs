@@ -52,6 +52,7 @@ pub struct IdentTypeId {
 }
 
 impl Type {
+    #[allow(clippy::wrong_self_convention)]
     pub fn as_proc(self) -> ProcStructure {
         match self {
             Type::Proc(structure) => structure,
@@ -59,6 +60,7 @@ impl Type {
         }
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn as_struct(self) -> StructStructure {
         match self {
             Type::Struct(structure) => structure,
@@ -67,10 +69,7 @@ impl Type {
     }
 
     pub fn is_number(&self) -> bool {
-        match self {
-            Type::I32 | Type::U32 => true,
-            _ => false,
-        }
+        matches!(self, Type::I32 | Type::U32)
     }
 
     pub fn to_string(&self, collection: &TypeCollection) -> String {

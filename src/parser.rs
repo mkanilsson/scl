@@ -80,7 +80,7 @@ impl Parser {
                 TokenKind::Extern => extern_procs.push(self.parse_extern_proc_definition()?),
                 TokenKind::Struct => structs.push(self.parse_struct_definition()?),
                 TokenKind::Use => imports.push(self.parse_use_include()?),
-                TokenKind::EOF => break,
+                TokenKind::Eof => break,
                 _ => {
                     return Err(Error::ExpectedProcStructExternUse {
                         src: self.named_source(),
@@ -395,7 +395,7 @@ impl Parser {
         ))
     }
 
-    pub fn parse_call(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
+    pub fn parse_call(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
         self.expect(TokenKind::OpenParen)?;
 
         let params =
@@ -521,7 +521,7 @@ impl Parser {
         self.current().expect("Handle unexpected EOF")
     }
 
-    pub fn parse_struct_instantation(&mut self, lhs: Expr, bp: BindingPower) -> Result<Expr> {
+    pub fn parse_struct_instantation(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
         let ident = match lhs.kind {
             ExprKind::Identifier(ident) => ident,
             _ => {

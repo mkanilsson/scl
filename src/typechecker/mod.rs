@@ -1,4 +1,4 @@
-use std::{fmt::Debug, path::PathBuf, str::FromStr};
+use std::{path::Path, str::FromStr};
 
 use ast::{
     CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit,
@@ -61,7 +61,7 @@ impl Checker {
     pub fn add_package(
         &mut self,
         package: &ParsedPackage,
-        dependencies: &Vec<(String, ModuleId)>,
+        dependencies: &[(String, ModuleId)],
     ) -> Result<CheckedPackage> {
         let package_id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
 
@@ -88,9 +88,9 @@ impl Checker {
     fn resolve_imports(
         &mut self,
         package_id: ModuleId,
-        path: &PathBuf,
+        path: &Path,
         unit: &TranslationUnit,
-        modules: &Vec<ParsedModule>,
+        modules: &[ParsedModule],
     ) -> Result<()> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
@@ -165,9 +165,9 @@ impl Checker {
 
     fn declare_procs(
         &mut self,
-        path: &PathBuf,
+        path: &Path,
         unit: &TranslationUnit,
-        modules: &Vec<ParsedModule>,
+        modules: &[ParsedModule],
     ) -> Result<()> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
@@ -194,9 +194,9 @@ impl Checker {
 
     fn define_structs(
         &mut self,
-        path: &PathBuf,
+        path: &Path,
         unit: &TranslationUnit,
-        modules: &Vec<ParsedModule>,
+        modules: &[ParsedModule],
     ) -> Result<()> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
@@ -222,9 +222,9 @@ impl Checker {
 
     fn define_procs(
         &mut self,
-        path: &PathBuf,
+        path: &Path,
         unit: &TranslationUnit,
-        modules: &Vec<ParsedModule>,
+        modules: &[ParsedModule],
     ) -> Result<()> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
@@ -259,9 +259,9 @@ impl Checker {
 
     fn check_package(
         &mut self,
-        path: &PathBuf,
+        path: &Path,
         unit: &TranslationUnit,
-        modules: &Vec<ParsedModule>,
+        modules: &[ParsedModule],
     ) -> Result<Vec<CheckedTranslationUnit>> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
@@ -282,9 +282,9 @@ impl Checker {
 
     fn declare_structs(
         &mut self,
-        path: &PathBuf,
+        path: &Path,
         unit: &TranslationUnit,
-        modules: &Vec<ParsedModule>,
+        modules: &[ParsedModule],
     ) -> Result<()> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
@@ -306,8 +306,8 @@ impl Checker {
     fn create_module_ids(
         &mut self,
         name: &str,
-        path: &PathBuf,
-        modules: &Vec<ParsedModule>,
+        path: &Path,
+        modules: &[ParsedModule],
     ) -> Result<ModuleId> {
         let mut children = vec![];
         for child in modules {
@@ -316,7 +316,7 @@ impl Checker {
 
         Ok(self.modules.add(Module {
             children,
-            path: path.clone(),
+            path: path.to_owned(),
             name: name.to_string(),
         }))
     }
@@ -596,6 +596,7 @@ impl Checker {
         ctx: &CheckerContext,
         ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedStmt>> {
+        #[allow(unreachable_patterns)]
         match &stmt.kind {
             StmtKind::Return { value } => {
                 self.typecheck_return_stmt(return_type, stmt.span, value, ctx, ss)
@@ -692,6 +693,7 @@ impl Checker {
         requires_value: bool,
         ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
+        #[allow(unreachable_patterns)]
         match &expr.kind {
             ExprKind::Identifier(ident) => {
                 let scope_data = self.scope.force_find(ctx.source, ident)?;
@@ -901,7 +903,7 @@ impl Checker {
     fn typecheck_call_expr(
         &mut self,
         expr: &Expr,
-        params: &Vec<Expr>,
+        params: &[Expr],
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
@@ -935,7 +937,7 @@ impl Checker {
             });
         }
 
-        let mut params = params.clone();
+        let mut params = params.to_owned();
         let non_variadic_params = params
             .drain(0..proc_type.params.len())
             .zip(&proc_type.params);
@@ -998,7 +1000,7 @@ impl Checker {
         &mut self,
         expr: &Expr,
         name: &str,
-        params: &Vec<Expr>,
+        params: &[Expr],
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
         ss: &mut StackSlots,
@@ -1037,7 +1039,7 @@ impl Checker {
         &mut self,
         expr: &Expr,
         name: &Ident,
-        fields: &Vec<(Ident, Expr)>,
+        fields: &[(Ident, Expr)],
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
         ss: &mut StackSlots,

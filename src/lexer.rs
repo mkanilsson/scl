@@ -231,7 +231,7 @@ impl Iterator for Lexer {
                     self.has_emitted_eof = true;
                     Some(Token::new(
                         (self.position - 1..self.position).into(),
-                        TokenKind::EOF,
+                        TokenKind::Eof,
                     ))
                 };
             }

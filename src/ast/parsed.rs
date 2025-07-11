@@ -30,13 +30,6 @@ impl Ident {
             span,
         }
     }
-
-    pub fn from_string(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            span: (0..0).into(),
-        }
-    }
 }
 
 impl PartialEq for Ident {
