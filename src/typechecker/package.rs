@@ -18,7 +18,7 @@ impl PackageCollection {
         let dependencies_for_package = self
             .dependencies
             .entry(package_id)
-            .or_insert_with(HashMap::new);
+            .or_default();
 
         if dependencies_for_package.contains_key(&dependency.0) {
             todo!("Error message for duplicate dependencies");

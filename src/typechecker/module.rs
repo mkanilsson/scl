@@ -54,12 +54,12 @@ impl ModuleCollection {
             }
         }
 
-        return Err(Error::ModuleNotFound {
+        Err(Error::ModuleNotFound {
             src: source.clone(),
             span: name.span,
             module_name: "TODO".to_string(),
             base_name: name.name.clone(),
-        });
+        })
     }
 }
 

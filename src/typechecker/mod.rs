@@ -16,13 +16,12 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        self, BinOp, Block, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition,
+        BinOp, Block, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition,
         Stmt, StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
     package::{CheckedPackage, ParsedModule, ParsedPackage},
-    token::TokenKind,
 };
 
 pub mod ast;
@@ -121,20 +120,20 @@ impl Checker {
             Import::Part(import, ident) => {
                 if first {
                     if ident.name == "package" {
-                        return self.resolve_import_part(import_to, module_id, import, false, ctx);
+                        self.resolve_import_part(import_to, module_id, import, false, ctx)
                     } else {
-                        return self.resolve_import_part(
+                        self.resolve_import_part(
                             import_to,
                             self.packages
                                 .force_find_dependency(module_id, &ident.name)?,
                             import,
                             false,
                             ctx,
-                        );
+                        )
                     }
                 } else {
                     let module_id = self.modules.force_find_in(ctx.source, module_id, ident)?;
-                    return self.resolve_import_part(import_to, module_id, import, false, ctx);
+                    self.resolve_import_part(import_to, module_id, import, false, ctx)
                 }
             }
             Import::Final(ident) => {
@@ -154,12 +153,12 @@ impl Checker {
                     return Ok(());
                 }
 
-                return Err(Error::ProcOrStructNotFound {
+                Err(Error::ProcOrStructNotFound {
                     src: ctx.source.clone(),
                     span: ident.span,
                     wanted_name: ident.name.clone(),
                     module_name: "TODO".to_string(),
-                });
+                })
             }
         }
     }
@@ -335,7 +334,7 @@ impl Checker {
 
         let mut checked_procs = vec![];
         for proc in &unit.procs {
-            checked_procs.push(self.typecheck_proc(&proc, ctx)?);
+            checked_procs.push(self.typecheck_proc(proc, ctx)?);
         }
 
         self.scope.exit();
@@ -368,7 +367,7 @@ impl Checker {
 
         let return_type =
             self.types
-                .force_find(&ctx.source, ctx.module_id, &definition.return_type)?;
+                .force_find(ctx.source, ctx.module_id, &definition.return_type)?;
 
         self.types.define_proc(
             type_id,
@@ -560,7 +559,7 @@ impl Checker {
         }
 
         let last = if let Some(expr) = &block.last {
-            let expr = self.typecheck_expr(&expr, wanted, return_type, ctx, requires_value, ss)?;
+            let expr = self.typecheck_expr(expr, wanted, return_type, ctx, requires_value, ss)?;
             has_encountered_never |= expr.never;
             Some(expr.value)
         } else {

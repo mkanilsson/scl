@@ -175,7 +175,7 @@ impl TypeCollection {
         t: ast::tajp::TypeKind,
         type_id: TypeId,
     ) {
-        let parsed_for_module = self.parsed.entry(module_id).or_insert_with(HashMap::new);
+        let parsed_for_module = self.parsed.entry(module_id).or_default();
         parsed_for_module.insert(t, type_id);
     }
 
@@ -372,7 +372,7 @@ impl TypeCollection {
     }
 
     pub fn add_to_module(&mut self, module_id: ModuleId, type_id: TypeId, ident: &Ident) {
-        let parsed_for_module = self.parsed.entry(module_id).or_insert_with(HashMap::new);
+        let parsed_for_module = self.parsed.entry(module_id).or_default();
         parsed_for_module.insert(ast::tajp::TypeKind::Named(ident.clone()), type_id);
     }
 }

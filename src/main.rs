@@ -44,7 +44,7 @@ fn run() -> Result<()> {
     let all_units = checked_std_package
         .units
         .into_iter()
-        .chain(checked_main_package.units.into_iter())
+        .chain(checked_main_package.units)
         .collect::<Vec<_>>();
 
     let mut codegener = Codegen::new(all_units, checker);

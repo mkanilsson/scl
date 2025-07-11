@@ -275,7 +275,7 @@ impl Codegen {
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let mut result_value =
+        let result_value =
             Value::Temporary(format!("{name}.return_value.{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
@@ -470,14 +470,10 @@ impl Codegen {
         function.add_block(name);
 
         for stmt in &block.stmts {
-            self.codegen_stmt(&stmt, function, module);
+            self.codegen_stmt(stmt, function, module);
         }
 
-        if let Some(expr) = &block.last {
-            Some(self.codegen_expr(&expr, function, module))
-        } else {
-            None
-        }
+        block.last.as_ref().map(|expr| self.codegen_expr(expr, function, module))
     }
 
     fn codegen_binop_expr<'a>(

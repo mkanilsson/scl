@@ -12,7 +12,7 @@ pub struct Lexer {
 impl Lexer {
     pub fn new(path: &PathBuf) -> Self {
         Self {
-            content: std::fs::read_to_string(&path).unwrap(),
+            content: std::fs::read_to_string(path).unwrap(),
             position: 0,
             file_name: path.to_string_lossy().to_string(),
             has_emitted_eof: false,

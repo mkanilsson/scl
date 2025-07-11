@@ -32,14 +32,14 @@ impl ProcCollection {
 
     pub fn add(&mut self, module_id: ModuleId, proc: Proc) -> ProcId {
         let id = self.procs.len();
-        let parsed_for_module = self.parsed.entry(module_id).or_insert_with(HashMap::new);
+        let parsed_for_module = self.parsed.entry(module_id).or_default();
         parsed_for_module.insert(proc.name.clone(), id.into());
         self.procs.push(proc);
         id.into()
     }
 
     pub fn add_to_module(&mut self, module_id: ModuleId, proc_id: ProcId, ident: &Ident) {
-        let parsed_for_module = self.parsed.entry(module_id).or_insert_with(HashMap::new);
+        let parsed_for_module = self.parsed.entry(module_id).or_default();
         parsed_for_module.insert(ident.clone(), proc_id);
     }
 
