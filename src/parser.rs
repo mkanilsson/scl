@@ -584,4 +584,18 @@ impl Parser {
             },
         ))
     }
+
+    pub fn parse_assignment(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
+        self.expect(TokenKind::Equal)?;
+        let rhs = self.parse_expr(BindingPower::Logical)?;
+
+        Ok(Self::new_expr(
+            lhs.span,
+            rhs.span,
+            ExprKind::Assignment {
+                lhs: Box::new(lhs),
+                rhs: Box::new(rhs),
+            },
+        ))
+    }
 }

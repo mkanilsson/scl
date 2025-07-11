@@ -216,6 +216,11 @@ impl Codegen {
             CheckedExprKind::StackValue(stack_slot) => {
                 self.codegen_stack_value_expr(expr.type_id, *stack_slot, function)
             }
+            CheckedExprKind::Assignment {
+                stack_slot,
+                offset,
+                rhs,
+            } => self.codegen_assignment_expr(*stack_slot, *offset, rhs, function, module),
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -322,7 +327,7 @@ impl Codegen {
                 Instr::Add(dest.clone(), Value::Const(field_layout.offset as u64)),
             );
 
-            function.add_instr(Instr::Store(expr.0, offset_value, expr.1));
+            self.copy(expr.0, expr.1, offset_value, function);
         }
 
         (self.checker.types.qbe_type_of(expr.type_id), dest)
@@ -353,16 +358,22 @@ impl Codegen {
             ),
         );
 
-        let result_value = Value::Temporary(format!("member_access.{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
-        function.assign_instr(
-            result_value.clone(),
-            result_type.clone(),
-            Instr::Load(result_type.clone(), offset_value),
-        );
+        match result_type {
+            Type::Aggregate(_) => (Type::Long, offset_value),
+            _ => {
+                let result_value = Value::Temporary(format!("member_access.{}", self.unique_tag()));
 
-        (result_type, result_value)
+                function.assign_instr(
+                    result_value.clone(),
+                    result_type.clone(),
+                    Instr::Load(result_type.clone(), offset_value),
+                );
+
+                (result_type, result_value)
+            }
+        }
     }
 
     fn codegen_stack_value_expr<'a>(
@@ -383,6 +394,33 @@ impl Codegen {
                 (tajp, dest)
             }
         }
+    }
+
+    fn codegen_assignment_expr<'a>(
+        &'a self,
+        stack_slot: StackSlotId,
+        offset: u64,
+        rhs: &CheckedExpr,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let generated_rhs = self.codegen_expr(rhs, function, module);
+        let origin = Value::Temporary(stack_slot.qbe_name());
+        let offset_temp = Value::Temporary(format!(".offset.{}", self.unique_tag()));
+
+        function.assign_instr(
+            offset_temp.clone(),
+            Type::Long,
+            Instr::Add(origin, Value::Const(offset)),
+        );
+
+        self.copy(
+            generated_rhs.0.clone(),
+            generated_rhs.1,
+            offset_temp.clone(),
+            function,
+        );
+        (generated_rhs.0, offset_temp)
     }
 
     fn codegen_if_expr<'a>(

@@ -1,15 +1,34 @@
-use std::math::add
+use std::io::printf
+
+struct Nested {
+    a: i32,
+    b: bool
+}
 
 struct Thing {
-    a: i32,
-    b: i32
+    nested: Nested
 }
 
 proc main() i32 {
     let t = Thing {
-        a: 5,
-        b: 10,
+        nested: Nested {
+            a: 20,
+            b: false
+        }
     };
 
-    add(t.a, t.b)
+    printf("Before\n");
+    printf("%d\n", t.nested.a);
+    printf("Bool: %d\n", t.nested.b);
+
+    t.nested = Nested {
+        a: 69,
+        b: true
+    };
+
+    printf("After\n");
+    printf("%d\n", t.nested.a);
+    printf("Bool: %d\n", t.nested.b);
+
+    69
 }

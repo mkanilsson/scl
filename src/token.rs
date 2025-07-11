@@ -112,7 +112,9 @@ pub enum TokenKind {
     Slash,
 
     #[name("=")]
+    #[led(BindingPower::Assignment, Parser::parse_assignment)]
     Equal,
+
     #[name(";")]
     Semicolon,
 

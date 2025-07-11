@@ -8,7 +8,7 @@ use module::{Module, ModuleCollection, ModuleId};
 use package::PackageCollection;
 use proc::{Proc, ProcCollection};
 use scope::Scope;
-use stack::StackSlots;
+use stack::{StackSlotId, StackSlots};
 use tajp::{
     BOOL_TYPE_ID, I32_TYPE_ID, NEVER_TYPE_ID, STRING_TYPE_ID, Type, TypeCollection, TypeId,
     U32_TYPE_ID, VOID_TYPE_ID,
@@ -702,6 +702,7 @@ impl Checker {
                         } else {
                             ast::CheckedExprKind::Identifier(ident.name.clone())
                         },
+                        lvalue: true,
                     },
                     false,
                 ))
@@ -720,6 +721,7 @@ impl Checker {
                                 CheckedExpr {
                                     type_id: U32_TYPE_ID,
                                     kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
                                 },
                                 false,
                             ))
@@ -735,6 +737,7 @@ impl Checker {
                                 CheckedExpr {
                                     type_id: I32_TYPE_ID,
                                     kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
                                 },
                                 false,
                             ))
@@ -747,6 +750,7 @@ impl Checker {
                         CheckedExpr {
                             type_id: I32_TYPE_ID,
                             kind: ast::CheckedExprKind::Number(value as u64),
+                            lvalue: false,
                         },
                         false,
                     ))
@@ -759,6 +763,7 @@ impl Checker {
                 CheckedExpr {
                     type_id: STRING_TYPE_ID,
                     kind: ast::CheckedExprKind::String(value.clone()),
+                    lvalue: false,
                 },
                 false,
             )),
@@ -769,6 +774,7 @@ impl Checker {
                 CheckedExpr {
                     type_id: BOOL_TYPE_ID,
                     kind: ast::CheckedExprKind::Number(if *value { 1 } else { 0 }),
+                    lvalue: false,
                 },
                 false,
             )),
@@ -798,6 +804,9 @@ impl Checker {
             ),
             ExprKind::Cast { lhs, tajp } => {
                 self.typecheck_cast_expr(lhs, tajp, expr.span, return_type, ctx, ss)
+            }
+            ExprKind::Assignment { lhs, rhs } => {
+                self.typecheck_assignment_expr(lhs, rhs, return_type, ctx, ss)
             }
             kind => todo!("typecheck_expr: {}", kind),
         }
@@ -866,6 +875,7 @@ impl Checker {
                 op,
                 rhs: Box::new(checked_rhs),
             },
+            lvalue: false,
         })
     }
 
@@ -882,6 +892,7 @@ impl Checker {
                 op,
                 rhs: Box::new(checked_rhs),
             },
+            lvalue: false,
         })
     }
 
@@ -971,6 +982,7 @@ impl Checker {
                     },
                     stack_slot: ss.allocate(proc_type.1),
                 },
+                lvalue: true,
             },
             has_encountered_never || proc_type.1 == NEVER_TYPE_ID,
         ))
@@ -1004,6 +1016,7 @@ impl Checker {
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
                     kind: CheckedExprKind::String(self.types.name_of(checked_param.value.type_id)),
+                    lvalue: false,
                 })
             }
             name => Err(Error::UnknownBuiltin {
@@ -1121,6 +1134,7 @@ impl Checker {
                         .collect(),
                     stack_slot: ss.allocate(struct_type_id),
                 },
+                lvalue: false,
             },
             has_encountered_never,
         ))
@@ -1156,12 +1170,16 @@ impl Checker {
             });
         };
 
+        // A member expression is an lvalue if the lhs is also an lvalue
+        let lvalue = checked_lhs.value.lvalue;
+
         Ok(CheckedExpr {
             type_id: field.1,
             kind: CheckedExprKind::MemberAccess {
                 lhs: Box::new(checked_lhs.value),
                 name: field.0.name.clone(),
             },
+            lvalue,
         })
     }
 
@@ -1233,6 +1251,7 @@ impl Checker {
                     false_block: Box::new(checked_false_block.value),
                 },
                 type_id,
+                lvalue: false,
             },
             checked_condition.never || (checked_true_block.never && checked_false_block.never),
         ))
@@ -1266,6 +1285,7 @@ impl Checker {
                 rhs: Box::new(CheckedExpr {
                     type_id: BOOL_TYPE_ID,
                     kind: CheckedExprKind::Number(0),
+                    lvalue: false,
                 }),
             },
             (got, wanted) if got == wanted => checked_lhs.value.kind,
@@ -1283,9 +1303,78 @@ impl Checker {
             CheckedExpr {
                 type_id: wanted,
                 kind,
+                lvalue: false,
             },
             false,
         ))
+    }
+
+    fn typecheck_assignment_expr(
+        &mut self,
+        lhs: &Expr,
+        rhs: &Expr,
+        return_type: (TypeId, SourceSpan),
+        ctx: &CheckerContext,
+        ss: &mut StackSlots,
+    ) -> Result<HasNever<CheckedExpr>> {
+        let checked_lhs = self.typecheck_expr(lhs, None, return_type, ctx, false, ss)?;
+        let checked_rhs = self.typecheck_expr(
+            rhs,
+            Some((checked_lhs.value.type_id, lhs.span)),
+            return_type,
+            ctx,
+            true,
+            ss,
+        )?;
+
+        if !checked_lhs.value.lvalue {
+            return Err(Error::CantAssignToRValue {
+                src: ctx.source.clone(),
+                span: lhs.span,
+            });
+        }
+
+        if checked_lhs.value.type_id != checked_rhs.value.type_id && !checked_rhs.never {
+            return Err(Error::ExpectedButGot {
+                src: ctx.source.clone(),
+                span: rhs.span,
+                expected: self.types.name_of(checked_lhs.value.type_id),
+                got: self.types.name_of(checked_rhs.value.type_id),
+            });
+        }
+
+        let slot_and_offset = self.find_stack_slot_and_offset_for_assignment(&checked_lhs.value);
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: checked_lhs.value.type_id,
+                kind: CheckedExprKind::Assignment {
+                    stack_slot: slot_and_offset.0,
+                    offset: slot_and_offset.1,
+                    rhs: Box::new(checked_rhs.value),
+                },
+                lvalue: false,
+            },
+            checked_rhs.never,
+        ))
+    }
+
+    fn find_stack_slot_and_offset_for_assignment(&self, expr: &CheckedExpr) -> (StackSlotId, u64) {
+        match &expr.kind {
+            CheckedExprKind::StackValue(stack_slot_id) => (*stack_slot_id, 0),
+            CheckedExprKind::DirectCall { stack_slot, .. } => (*stack_slot, 0),
+            CheckedExprKind::MemberAccess { lhs, name } => {
+                let memory_layout = self.types.memory_layout_of(lhs.type_id);
+                let fields = memory_layout.fields.unwrap();
+                let field_layout = fields.get(name).unwrap();
+
+                let slot_and_offset = self.find_stack_slot_and_offset_for_assignment(lhs);
+                (
+                    slot_and_offset.0,
+                    slot_and_offset.1 + field_layout.offset as u64,
+                )
+            }
+            _ => panic!("Invalid lvalue"),
+        }
     }
 
     fn expect_number(

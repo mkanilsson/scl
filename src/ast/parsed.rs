@@ -77,6 +77,10 @@ pub enum ExprKind {
         lhs: Box<Expr>,
         tajp: Type,
     },
+    Assignment {
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
     Call {
         expr: Box<Expr>,
         params: Vec<Expr>,

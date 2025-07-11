@@ -37,6 +37,7 @@ pub enum CheckedStmt {
 #[derive(Debug, Clone)]
 pub struct CheckedExpr {
     pub type_id: TypeId,
+    pub lvalue: bool,
     pub kind: CheckedExprKind,
 }
 
@@ -70,6 +71,11 @@ pub enum CheckedExprKind {
         condition: Box<CheckedExpr>,
         false_block: Box<CheckedBlock>,
         true_block: Box<CheckedBlock>,
+    },
+    Assignment {
+        stack_slot: StackSlotId,
+        offset: u64,
+        rhs: Box<CheckedExpr>,
     },
 }
 

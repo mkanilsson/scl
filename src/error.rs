@@ -369,4 +369,13 @@ pub enum Error {
         got: String,
         wanted: String,
     },
+
+    #[error("Can't assign to an rvalue")]
+    CantAssignToRValue {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
 }
