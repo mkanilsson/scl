@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use qbe::{DataDef, DataItem, Function, Instr, Linkage, Module, Type, Value};
 
 use crate::{
@@ -13,16 +15,19 @@ use crate::{
     },
 };
 
-static mut UNIQUE_TAG_COUNT: usize = 0;
-
 pub struct Codegen {
     units: Vec<CheckedTranslationUnit>,
     checker: Checker,
+    counter: Cell<usize>,
 }
 
 impl Codegen {
     pub fn new(units: Vec<CheckedTranslationUnit>, checker: Checker) -> Self {
-        Self { units, checker }
+        Self {
+            units,
+            checker,
+            counter: Cell::new(0),
+        }
     }
 
     pub fn generate(&mut self) -> String {
@@ -516,11 +521,9 @@ impl Codegen {
     }
 
     fn unique_tag(&self) -> usize {
-        // SAFETY: Codegen is single threaded
-        unsafe {
-            UNIQUE_TAG_COUNT += 1;
-            UNIQUE_TAG_COUNT
-        }
+        let new = self.counter.get() + 1;
+        self.counter.set(new);
+        new
     }
 
     fn copy<'a>(

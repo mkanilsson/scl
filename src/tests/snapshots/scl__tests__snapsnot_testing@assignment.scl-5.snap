@@ -1,0 +1,6 @@
+---
+source: src/tests/mod.rs
+expression: run_cmd.status
+input_file: src/tests/sources/assignment.scl
+---
+exit status: 20
