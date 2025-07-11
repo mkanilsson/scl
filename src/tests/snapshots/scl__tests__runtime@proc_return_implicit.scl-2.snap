@@ -1,7 +1,7 @@
 ---
 source: src/tests/mod.rs
 expression: code
-input_file: src/tests/sources/assignment.scl
+input_file: src/tests/sources/runtime/proc_return_implicit.scl
 ---
 export function w $add(w %a, w %b) {
 @start
@@ -17,11 +17,7 @@ export function w $add(w %a, w %b) {
 }
 export function w $main() {
 @start
-	%.ss.0 =l alloc4 4
+
 @body
-	storew 10, %.ss.0
-	%.offset.4 =l add %.ss.0, 0
-	storew 20, %.offset.4
-	%sv.5 =w loadw %.ss.0
-	ret %sv.5
+	ret 123
 }

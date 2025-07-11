@@ -1,0 +1,6 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/proc_return_implicit.scl
+---
+

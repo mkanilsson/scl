@@ -1,0 +1,15 @@
+---
+source: src/tests/mod.rs
+expression: buf
+input_file: src/tests/sources/typecheck_error/cant_return_incorrect_type.scl
+---
+  x Proc returns 'u32' but ret expr is 'bool'
+   ,-[/home/marcus/Documents/dev/rust/scl/src/tests/sources/typecheck_error/cant_return_incorrect_type.scl:1:13]
+ 1 | proc main() u32 {
+   :             ^|^
+   :              `-- return type defined here
+ 2 |     false
+   :     ^^|^^
+   :       `-- evaluates to 'bool'
+ 3 | }
+   `----

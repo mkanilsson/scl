@@ -1,6 +1,6 @@
 ---
 source: src/tests/mod.rs
 expression: run_cmd.status
-input_file: src/tests/sources/proc_return_implicit.scl
+input_file: src/tests/sources/runtime/proc_return_implicit.scl
 ---
 exit status: 123

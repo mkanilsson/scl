@@ -1,7 +1,7 @@
 ---
 source: src/tests/mod.rs
 expression: checked_main_package
-input_file: src/tests/sources/assignment.scl
+input_file: src/tests/sources/runtime/assignment.scl
 ---
 CheckedPackage {
     package_id: ModuleId(

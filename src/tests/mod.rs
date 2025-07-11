@@ -1,12 +1,13 @@
 use std::{env, path::PathBuf, process::Command};
 
 use insta::glob;
+use miette::{GraphicalReportHandler, GraphicalTheme};
 use nanoid::nanoid;
 
 use crate::{codegen::Codegen, package::Package, typechecker::Checker};
 
 #[test]
-fn snapsnot_testing() {
+fn runtime() {
     let std_package = Package::from_path("std", "std".into()).unwrap();
     let std_package = std_package.parse().unwrap();
 
@@ -15,7 +16,7 @@ fn snapsnot_testing() {
         env::temp_dir().join(name)
     }
 
-    glob!("sources/*", |file| {
+    glob!("sources/runtime/*", |file| {
         let main_package = Package::from_file(file.into()).unwrap();
         let main_package = main_package.parse().unwrap();
 
@@ -84,5 +85,34 @@ fn snapsnot_testing() {
         insta::assert_snapshot!(stdout);
         insta::assert_snapshot!(stderr);
         insta::assert_snapshot!(run_cmd.status);
+    });
+}
+
+#[test]
+fn typecheck_errors() {
+    let std_package = Package::from_path("std", "std".into()).unwrap();
+    let std_package = std_package.parse().unwrap();
+
+    glob!("sources/typecheck_error/*", |file| {
+        let main_package = Package::from_file(file.into()).unwrap();
+        let main_package = main_package.parse().unwrap();
+
+        let mut checker = Checker::new();
+        let checked_std_package = checker.add_package(&std_package, &vec![]).unwrap();
+
+        let err = checker
+            .add_package(
+                &main_package,
+                &vec![("std".into(), checked_std_package.package_id)],
+            )
+            .err()
+            .unwrap();
+
+        let mut buf = String::new();
+        GraphicalReportHandler::new_themed(GraphicalTheme::none())
+            .render_report(&mut buf, miette::Report::new(err).as_ref())
+            .unwrap();
+
+        insta::assert_snapshot!(buf);
     });
 }
