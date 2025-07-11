@@ -20,6 +20,7 @@ impl Type {
 pub enum TypeKind {
     Named(Ident),
     Never,
+    Ptr(Box<Type>),
 }
 
 impl Display for TypeKind {
@@ -27,6 +28,7 @@ impl Display for TypeKind {
         let text = match self {
             TypeKind::Named(ident) => &ident.name,
             TypeKind::Never => "!",
+            TypeKind::Ptr(inner) => &format!("*{}", inner.kind.to_string()),
         };
 
         write!(f, "{text}")

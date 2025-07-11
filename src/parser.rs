@@ -233,6 +233,15 @@ impl Parser {
                 let token = self.expect(TokenKind::Exclamation)?;
                 Type::new(token.span, TypeKind::Never)
             }
+            TokenKind::Star => {
+                let token = self.expect(TokenKind::Star)?;
+                let inner = self.parse_type()?;
+
+                Type::new(
+                    Parser::span_from_first_and_last(token.span, inner.span),
+                    TypeKind::Ptr(Box::new(inner)),
+                )
+            }
             _ => {
                 todo!("Show error message about invalid type token")
             }

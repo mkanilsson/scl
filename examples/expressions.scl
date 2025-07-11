@@ -1,34 +1,6 @@
 use std::io::printf
 
-struct Nested {
-    a: i32,
-    b: bool
-}
-
-struct Thing {
-    nested: Nested
-}
-
-proc main() i32 {
-    let t = Thing {
-        nested: Nested {
-            a: 20,
-            b: false
-        }
-    };
-
-    printf("Before\n");
-    printf("%d\n", t.nested.a);
-    printf("Bool: %d\n", t.nested.b);
-
-    t.nested = Nested {
-        a: 69,
-        b: true
-    };
-
-    printf("After\n");
-    printf("%d\n", t.nested.a);
-    printf("Bool: %d\n", t.nested.b);
-
-    69
+proc main() *i32 {
+    let a = 6;
+    a
 }

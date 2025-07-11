@@ -29,6 +29,7 @@ pub enum Type {
     Never,
     Proc(ProcStructure),
     Struct(StructStructure),
+    Ptr(TypeId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,6 +99,7 @@ impl Type {
                 format!("proc ({params}) {return_type}")
             }
             Type::Struct(structure) => structure.ident.name.clone(),
+            Type::Ptr(inner) => format!("*{}", collection.name_of(*inner)),
             Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
     }
@@ -179,7 +181,7 @@ impl TypeCollection {
     }
 
     pub fn force_find(
-        &self,
+        &mut self,
         src: &NamedSource<String>,
         module_id: ModuleId,
         t: &ast::tajp::Type,
@@ -187,11 +189,27 @@ impl TypeCollection {
         if let Some(found) = self.find(module_id, t) {
             Ok(found)
         } else {
-            Err(Error::UnknownType {
+            self.try_add(src, module_id, t)
+        }
+    }
+
+    fn try_add(
+        &mut self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        t: &ast::tajp::Type,
+    ) -> Result<TypeId> {
+        match &t.kind {
+            ast::tajp::TypeKind::Named(_) => Err(Error::UnknownType {
                 src: src.clone(),
                 span: t.span,
                 type_name: t.kind.to_string(),
-            })
+            }),
+            ast::tajp::TypeKind::Ptr(inner) => {
+                let inner = self.force_find(src, module_id, inner)?;
+                Ok(self.register_type(Type::Ptr(inner)))
+            }
+            ast::tajp::TypeKind::Never => panic!("This should be caught by parser"),
         }
     }
 
@@ -204,7 +222,7 @@ impl TypeCollection {
     }
 
     pub fn force_find_by_name(
-        &self,
+        &mut self,
         src: &NamedSource<String>,
         module_id: ModuleId,
         name: &Ident,
@@ -227,6 +245,7 @@ impl TypeCollection {
                 _ => return None,
             }),
             ast::tajp::TypeKind::Never => Some(NEVER_TYPE_ID),
+            ast::tajp::TypeKind::Ptr(_) => None,
         }
     }
 
@@ -289,6 +308,7 @@ impl TypeCollection {
                 qbe::Type::Aggregate(self.qbe_type_def_of_definition(definition))
             }
             Type::Never => qbe::Type::Word,
+            Type::Ptr(_) => qbe::Type::Long,
             Type::Void => unreachable!(),
             Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
@@ -323,13 +343,17 @@ impl TypeCollection {
 
     pub fn memory_layout_of_definition(&self, definition: &Type) -> MemoryLayout {
         match definition {
-            Type::I32 | Type::Bool | Type::U32 | Type::String | Type::Proc { .. } | Type::Never => {
-                MemoryLayout::new(
-                    self.size_of_definition(definition),
-                    self.alignment_of_definition(definition),
-                    None,
-                )
-            }
+            Type::I32
+            | Type::Bool
+            | Type::U32
+            | Type::String
+            | Type::Proc { .. }
+            | Type::Never
+            | Type::Ptr(_) => MemoryLayout::new(
+                self.size_of_definition(definition),
+                self.alignment_of_definition(definition),
+                None,
+            ),
             Type::Struct(structure) => self.memory_layout_of_struct(&structure.fields),
             Type::Void | Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }

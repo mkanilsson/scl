@@ -209,12 +209,11 @@ impl Checker {
         }
 
         for s in &unit.structs {
-            self.define_struct(
-                s,
+            let struct_type_id =
                 self.types
-                    .force_find_by_name(&unit.source, ctx.module_id, &s.ident)?,
-                &ctx,
-            )?;
+                    .force_find_by_name(&unit.source, ctx.module_id, &s.ident)?;
+
+            self.define_struct(s, struct_type_id, &ctx)?;
         }
 
         Ok(())
