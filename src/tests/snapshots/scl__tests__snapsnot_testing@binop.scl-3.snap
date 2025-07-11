@@ -1,0 +1,9 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/binop.scl
+---
+a + b = 30
+a - b = 10
+a * b = 200
+a / b = 2

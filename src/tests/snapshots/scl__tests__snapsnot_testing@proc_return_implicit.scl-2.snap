@@ -1,0 +1,23 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/proc_return_implicit.scl
+---
+export function w $add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%sv.24 =w loadw %.ss.0
+	%sv.25 =w loadw %.ss.1
+	%binop.26 =w add %sv.24, %sv.25
+	ret %binop.26
+}
+export function w $main() {
+@start
+
+@body
+	ret 123
+}

@@ -1,0 +1,13 @@
+use std::io::printf
+
+proc main() u32 {
+    let a = 20;
+    let b = 10;
+
+    printf("a + b = %d\n", a + b);
+    printf("a - b = %d\n", a - b);
+    printf("a * b = %d\n", a * b);
+    printf("a / b = %d\n", a / b);
+
+    0 
+}

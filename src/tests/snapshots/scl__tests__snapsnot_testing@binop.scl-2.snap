@@ -1,0 +1,50 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/binop.scl
+---
+export function w $add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%sv.1 =w loadw %.ss.0
+	%sv.2 =w loadw %.ss.1
+	%binop.3 =w add %sv.1, %sv.2
+	ret %binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc4 4
+	%.ss.4 =l alloc4 4
+	%.ss.5 =l alloc4 4
+@body
+	storew 20, %.ss.0
+	storew 10, %.ss.1
+	%sv.6 =w loadw %.ss.0
+	%sv.7 =w loadw %.ss.1
+	%binop.8 =w add %sv.6, %sv.7
+	%printf.return_value.4 =w call $printf(l $str.5, ..., w %binop.8)
+	%sv.11 =w loadw %.ss.0
+	%sv.12 =w loadw %.ss.1
+	%binop.13 =w sub %sv.11, %sv.12
+	%printf.return_value.9 =w call $printf(l $str.10, ..., w %binop.13)
+	%sv.16 =w loadw %.ss.0
+	%sv.17 =w loadw %.ss.1
+	%binop.18 =w mul %sv.16, %sv.17
+	%printf.return_value.14 =w call $printf(l $str.15, ..., w %binop.18)
+	%sv.21 =w loadw %.ss.0
+	%sv.22 =w loadw %.ss.1
+	%binop.23 =w div %sv.21, %sv.22
+	%printf.return_value.19 =w call $printf(l $str.20, ..., w %binop.23)
+	ret 0
+}
+data $str.5 = { b "a + b = %d\n", b 0 }
+data $str.10 = { b "a - b = %d\n", b 0 }
+data $str.15 = { b "a * b = %d\n", b 0 }
+data $str.20 = { b "a / b = %d\n", b 0 }
