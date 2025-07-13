@@ -15,19 +15,29 @@ export function w $add(w %a, w %b) {
 	%binop.3 =w add %sv.1, %sv.2
 	ret %binop.3
 }
-export function $main() {
+export function w $main() {
 @start
 	%.ss.0 =l alloc4 4
 	%.ss.1 =l alloc8 8
 	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc8 8
+	%.ss.4 =l alloc4 4
+	%.ss.5 =l alloc4 4
+	%.ss.6 =l alloc8 8
+	%.ss.7 =l alloc4 4
 @body
 	storew 10, %.ss.0
-	%.address_of.4 =l add %.ss.0, 0
-	storel %.address_of.4, %.ss.1
-	%.address_of.7 =l add %.ss.0, 0
-	%sv.8 =l loadl %.ss.1
-	%binop.9 =l ceql %.address_of.7, %sv.8
-	%printf.return_value.5 =w call $printf(l $str.6, ..., l %binop.9)
-	ret
+	storel %.ss.0, %.ss.1
+	%sv.6 =l loadl %.ss.1
+	%binop.7 =l ceql %.ss.0, %sv.6
+	%printf.return_value.4 =w call $printf(l $str.5, ..., l %binop.7)
+	%.ss.3 =w loadw %.ss.0
+	%printf.return_value.8 =w call $printf(l $str.9, ..., w %.ss.3)
+	storew 25, %.ss.5
+	%.ss.6 =w loadw %.ss.5
+	%printf.return_value.10 =w call $printf(l $str.11, ..., w %.ss.6)
+	ret 0
 }
-data $str.6 = { b "%d\n", b 0 }
+data $str.5 = { b "%d\n", b 0 }
+data $str.9 = { b "%d\n", b 0 }
+data $str.11 = { b "%d\n", b 0 }

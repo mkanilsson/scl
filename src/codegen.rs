@@ -224,11 +224,8 @@ impl Codegen {
             CheckedExprKind::Assignment { lhs, rhs } => {
                 self.codegen_assignment_expr(lhs, rhs, function, module)
             }
-            CheckedExprKind::AddressOfLValue { stack_slot, offset } => {
-                self.codegen_address_of_lvalue_expr(*stack_slot, *offset, function, module)
-            }
-            CheckedExprKind::AddressOfRValue { stack_slot, expr } => {
-                self.codegen_address_of_rvalue_expr(expr, *stack_slot, function, module)
+            CheckedExprKind::AddressOf { expr } => {
+                self.codegen_address_of_expr(expr, function, module)
             }
             CheckedExprKind::DerefLValue {
                 read_stack_slot,
@@ -255,6 +252,9 @@ impl Codegen {
                     module,
                 )
                 .unwrap(),
+            CheckedExprKind::Store { expr, stack_slot } => {
+                self.codegen_store_expr(expr, *stack_slot, function, module)
+            }
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -429,24 +429,14 @@ impl Codegen {
         }
     }
 
-    fn codegen_address_of_lvalue_expr<'a>(
+    fn codegen_address_of_expr<'a>(
         &'a self,
-        stack_slot: StackSlotId,
-        offset: u64,
+        expr: &CheckedExpr,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let value = Value::Temporary(format!(".address_of.{}", self.unique_tag()));
-        function.assign_instr(
-            value.clone(),
-            Type::Long,
-            Instr::Add(
-                Value::Temporary(stack_slot.qbe_name()),
-                Value::Const(offset),
-            ),
-        );
-
-        (Type::Long, value)
+        let generated_expr = self.codegen_expr_for_read(expr, function, module);
+        (Type::Long, generated_expr)
     }
 
     fn codegen_address_of_rvalue_expr<'a>(
@@ -624,6 +614,22 @@ impl Codegen {
         function.assign_instr(binop_result.clone(), generated_lhs.0.clone(), inst);
 
         (generated_lhs.0, binop_result)
+    }
+
+    fn codegen_store_expr<'a>(
+        &'a self,
+        expr: &CheckedExpr,
+        stack_slot: StackSlotId,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let generated_expr = self.codegen_expr(expr, function, module);
+        let dest = Value::Temporary(stack_slot.qbe_name());
+
+        (
+            Type::Long,
+            self.store(generated_expr.0, generated_expr.1, dest, function),
+        )
     }
 
     fn codegen_expr_for_read<'a>(

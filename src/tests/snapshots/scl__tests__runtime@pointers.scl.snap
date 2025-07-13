@@ -53,11 +53,18 @@ CheckedPackage {
                                                         12,
                                                     ),
                                                     lvalue: false,
-                                                    kind: AddressOfLValue {
-                                                        stack_slot: StackSlotId(
-                                                            0,
-                                                        ),
-                                                        offset: 0,
+                                                    kind: AddressOf {
+                                                        expr: CheckedExpr {
+                                                            type_id: TypeId(
+                                                                2,
+                                                            ),
+                                                            lvalue: true,
+                                                            kind: StackValue(
+                                                                StackSlotId(
+                                                                    0,
+                                                                ),
+                                                            ),
+                                                        },
                                                     },
                                                 },
                                             ),
@@ -134,11 +141,18 @@ CheckedPackage {
                                         12,
                                     ),
                                     lvalue: false,
-                                    kind: AddressOfLValue {
-                                        stack_slot: StackSlotId(
-                                            5,
-                                        ),
-                                        offset: 0,
+                                    kind: AddressOf {
+                                        expr: CheckedExpr {
+                                            type_id: TypeId(
+                                                2,
+                                            ),
+                                            lvalue: true,
+                                            kind: StackValue(
+                                                StackSlotId(
+                                                    5,
+                                                ),
+                                            ),
+                                        },
                                     },
                                 },
                             },
@@ -239,11 +253,18 @@ CheckedPackage {
                                                                         12,
                                                                     ),
                                                                     lvalue: false,
-                                                                    kind: AddressOfLValue {
-                                                                        stack_slot: StackSlotId(
-                                                                            9,
-                                                                        ),
-                                                                        offset: 0,
+                                                                    kind: AddressOf {
+                                                                        expr: CheckedExpr {
+                                                                            type_id: TypeId(
+                                                                                2,
+                                                                            ),
+                                                                            lvalue: true,
+                                                                            kind: StackValue(
+                                                                                StackSlotId(
+                                                                                    9,
+                                                                                ),
+                                                                            ),
+                                                                        },
                                                                     },
                                                                 },
                                                             ),
@@ -338,11 +359,18 @@ CheckedPackage {
                                         13,
                                     ),
                                     lvalue: false,
-                                    kind: AddressOfLValue {
-                                        stack_slot: StackSlotId(
-                                            15,
-                                        ),
-                                        offset: 0,
+                                    kind: AddressOf {
+                                        expr: CheckedExpr {
+                                            type_id: TypeId(
+                                                10,
+                                            ),
+                                            lvalue: true,
+                                            kind: StackValue(
+                                                StackSlotId(
+                                                    15,
+                                                ),
+                                            ),
+                                        },
                                     },
                                 },
                             },

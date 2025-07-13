@@ -41,47 +41,43 @@ export function w $main() {
 	%.ss.19 =l alloc4 4
 @body
 	storew 10, %.ss.0
-	%.address_of.4 =l add %.ss.0, 0
 	# Store value into Thing.value (offset: 0)
-	%offset.5 =l add %.ss.1, 0
-	storel %.address_of.4, %offset.5
+	%offset.4 =l add %.ss.1, 0
+	storel %.ss.0, %offset.4
 	blit %.ss.1, %.ss.2, 8
-	%.deref.src.8 =l add %.ss.2, 0
-	%.deref.ptr.9 =l loadl %.deref.src.8
-	%.ss.3 =w loadw %.deref.ptr.9
-	%printf.return_value.6 =w call $printf(l $str.7, ..., w %.ss.3)
+	%.deref.src.7 =l add %.ss.2, 0
+	%.deref.ptr.8 =l loadl %.deref.src.7
+	%.ss.3 =w loadw %.deref.ptr.8
+	%printf.return_value.5 =w call $printf(l $str.6, ..., w %.ss.3)
 	storew 20, %.ss.5
-	%.address_of.10 =l add %.ss.5, 0
-	storel %.address_of.10, %.ss.6
-	%.deref.src.13 =l add %.ss.6, 0
-	%.deref.ptr.14 =l loadl %.deref.src.13
-	%.ss.7 =w loadw %.deref.ptr.14
-	%printf.return_value.11 =w call $printf(l $str.12, ..., w %.ss.7)
+	storel %.ss.5, %.ss.6
+	%.deref.src.11 =l add %.ss.6, 0
+	%.deref.ptr.12 =l loadl %.deref.src.11
+	%.ss.7 =w loadw %.deref.ptr.12
+	%printf.return_value.9 =w call $printf(l $str.10, ..., w %.ss.7)
 	storew 30, %.ss.9
-	%.address_of.15 =l add %.ss.9, 0
 	# Store value into Thing.value (offset: 0)
-	%offset.16 =l add %.ss.10, 0
-	storel %.address_of.15, %offset.16
-	%offset.17 =l add %.ss.10, 0
-	%member_access.18 =l loadl %offset.17
-	%.ss.11 =w loadw %member_access.18
+	%offset.13 =l add %.ss.10, 0
+	storel %.ss.9, %offset.13
+	%offset.14 =l add %.ss.10, 0
+	%member_access.15 =l loadl %offset.14
+	%.ss.11 =w loadw %member_access.15
 	storew %.ss.11, %.ss.12
-	%sv.21 =w loadw %.ss.12
-	%printf.return_value.19 =w call $printf(l $str.20, ..., w %sv.21)
+	%sv.18 =w loadw %.ss.12
+	%printf.return_value.16 =w call $printf(l $str.17, ..., w %sv.18)
 	# Store value into Other.value (offset: 0)
-	%offset.22 =l add %.ss.14, 0
-	storew 40, %offset.22
+	%offset.19 =l add %.ss.14, 0
+	storew 40, %offset.19
 	blit %.ss.14, %.ss.15, 4
-	%.address_of.23 =l add %.ss.15, 0
-	storel %.address_of.23, %.ss.16
-	%.deref.src.24 =l add %.ss.16, 0
-	%.deref.ptr.25 =l loadl %.deref.src.24
-	blit %.deref.ptr.25, %.ss.17, 4
+	storel %.ss.15, %.ss.16
+	%.deref.src.20 =l add %.ss.16, 0
+	%.deref.ptr.21 =l loadl %.deref.src.20
+	blit %.deref.ptr.21, %.ss.17, 4
 	blit %.ss.17, %.ss.18, 4
-	%printf.return_value.26 =w call $printf(l $str.27, ..., :Other %.ss.18)
+	%printf.return_value.22 =w call $printf(l $str.23, ..., :Other %.ss.18)
 	ret 0
 }
-data $str.7 = { b "*a.value = %d\n", b 0 }
-data $str.12 = { b "*c = %d\n", b 0 }
-data $str.20 = { b "e = %d\n", b 0 }
-data $str.27 = { b "h.value = %d\n", b 0 }
+data $str.6 = { b "*a.value = %d\n", b 0 }
+data $str.10 = { b "*c = %d\n", b 0 }
+data $str.17 = { b "e = %d\n", b 0 }
+data $str.23 = { b "h.value = %d\n", b 0 }

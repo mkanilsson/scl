@@ -1,8 +1,11 @@
 use std::io::printf
 
-proc main() void {
+proc main() u32 {
     let a = 10;
     let b = &a;
+
     printf("%d\n", &a == b);
-    ret;
+    printf("%d\n", *&a);
+    printf("%d\n", *&25);
+    0
 }

@@ -76,13 +76,8 @@ pub enum CheckedExprKind {
         lhs: Box<CheckedExpr>,
         rhs: Box<CheckedExpr>,
     },
-    AddressOfLValue {
-        stack_slot: StackSlotId,
-        offset: u64,
-    },
-    AddressOfRValue {
+    AddressOf {
         expr: Box<CheckedExpr>,
-        stack_slot: StackSlotId,
     },
     DerefLValue {
         read_stack_slot: StackSlotId,
@@ -96,6 +91,10 @@ pub enum CheckedExprKind {
         stack_slot: StackSlotId,
     },
     Block(Box<CheckedBlock>),
+    Store {
+        expr: Box<CheckedExpr>,
+        stack_slot: StackSlotId,
+    },
 }
 
 #[derive(Debug, Clone)]

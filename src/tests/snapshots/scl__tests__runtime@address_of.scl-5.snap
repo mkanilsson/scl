@@ -3,4 +3,4 @@ source: src/tests/mod.rs
 expression: run_cmd.status
 input_file: src/tests/sources/runtime/address_of.scl
 ---
-exit status: 2
+exit status: 0

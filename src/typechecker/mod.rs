@@ -1351,16 +1351,19 @@ impl Checker {
             .register_type(Type::Ptr(checked_expr.value.type_id));
 
         let kind = if checked_expr.value.lvalue {
-            let slot_and_offset =
-                self.find_stack_slot_and_offset_for_assignment(&checked_expr.value);
-            CheckedExprKind::AddressOfLValue {
-                stack_slot: slot_and_offset.0,
-                offset: slot_and_offset.1,
+            CheckedExprKind::AddressOf {
+                expr: Box::new(checked_expr.value),
             }
         } else {
-            CheckedExprKind::AddressOfRValue {
-                stack_slot: ss.allocate(checked_expr.value.type_id),
-                expr: Box::new(checked_expr.value),
+            CheckedExprKind::AddressOf {
+                expr: Box::new(CheckedExpr {
+                    type_id: checked_expr.value.type_id,
+                    lvalue: true,
+                    kind: CheckedExprKind::Store {
+                        stack_slot: ss.allocate(checked_expr.value.type_id),
+                        expr: Box::new(checked_expr.value),
+                    },
+                }),
             }
         };
 

@@ -4,3 +4,5 @@ expression: stdout
 input_file: src/tests/sources/runtime/address_of.scl
 ---
 1
+10
+25
