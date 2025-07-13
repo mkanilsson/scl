@@ -1398,19 +1398,23 @@ impl Checker {
         let type_id = self.types.inner_of(checked_expr.value.type_id);
 
         let kind = if checked_expr.value.lvalue {
-            let slot_and_offset =
-                self.find_stack_slot_and_offset_for_assignment(&checked_expr.value);
-            CheckedExprKind::DerefLValue {
-                read_stack_slot: slot_and_offset.0,
-                read_offset: slot_and_offset.1,
-                type_id,
-                store_stack_slot: ss.allocate(type_id),
-            }
-        } else {
-            CheckedExprKind::DerefRValue {
-                type_id,
+            CheckedExprKind::Deref {
+                type_id: checked_expr.value.type_id,
                 stack_slot: ss.allocate(checked_expr.value.type_id),
                 expr: Box::new(checked_expr.value),
+            }
+        } else {
+            CheckedExprKind::Deref {
+                type_id: checked_expr.value.type_id,
+                stack_slot: ss.allocate(checked_expr.value.type_id),
+                expr: Box::new(CheckedExpr {
+                    type_id: checked_expr.value.type_id,
+                    lvalue: true,
+                    kind: CheckedExprKind::Store {
+                        stack_slot: ss.allocate(checked_expr.value.type_id),
+                        expr: Box::new(checked_expr.value),
+                    },
+                }),
             }
         };
 

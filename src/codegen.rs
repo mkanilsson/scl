@@ -227,23 +227,11 @@ impl Codegen {
             CheckedExprKind::AddressOf { expr } => {
                 self.codegen_address_of_expr(expr, function, module)
             }
-            CheckedExprKind::DerefLValue {
-                read_stack_slot,
-                read_offset,
+            CheckedExprKind::Deref {
                 type_id,
-                store_stack_slot,
-            } => self.codegen_deref_lvalue_expr(
-                *type_id,
-                *read_stack_slot,
-                *read_offset,
-                *store_stack_slot,
-                function,
-            ),
-            CheckedExprKind::DerefRValue {
-                type_id,
-                stack_slot,
                 expr,
-            } => self.codegen_deref_rvalue_expr(*type_id, expr, *stack_slot, function, module),
+                stack_slot,
+            } => self.codegen_deref_expr(*type_id, expr, *stack_slot, function, module),
             CheckedExprKind::Block(block) => self
                 .codegen_block(
                     &format!(".block.{}", self.unique_tag()),
@@ -454,30 +442,26 @@ impl Codegen {
         (Type::Long, value)
     }
 
-    fn codegen_deref_lvalue_expr<'a>(
+    fn codegen_deref_expr<'a>(
         &'a self,
         type_id: TypeId,
-        read_stack_slot: StackSlotId,
-        read_offset: u64,
-        store_stack_slot: StackSlotId,
+        expr: &CheckedExpr,
+        stack_slot: StackSlotId,
         function: &mut Function<'a>,
+        module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         // Get the offset into the stackslot where the ptr is stored
-        let src = Value::Temporary(format!(".deref.src.{}", self.unique_tag()));
-        function.assign_instr(
-            src.clone(),
-            Type::Long,
-            Instr::Add(
-                Value::Temporary(read_stack_slot.qbe_name()),
-                Value::Const(read_offset),
-            ),
-        );
+        let address_to_ptr = self.codegen_expr_for_read(expr, function, module);
 
         // Read the ptr value
         let ptr = Value::Temporary(format!(".deref.ptr.{}", self.unique_tag()));
-        function.assign_instr(ptr.clone(), Type::Long, Instr::Load(Type::Long, src));
+        function.assign_instr(
+            ptr.clone(),
+            Type::Long,
+            Instr::Load(Type::Long, address_to_ptr),
+        );
 
-        let dest = Value::Temporary(store_stack_slot.qbe_name());
+        let dest = Value::Temporary(stack_slot.qbe_name());
         let t = self.checker.types.qbe_type_of(type_id);
 
         // Load the data from the ptr and store it in the new slot
@@ -647,10 +631,9 @@ impl Codegen {
             CheckedExprKind::MemberAccess { lhs, name } => {
                 self.codegen_member_access_expr_for_read(lhs, &name, function, module)
             }
-            CheckedExprKind::DerefLValue { .. } => {
+            CheckedExprKind::Deref { .. } => {
                 todo!()
             }
-            CheckedExprKind::DerefRValue { .. } => todo!(),
             CheckedExprKind::Assignment { .. } => panic!("Assignment for read???"),
             _ => self.codegen_expr(expr, function, module).1,
         }

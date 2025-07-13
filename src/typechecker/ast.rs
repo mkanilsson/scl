@@ -79,13 +79,7 @@ pub enum CheckedExprKind {
     AddressOf {
         expr: Box<CheckedExpr>,
     },
-    DerefLValue {
-        read_stack_slot: StackSlotId,
-        read_offset: u64,
-        type_id: TypeId,
-        store_stack_slot: StackSlotId,
-    },
-    DerefRValue {
+    Deref {
         type_id: TypeId,
         expr: Box<CheckedExpr>,
         stack_slot: StackSlotId,

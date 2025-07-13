@@ -21,23 +21,29 @@ export function w $main() {
 	%.ss.1 =l alloc8 8
 	%.ss.2 =l alloc4 4
 	%.ss.3 =l alloc8 8
-	%.ss.4 =l alloc4 4
+	%.ss.4 =l alloc8 8
 	%.ss.5 =l alloc4 4
-	%.ss.6 =l alloc8 8
-	%.ss.7 =l alloc4 4
+	%.ss.6 =l alloc4 4
+	%.ss.7 =l alloc8 8
+	%.ss.8 =l alloc8 8
+	%.ss.9 =l alloc4 4
 @body
 	storew 10, %.ss.0
 	storel %.ss.0, %.ss.1
 	%sv.6 =l loadl %.ss.1
 	%binop.7 =l ceql %.ss.0, %sv.6
 	%printf.return_value.4 =w call $printf(l $str.5, ..., l %binop.7)
-	%.ss.3 =w loadw %.ss.0
-	%printf.return_value.8 =w call $printf(l $str.9, ..., w %.ss.3)
-	storew 25, %.ss.5
-	%.ss.6 =w loadw %.ss.5
-	%printf.return_value.10 =w call $printf(l $str.11, ..., w %.ss.6)
+	storel %.ss.0, %.ss.4
+	%.deref.ptr.10 =l loadl %.ss.4
+	%.ss.3 =l loadl %.deref.ptr.10
+	%printf.return_value.8 =w call $printf(l $str.9, ..., l %.ss.3)
+	storew 25, %.ss.6
+	storel %.ss.6, %.ss.8
+	%.deref.ptr.13 =l loadl %.ss.8
+	%.ss.7 =l loadl %.deref.ptr.13
+	%printf.return_value.11 =w call $printf(l $str.12, ..., l %.ss.7)
 	ret 0
 }
 data $str.5 = { b "%d\n", b 0 }
 data $str.9 = { b "%d\n", b 0 }
-data $str.11 = { b "%d\n", b 0 }
+data $str.12 = { b "%d\n", b 0 }

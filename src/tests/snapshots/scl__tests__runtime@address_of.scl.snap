@@ -145,27 +145,38 @@ CheckedPackage {
                                                     2,
                                                 ),
                                                 lvalue: true,
-                                                kind: DerefRValue {
+                                                kind: Deref {
                                                     type_id: TypeId(
-                                                        2,
+                                                        10,
                                                     ),
                                                     expr: CheckedExpr {
                                                         type_id: TypeId(
                                                             10,
                                                         ),
-                                                        lvalue: false,
-                                                        kind: AddressOf {
+                                                        lvalue: true,
+                                                        kind: Store {
                                                             expr: CheckedExpr {
                                                                 type_id: TypeId(
-                                                                    2,
+                                                                    10,
                                                                 ),
-                                                                lvalue: true,
-                                                                kind: StackValue(
-                                                                    StackSlotId(
-                                                                        0,
-                                                                    ),
-                                                                ),
+                                                                lvalue: false,
+                                                                kind: AddressOf {
+                                                                    expr: CheckedExpr {
+                                                                        type_id: TypeId(
+                                                                            2,
+                                                                        ),
+                                                                        lvalue: true,
+                                                                        kind: StackValue(
+                                                                            StackSlotId(
+                                                                                0,
+                                                                            ),
+                                                                        ),
+                                                                    },
+                                                                },
                                                             },
+                                                            stack_slot: StackSlotId(
+                                                                4,
+                                                            ),
                                                         },
                                                     },
                                                     stack_slot: StackSlotId(
@@ -178,7 +189,7 @@ CheckedPackage {
                                             1,
                                         ),
                                         stack_slot: StackSlotId(
-                                            4,
+                                            5,
                                         ),
                                     },
                                 },
@@ -206,40 +217,51 @@ CheckedPackage {
                                                     2,
                                                 ),
                                                 lvalue: true,
-                                                kind: DerefRValue {
+                                                kind: Deref {
                                                     type_id: TypeId(
-                                                        2,
+                                                        10,
                                                     ),
                                                     expr: CheckedExpr {
                                                         type_id: TypeId(
                                                             10,
                                                         ),
-                                                        lvalue: false,
-                                                        kind: AddressOf {
+                                                        lvalue: true,
+                                                        kind: Store {
                                                             expr: CheckedExpr {
                                                                 type_id: TypeId(
-                                                                    2,
+                                                                    10,
                                                                 ),
-                                                                lvalue: true,
-                                                                kind: Store {
+                                                                lvalue: false,
+                                                                kind: AddressOf {
                                                                     expr: CheckedExpr {
                                                                         type_id: TypeId(
                                                                             2,
                                                                         ),
-                                                                        lvalue: false,
-                                                                        kind: Number(
-                                                                            25,
-                                                                        ),
+                                                                        lvalue: true,
+                                                                        kind: Store {
+                                                                            expr: CheckedExpr {
+                                                                                type_id: TypeId(
+                                                                                    2,
+                                                                                ),
+                                                                                lvalue: false,
+                                                                                kind: Number(
+                                                                                    25,
+                                                                                ),
+                                                                            },
+                                                                            stack_slot: StackSlotId(
+                                                                                6,
+                                                                            ),
+                                                                        },
                                                                     },
-                                                                    stack_slot: StackSlotId(
-                                                                        5,
-                                                                    ),
                                                                 },
                                                             },
+                                                            stack_slot: StackSlotId(
+                                                                8,
+                                                            ),
                                                         },
                                                     },
                                                     stack_slot: StackSlotId(
-                                                        6,
+                                                        7,
                                                     ),
                                                 },
                                             },
@@ -248,7 +270,7 @@ CheckedPackage {
                                             1,
                                         ),
                                         stack_slot: StackSlotId(
-                                            7,
+                                            9,
                                         ),
                                     },
                                 },
@@ -288,10 +310,16 @@ CheckedPackage {
                                 10,
                             ),
                             TypeId(
+                                10,
+                            ),
+                            TypeId(
                                 3,
                             ),
                             TypeId(
                                 2,
+                            ),
+                            TypeId(
+                                10,
                             ),
                             TypeId(
                                 10,
