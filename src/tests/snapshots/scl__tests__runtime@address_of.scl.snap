@@ -257,7 +257,7 @@ CheckedPackage {
                         last: Some(
                             CheckedExpr {
                                 type_id: TypeId(
-                                    3,
+                                    2,
                                 ),
                                 lvalue: false,
                                 kind: Number(
@@ -266,12 +266,12 @@ CheckedPackage {
                             },
                         ),
                         type_id: TypeId(
-                            3,
+                            2,
                         ),
                     },
                     params: [],
                     return_type: TypeId(
-                        3,
+                        2,
                     ),
                     stack_slots: StackSlots {
                         slots: [

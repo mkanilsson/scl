@@ -17,7 +17,7 @@ export function w $add(w %a, w %b) {
 	%binop.3 =w add %sv.1, %sv.2
 	ret %binop.3
 }
-export function $main() {
+export function w $main() {
 @start
 	%.ss.0 =l alloc4 8
 	%.ss.1 =l alloc4 8
@@ -81,7 +81,7 @@ export function $main() {
 	%offset.46 =l add %offset.45, 4
 	%member_access.47 =w loadw %offset.46
 	%printf.return_value.43 =w call $printf(l $str.44, ..., w %member_access.47)
-	ret
+	ret 0
 }
 data $str.8 = { b "Before\n", b 0 }
 data $str.10 = { b "a = %d\n", b 0 }

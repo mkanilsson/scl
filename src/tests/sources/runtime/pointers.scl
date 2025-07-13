@@ -8,7 +8,7 @@ struct Other {
     value: i32
 }
 
-proc main() u32 {
+proc main() i32 {
     let value = 10;
     let a = Thing {
         value: &value

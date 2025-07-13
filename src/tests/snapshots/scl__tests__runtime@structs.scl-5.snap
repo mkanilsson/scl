@@ -3,4 +3,4 @@ source: src/tests/mod.rs
 expression: run_cmd.status
 input_file: src/tests/sources/runtime/structs.scl
 ---
-exit status: 6
+exit status: 0

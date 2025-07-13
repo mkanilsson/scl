@@ -619,18 +619,25 @@ CheckedPackage {
                                     },
                                 },
                             ),
-                            Return {
-                                value: None,
-                            },
                         ],
-                        last: None,
+                        last: Some(
+                            CheckedExpr {
+                                type_id: TypeId(
+                                    2,
+                                ),
+                                lvalue: false,
+                                kind: Number(
+                                    0,
+                                ),
+                            },
+                        ),
                         type_id: TypeId(
-                            0,
+                            2,
                         ),
                     },
                     params: [],
                     return_type: TypeId(
-                        0,
+                        2,
                     ),
                     stack_slots: StackSlots {
                         slots: [

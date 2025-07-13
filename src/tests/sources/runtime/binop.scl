@@ -1,6 +1,6 @@
 use std::io::printf
 
-proc main() u32 {
+proc main() i32 {
     let a = 20;
     let b = 10;
 
