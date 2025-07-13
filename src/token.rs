@@ -135,7 +135,7 @@ pub enum TokenKind {
 
     #[name("{")]
     #[nud(Parser::parse_primary)]
-    #[led(BindingPower::Multiplicative, Parser::parse_struct_instantation)]
+    #[led(BindingPower::StructInstantation, Parser::parse_struct_instantation)]
     OpenCurly,
     #[name("}")]
     CloseCurly,

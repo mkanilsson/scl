@@ -22,6 +22,7 @@ pub enum BindingPower {
     Additive,
     Multiplicative,
     Unary,
+    StructInstantation,
     Call,
     Member,
     Primary,
