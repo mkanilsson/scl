@@ -1,3 +1,6 @@
+use std::env;
+use std::path::PathBuf;
+
 use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::{
@@ -29,7 +32,7 @@ pub enum BindingPower {
 }
 
 pub struct Parser {
-    file_name: String,
+    file_name: PathBuf,
     content: String,
     tokens: Vec<Token>,
     i: usize,
@@ -46,7 +49,20 @@ impl Parser {
     }
 
     fn named_source(&self) -> NamedSource<String> {
-        NamedSource::new(self.file_name.clone(), self.content.clone())
+        NamedSource::new(self.relative_path(), self.content.clone())
+    }
+
+    fn relative_path(&self) -> String {
+        let current_dir = env::current_dir().unwrap();
+        if self.file_name.starts_with(&current_dir) {
+            self.file_name
+                .strip_prefix(current_dir)
+                .unwrap_or(&self.file_name)
+                .to_string_lossy()
+                .to_string()
+        } else {
+            self.file_name.to_string_lossy().to_string()
+        }
     }
 
     fn span_from_first_and_last(first: SourceSpan, last: SourceSpan) -> SourceSpan {
@@ -96,7 +112,7 @@ impl Parser {
             extern_procs,
             structs,
             imports,
-            source: NamedSource::new(self.file_name, self.content),
+            source: NamedSource::new(self.relative_path(), self.content),
         })
     }
 

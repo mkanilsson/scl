@@ -3,18 +3,18 @@ use std::path::PathBuf;
 use crate::token::{Token, TokenKind};
 
 pub struct Lexer {
-    pub file_name: String,
+    pub file_name: PathBuf,
     pub content: String,
     position: usize,
     has_emitted_eof: bool,
 }
 
 impl Lexer {
-    pub fn new(path: &PathBuf) -> Self {
+    pub fn new(path: PathBuf) -> Self {
         Self {
-            content: std::fs::read_to_string(path).unwrap(),
+            content: std::fs::read_to_string(&path).unwrap(),
             position: 0,
-            file_name: path.to_string_lossy().to_string(),
+            file_name: path,
             has_emitted_eof: false,
         }
     }

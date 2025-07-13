@@ -129,7 +129,7 @@ impl Package {
     }
 
     fn parse_module(module: Module) -> Result<ParsedModule> {
-        let lexer = Lexer::new(&module.path);
+        let lexer = Lexer::new(module.path.clone());
         let parser = Parser::new(lexer);
         let unit = parser.parse()?;
 
