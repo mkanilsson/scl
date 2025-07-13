@@ -324,6 +324,14 @@ impl Parser {
                     ExprKind::AddressOf(Box::new(expr)),
                 ));
             }
+            TokenKind::Star => {
+                let expr = self.parse_expr(BindingPower::Unary)?;
+                return Ok(Self::new_expr(
+                    token.span,
+                    expr.span,
+                    ExprKind::Deref(Box::new(expr)),
+                ));
+            }
             TokenKind::OpenParen => {
                 let expr = self.parse_expr(BindingPower::Default)?;
                 let last = self.expect(TokenKind::CloseParen)?;

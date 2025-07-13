@@ -257,8 +257,19 @@ impl TypeCollection {
         self.types.get(type_id.0).unwrap().to_string(self)
     }
 
+    pub fn inner_of(&self, type_id: TypeId) -> TypeId {
+        match self.types.get(type_id.0).unwrap() {
+            Type::Ptr(type_id) => *type_id,
+            _ => panic!("inner_of on non-ptr"),
+        }
+    }
+
     pub fn is_number(&self, type_id: TypeId) -> bool {
         self.get_definition(type_id).is_number()
+    }
+
+    pub fn is_ptr(&self, type_id: TypeId) -> bool {
+        self.get_definition(type_id).is_ptr()
     }
 
     pub fn define_struct(&mut self, type_id: TypeId, s: Type) {

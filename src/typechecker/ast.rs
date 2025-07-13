@@ -85,6 +85,17 @@ pub enum CheckedExprKind {
         expr: Box<CheckedExpr>,
         stack_slot: StackSlotId,
     },
+    DerefLValue {
+        read_stack_slot: StackSlotId,
+        read_offset: u64,
+        type_id: TypeId,
+        store_stack_slot: StackSlotId,
+    },
+    DerefRValue {
+        type_id: TypeId,
+        expr: Box<CheckedExpr>,
+        stack_slot: StackSlotId,
+    },
     Block(Box<CheckedBlock>),
 }
 

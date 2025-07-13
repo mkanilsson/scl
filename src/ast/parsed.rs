@@ -84,6 +84,7 @@ pub enum ExprKind {
         false_block: Box<Block>,
     },
     AddressOf(Box<Expr>),
+    Deref(Box<Expr>),
     Block(Box<Block>),
 }
 

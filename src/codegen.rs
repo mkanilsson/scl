@@ -167,7 +167,7 @@ impl Codegen {
         let expr = self.codegen_expr(value, function, module);
 
         let dest = Value::Temporary(stack_slot.qbe_name());
-        self.copy(expr.0, expr.1, dest, function);
+        self.store(expr.0, expr.1, dest, function);
     }
 
     fn codegen_expr<'a>(
@@ -232,6 +232,23 @@ impl Codegen {
             CheckedExprKind::AddressOfRValue { stack_slot, expr } => {
                 self.codegen_address_of_rvalue_expr(expr, *stack_slot, function, module)
             }
+            CheckedExprKind::DerefLValue {
+                read_stack_slot,
+                read_offset,
+                type_id,
+                store_stack_slot,
+            } => self.codegen_deref_lvalue_expr(
+                *type_id,
+                *read_stack_slot,
+                *read_offset,
+                *store_stack_slot,
+                function,
+            ),
+            CheckedExprKind::DerefRValue {
+                type_id,
+                stack_slot,
+                expr,
+            } => self.codegen_deref_rvalue_expr(*type_id, expr, *stack_slot, function, module),
             CheckedExprKind::Block(block) => self
                 .codegen_block(
                     &format!(".block.{}", self.unique_tag()),
@@ -308,7 +325,7 @@ impl Codegen {
         );
 
         let dest = Value::Temporary(stack_slot.qbe_name());
-        let dest = self.copy_if_needed(result_type.clone(), result_value, dest, function);
+        let dest = self.store_if_needed(result_type.clone(), result_value, dest, function);
 
         (result_type, dest)
     }
@@ -345,7 +362,7 @@ impl Codegen {
                 Instr::Add(dest.clone(), Value::Const(field_layout.offset as u64)),
             );
 
-            self.copy(expr.0, expr.1, offset_value, function);
+            self.store(expr.0, expr.1, offset_value, function);
         }
 
         (self.checker.types.qbe_type_of(expr.type_id), dest)
@@ -444,9 +461,60 @@ impl Codegen {
         let generated_expr = self.codegen_expr(expr, function, module);
         let value = Value::Temporary(stack_slot.qbe_name());
 
-        self.copy(generated_expr.0, generated_expr.1, value.clone(), function);
+        self.store(generated_expr.0, generated_expr.1, value.clone(), function);
 
         (Type::Long, value)
+    }
+
+    fn codegen_deref_lvalue_expr<'a>(
+        &'a self,
+        type_id: TypeId,
+        read_stack_slot: StackSlotId,
+        read_offset: u64,
+        store_stack_slot: StackSlotId,
+        function: &mut Function<'a>,
+    ) -> (Type<'a>, Value) {
+        // Get the offset into the stackslot where the ptr is stored
+        let src = Value::Temporary(format!(".deref.src.{}", self.unique_tag()));
+        function.assign_instr(
+            src.clone(),
+            Type::Long,
+            Instr::Add(
+                Value::Temporary(read_stack_slot.qbe_name()),
+                Value::Const(read_offset),
+            ),
+        );
+
+        // Read the ptr value
+        let ptr = Value::Temporary(format!(".deref.ptr.{}", self.unique_tag()));
+        function.assign_instr(ptr.clone(), Type::Long, Instr::Load(Type::Long, src));
+
+        let dest = Value::Temporary(store_stack_slot.qbe_name());
+        let t = self.checker.types.qbe_type_of(type_id);
+
+        // Load the data from the ptr and store it in the new slot
+        self.load(t.clone(), ptr, dest.clone(), function);
+
+        (t, dest)
+    }
+
+    fn codegen_deref_rvalue_expr<'a>(
+        &'a self,
+        type_id: TypeId,
+        expr: &CheckedExpr,
+        stack_slot: StackSlotId,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let generated_expr = self.codegen_expr(expr, function, module);
+
+        let dest = Value::Temporary(stack_slot.qbe_name());
+        let t = self.checker.types.qbe_type_of(type_id);
+
+        // Load the data from the ptr and store it in the new slot
+        self.load(t.clone(), generated_expr.1, dest.clone(), function);
+
+        (t, dest)
     }
 
     fn codegen_assignment_expr<'a>(
@@ -467,7 +535,7 @@ impl Codegen {
             Instr::Add(origin, Value::Const(offset)),
         );
 
-        self.copy(
+        self.store(
             generated_rhs.0.clone(),
             generated_rhs.1,
             offset_temp.clone(),
@@ -573,7 +641,7 @@ impl Codegen {
         new
     }
 
-    fn copy<'a>(
+    fn store<'a>(
         &'a self,
         qbe_type: Type<'a>,
         src_or_value: Value,
@@ -590,7 +658,7 @@ impl Codegen {
         dest
     }
 
-    fn copy_if_needed<'a>(
+    fn store_if_needed<'a>(
         &'a self,
         qbe_type: Type<'a>,
         src_or_value: Value,
@@ -598,8 +666,29 @@ impl Codegen {
         function: &mut Function<'a>,
     ) -> Value {
         match qbe_type {
-            Type::Aggregate(_) => self.copy(qbe_type, src_or_value, dest, function),
+            Type::Aggregate(_) => self.store(qbe_type, src_or_value, dest, function),
             _ => src_or_value,
         }
+    }
+
+    fn load<'a>(
+        &'a self,
+        qbe_type: Type<'a>,
+        src_or_value: Value,
+        dest: Value,
+        function: &mut Function<'a>,
+    ) -> Value {
+        match qbe_type {
+            Type::Aggregate(_) => {
+                function.add_instr(Instr::Blit(src_or_value, dest.clone(), qbe_type.size()));
+            }
+            _ => function.assign_instr(
+                dest.clone(),
+                qbe_type.clone(),
+                Instr::Load(qbe_type, src_or_value),
+            ),
+        }
+
+        dest
     }
 }

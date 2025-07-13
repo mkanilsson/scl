@@ -831,6 +831,7 @@ impl Checker {
                     block.never,
                 ))
             }
+            ExprKind::Deref(expr) => self.typecheck_deref_expr(&expr, return_type, ctx, ss),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -1358,6 +1359,53 @@ impl Checker {
             }
         } else {
             CheckedExprKind::AddressOfRValue {
+                stack_slot: ss.allocate(checked_expr.value.type_id),
+                expr: Box::new(checked_expr.value),
+            }
+        };
+
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id,
+                kind,
+                lvalue: false,
+            },
+            checked_expr.never,
+        ))
+    }
+
+    fn typecheck_deref_expr(
+        &mut self,
+        expr: &Expr,
+        return_type: (TypeId, SourceSpan),
+        ctx: &CheckerContext,
+        ss: &mut StackSlots,
+    ) -> Result<HasNever<CheckedExpr>> {
+        // TODO: Wanted of ptr of whatever is wanted here
+        let checked_expr = self.typecheck_expr(expr, None, return_type, ctx, true, ss)?;
+
+        if !self.types.is_ptr(checked_expr.value.type_id) {
+            return Err(Error::DerefNonPtr {
+                src: ctx.source.clone(),
+                span: expr.span,
+                type_name: self.types.name_of(checked_expr.value.type_id),
+            });
+        }
+
+        let type_id = self.types.inner_of(checked_expr.value.type_id);
+
+        let kind = if checked_expr.value.lvalue {
+            let slot_and_offset =
+                self.find_stack_slot_and_offset_for_assignment(&checked_expr.value);
+            CheckedExprKind::DerefLValue {
+                read_stack_slot: slot_and_offset.0,
+                read_offset: slot_and_offset.1,
+                type_id,
+                store_stack_slot: ss.allocate(type_id),
+            }
+        } else {
+            CheckedExprKind::DerefRValue {
+                type_id,
                 stack_slot: ss.allocate(checked_expr.value.type_id),
                 expr: Box::new(checked_expr.value),
             }

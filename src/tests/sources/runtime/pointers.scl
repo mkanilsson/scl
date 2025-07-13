@@ -1,0 +1,32 @@
+use std::io::printf
+
+struct Thing {
+    value: *i32
+}
+
+struct Other {
+    value: i32
+}
+
+proc main() u32 {
+    let value = 10;
+    let a = Thing {
+        value: &value
+    };
+    printf("*a.value = %d\n", *a.value);
+
+    let b = 20;
+    let c = &b;
+    printf("*c = %d\n", *c);
+
+    let d = 30;
+    let e = *Thing { value: &d }.value;
+    printf("e = %d\n", e);
+
+    let f = Other { value: 40 };
+    let g = &f;
+    let h = *g;
+    printf("h.value = %d\n", h);
+
+    0
+}

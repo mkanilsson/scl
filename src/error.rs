@@ -378,4 +378,13 @@ pub enum Error {
         #[label("here")]
         span: SourceSpan,
     },
+    #[error("Can't dereference a non-ptr")]
+    DerefNonPtr {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("this evaluates to '{type_name}'")]
+        span: SourceSpan,
+        type_name: String,
+    },
 }
