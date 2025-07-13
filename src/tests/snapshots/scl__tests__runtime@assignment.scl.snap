@@ -38,10 +38,17 @@ CheckedPackage {
                                     ),
                                     lvalue: false,
                                     kind: Assignment {
-                                        stack_slot: StackSlotId(
-                                            0,
-                                        ),
-                                        offset: 0,
+                                        lhs: CheckedExpr {
+                                            type_id: TypeId(
+                                                2,
+                                            ),
+                                            lvalue: true,
+                                            kind: StackValue(
+                                                StackSlotId(
+                                                    0,
+                                                ),
+                                            ),
+                                        },
                                         rhs: CheckedExpr {
                                             type_id: TypeId(
                                                 2,

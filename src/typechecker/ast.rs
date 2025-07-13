@@ -73,8 +73,7 @@ pub enum CheckedExprKind {
         true_block: Box<CheckedBlock>,
     },
     Assignment {
-        stack_slot: StackSlotId,
-        offset: u64,
+        lhs: Box<CheckedExpr>,
         rhs: Box<CheckedExpr>,
     },
     AddressOfLValue {

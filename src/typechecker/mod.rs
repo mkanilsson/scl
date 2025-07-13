@@ -1415,7 +1415,7 @@ impl Checker {
             CheckedExpr {
                 type_id,
                 kind,
-                lvalue: false,
+                lvalue: true,
             },
             checked_expr.never,
         ))
@@ -1455,13 +1455,11 @@ impl Checker {
             });
         }
 
-        let slot_and_offset = self.find_stack_slot_and_offset_for_assignment(&checked_lhs.value);
         Ok(HasNever::new(
             CheckedExpr {
                 type_id: checked_lhs.value.type_id,
                 kind: CheckedExprKind::Assignment {
-                    stack_slot: slot_and_offset.0,
-                    offset: slot_and_offset.1,
+                    lhs: Box::new(checked_lhs.value),
                     rhs: Box::new(checked_rhs.value),
                 },
                 lvalue: false,

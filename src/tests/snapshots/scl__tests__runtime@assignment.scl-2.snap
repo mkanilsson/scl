@@ -20,8 +20,7 @@ export function w $main() {
 	%.ss.0 =l alloc4 4
 @body
 	storew 10, %.ss.0
-	%.offset.4 =l add %.ss.0, 0
-	storew 20, %.offset.4
-	%sv.5 =w loadw %.ss.0
-	ret %sv.5
+	storew 20, %.ss.0
+	%sv.4 =w loadw %.ss.0
+	ret %sv.4
 }

@@ -87,7 +87,7 @@ CheckedPackage {
                                                 type_id: TypeId(
                                                     2,
                                                 ),
-                                                lvalue: false,
+                                                lvalue: true,
                                                 kind: DerefLValue {
                                                     read_stack_slot: StackSlotId(
                                                         2,
@@ -164,7 +164,7 @@ CheckedPackage {
                                                 type_id: TypeId(
                                                     2,
                                                 ),
-                                                lvalue: false,
+                                                lvalue: true,
                                                 kind: DerefLValue {
                                                     read_stack_slot: StackSlotId(
                                                         6,
@@ -210,7 +210,7 @@ CheckedPackage {
                                     type_id: TypeId(
                                         2,
                                     ),
-                                    lvalue: false,
+                                    lvalue: true,
                                     kind: DerefRValue {
                                         type_id: TypeId(
                                             2,
@@ -354,7 +354,7 @@ CheckedPackage {
                                     type_id: TypeId(
                                         10,
                                     ),
-                                    lvalue: false,
+                                    lvalue: true,
                                     kind: DerefLValue {
                                         read_stack_slot: StackSlotId(
                                             16,

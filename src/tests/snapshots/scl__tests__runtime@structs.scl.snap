@@ -226,10 +226,26 @@ CheckedPackage {
                                     ),
                                     lvalue: false,
                                     kind: Assignment {
-                                        stack_slot: StackSlotId(
-                                            2,
-                                        ),
-                                        offset: 0,
+                                        lhs: CheckedExpr {
+                                            type_id: TypeId(
+                                                9,
+                                            ),
+                                            lvalue: true,
+                                            kind: MemberAccess {
+                                                lhs: CheckedExpr {
+                                                    type_id: TypeId(
+                                                        10,
+                                                    ),
+                                                    lvalue: true,
+                                                    kind: StackValue(
+                                                        StackSlotId(
+                                                            2,
+                                                        ),
+                                                    ),
+                                                },
+                                                name: "nested",
+                                            },
+                                        },
                                         rhs: CheckedExpr {
                                             type_id: TypeId(
                                                 9,
@@ -420,10 +436,35 @@ CheckedPackage {
                                     ),
                                     lvalue: false,
                                     kind: Assignment {
-                                        stack_slot: StackSlotId(
-                                            2,
-                                        ),
-                                        offset: 0,
+                                        lhs: CheckedExpr {
+                                            type_id: TypeId(
+                                                2,
+                                            ),
+                                            lvalue: true,
+                                            kind: MemberAccess {
+                                                lhs: CheckedExpr {
+                                                    type_id: TypeId(
+                                                        9,
+                                                    ),
+                                                    lvalue: true,
+                                                    kind: MemberAccess {
+                                                        lhs: CheckedExpr {
+                                                            type_id: TypeId(
+                                                                10,
+                                                            ),
+                                                            lvalue: true,
+                                                            kind: StackValue(
+                                                                StackSlotId(
+                                                                    2,
+                                                                ),
+                                                            ),
+                                                        },
+                                                        name: "nested",
+                                                    },
+                                                },
+                                                name: "a",
+                                            },
+                                        },
                                         rhs: CheckedExpr {
                                             type_id: TypeId(
                                                 2,

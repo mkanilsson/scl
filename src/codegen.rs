@@ -221,11 +221,9 @@ impl Codegen {
             CheckedExprKind::StackValue(stack_slot) => {
                 self.codegen_stack_value_expr(expr.type_id, *stack_slot, function)
             }
-            CheckedExprKind::Assignment {
-                stack_slot,
-                offset,
-                rhs,
-            } => self.codegen_assignment_expr(*stack_slot, *offset, rhs, function, module),
+            CheckedExprKind::Assignment { lhs, rhs } => {
+                self.codegen_assignment_expr(lhs, rhs, function, module)
+            }
             CheckedExprKind::AddressOfLValue { stack_slot, offset } => {
                 self.codegen_address_of_lvalue_expr(*stack_slot, *offset, function, module)
             }
@@ -519,29 +517,22 @@ impl Codegen {
 
     fn codegen_assignment_expr<'a>(
         &'a self,
-        stack_slot: StackSlotId,
-        offset: u64,
+        lhs: &CheckedExpr,
         rhs: &CheckedExpr,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
+        let generate_lhs = self.codegen_expr_for_read(lhs, function, module);
         let generated_rhs = self.codegen_expr(rhs, function, module);
-        let origin = Value::Temporary(stack_slot.qbe_name());
-        let offset_temp = Value::Temporary(format!(".offset.{}", self.unique_tag()));
-
-        function.assign_instr(
-            offset_temp.clone(),
-            Type::Long,
-            Instr::Add(origin, Value::Const(offset)),
-        );
 
         self.store(
             generated_rhs.0.clone(),
             generated_rhs.1,
-            offset_temp.clone(),
+            generate_lhs.clone(),
             function,
         );
-        (generated_rhs.0, offset_temp)
+
+        (generated_rhs.0, generate_lhs)
     }
 
     fn codegen_if_expr<'a>(
@@ -633,6 +624,53 @@ impl Codegen {
         function.assign_instr(binop_result.clone(), generated_lhs.0.clone(), inst);
 
         (generated_lhs.0, binop_result)
+    }
+
+    fn codegen_expr_for_read<'a>(
+        &'a self,
+        expr: &CheckedExpr,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> Value {
+        match &expr.kind {
+            CheckedExprKind::StackValue(stack_slot)
+            | CheckedExprKind::DirectCall { stack_slot, .. }
+            | CheckedExprKind::StructInstantiation { stack_slot, .. } => {
+                Value::Temporary(stack_slot.qbe_name())
+            }
+            CheckedExprKind::MemberAccess { lhs, name } => {
+                self.codegen_member_access_expr_for_read(lhs, &name, function, module)
+            }
+            CheckedExprKind::DerefLValue { .. } => {
+                todo!()
+            }
+            CheckedExprKind::DerefRValue { .. } => todo!(),
+            CheckedExprKind::Assignment { .. } => panic!("Assignment for read???"),
+            _ => self.codegen_expr(expr, function, module).1,
+        }
+    }
+
+    fn codegen_member_access_expr_for_read<'a>(
+        &'a self,
+        lhs: &CheckedExpr,
+        name: &str,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> Value {
+        let generated_lhs = self.codegen_expr_for_read(lhs, function, module);
+
+        let memory_layout = self.checker.types.memory_layout_of(lhs.type_id);
+        let fields = memory_layout.fields.unwrap();
+        let field_layout = fields.get(name).unwrap();
+
+        let access = Value::Temporary(format!(".member_access.{name}.{}", self.unique_tag()));
+        function.assign_instr(
+            access.clone(),
+            Type::Long,
+            Instr::Add(generated_lhs, Value::Const(field_layout.offset as u64)),
+        );
+
+        access
     }
 
     fn unique_tag(&self) -> usize {
