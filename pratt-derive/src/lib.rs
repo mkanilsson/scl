@@ -55,15 +55,6 @@ fn metadata_derive_macro2(
             }
         }
 
-        let mut nud_handler = None;
-
-        if is_nud {
-            let attrs: NudAttribute = deluxe::extract_attributes(&mut variant)?;
-            nud_handler = Some(attrs.0);
-            let ident_str = variant.ident.to_string();
-            nud_names.push(quote::quote! { #ident_str });
-        }
-
         let mut led_bp = None;
         let mut led_handler = None;
 
@@ -85,6 +76,14 @@ fn metadata_derive_macro2(
         } else {
             variant.ident.to_string().to_lowercase()
         };
+
+        let mut nud_handler = None;
+
+        if is_nud {
+            let attrs: NudAttribute = deluxe::extract_attributes(&mut variant)?;
+            nud_handler = Some(attrs.0);
+            nud_names.push(quote::quote! { #name });
+        }
 
         let pattern = match variant.fields {
             syn::Fields::Named(_) => quote::quote! { #ident{..} },
