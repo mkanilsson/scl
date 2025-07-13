@@ -465,9 +465,9 @@ impl Parser {
 
         let Some(nud_fn) = current.nud_handler() else {
             panic!(
-                "Expected one of {} but got {:#?}",
+                "Expected one of {} but got {}",
                 helpers::string_join_with_or(TokenKind::nud_names().as_slice()),
-                current.kind,
+                current.kind.name(),
             );
         };
 
