@@ -819,6 +819,7 @@ impl Checker {
             ExprKind::Assignment { lhs, rhs } => {
                 self.typecheck_assignment_expr(lhs, rhs, return_type, ctx, ss)
             }
+            ExprKind::AddressOf(expr) => self.typecheck_address_of_expr(expr, return_type, ctx, ss),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -1321,6 +1322,43 @@ impl Checker {
                 lvalue: false,
             },
             false,
+        ))
+    }
+
+    fn typecheck_address_of_expr(
+        &mut self,
+        expr: &Expr,
+        return_type: (TypeId, SourceSpan),
+        ctx: &CheckerContext,
+        ss: &mut StackSlots,
+    ) -> Result<HasNever<CheckedExpr>> {
+        // TODO: Wanted inner of ptr
+        let checked_expr = self.typecheck_expr(expr, None, return_type, ctx, true, ss)?;
+        let type_id = self
+            .types
+            .register_type(Type::Ptr(checked_expr.value.type_id));
+
+        let kind = if checked_expr.value.lvalue {
+            let slot_and_offset =
+                self.find_stack_slot_and_offset_for_assignment(&checked_expr.value);
+            CheckedExprKind::AddressOfLValue {
+                stack_slot: slot_and_offset.0,
+                offset: slot_and_offset.1,
+            }
+        } else {
+            CheckedExprKind::AddressOfRValue {
+                stack_slot: ss.allocate(checked_expr.value.type_id),
+                expr: Box::new(checked_expr.value),
+            }
+        };
+
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id,
+                kind,
+                lvalue: false,
+            },
+            checked_expr.never,
         ))
     }
 

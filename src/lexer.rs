@@ -254,6 +254,7 @@ impl Iterator for Lexer {
             '"' => Some(self.read_string()),
             '!' => self.read_exclamation_or_exclamation_equal(),
             '@' => Some(self.read_builtin()),
+            '&' => Some(self.char(TokenKind::Ampersand)),
             c if c.is_ascii_digit() => Some(self.read_number(c)),
             c if c.is_alphabetic() => Some(self.read_identifier(c)),
             c => panic!("Unknown token {c}"),

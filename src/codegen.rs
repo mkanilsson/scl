@@ -226,6 +226,12 @@ impl Codegen {
                 offset,
                 rhs,
             } => self.codegen_assignment_expr(*stack_slot, *offset, rhs, function, module),
+            CheckedExprKind::AddressOfLValue { stack_slot, offset } => {
+                self.codegen_address_of_lvalue_expr(*stack_slot, *offset, function, module)
+            }
+            CheckedExprKind::AddressOfRValue { stack_slot, expr } => {
+                self.codegen_address_of_rvalue_expr(expr, *stack_slot, function, module)
+            }
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -398,6 +404,41 @@ impl Codegen {
                 (tajp, dest)
             }
         }
+    }
+
+    fn codegen_address_of_lvalue_expr<'a>(
+        &'a self,
+        stack_slot: StackSlotId,
+        offset: u64,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let value = Value::Temporary(format!(".address_of.{}", self.unique_tag()));
+        function.assign_instr(
+            value.clone(),
+            Type::Long,
+            Instr::Add(
+                Value::Temporary(stack_slot.qbe_name()),
+                Value::Const(offset),
+            ),
+        );
+
+        (Type::Long, value)
+    }
+
+    fn codegen_address_of_rvalue_expr<'a>(
+        &'a self,
+        expr: &CheckedExpr,
+        stack_slot: StackSlotId,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let generated_expr = self.codegen_expr(expr, function, module);
+        let value = Value::Temporary(stack_slot.qbe_name());
+
+        self.copy(generated_expr.0, generated_expr.1, value.clone(), function);
+
+        (Type::Long, value)
     }
 
     fn codegen_assignment_expr<'a>(

@@ -111,6 +111,10 @@ pub enum TokenKind {
     #[led(BindingPower::Multiplicative, Parser::parse_binary_expr)]
     Slash,
 
+    #[name("&")]
+    #[nud(Parser::parse_primary)]
+    Ampersand,
+
     #[name("=")]
     #[led(BindingPower::Assignment, Parser::parse_assignment)]
     Equal,

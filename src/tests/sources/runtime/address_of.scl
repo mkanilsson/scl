@@ -1,0 +1,8 @@
+use std::io::printf
+
+proc main() void {
+    let a = 10;
+    let b = &a;
+    printf("%d\n", &a == b);
+    ret;
+}

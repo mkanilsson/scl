@@ -1,0 +1,33 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/address_of.scl
+---
+export function w $add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%sv.1 =w loadw %.ss.0
+	%sv.2 =w loadw %.ss.1
+	%binop.3 =w add %sv.1, %sv.2
+	ret %binop.3
+}
+export function $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc8 8
+	%.ss.2 =l alloc4 4
+@body
+	storew 10, %.ss.0
+	%.address_of.4 =l add %.ss.0, 0
+	storel %.address_of.4, %.ss.1
+	%.address_of.7 =l add %.ss.0, 0
+	%sv.8 =l loadl %.ss.1
+	%binop.9 =l ceql %.address_of.7, %sv.8
+	%printf.return_value.5 =w call $printf(l $str.6, ..., l %binop.9)
+	ret
+}
+data $str.6 = { b "%d\n", b 0 }

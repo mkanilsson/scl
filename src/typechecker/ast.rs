@@ -77,6 +77,14 @@ pub enum CheckedExprKind {
         offset: u64,
         rhs: Box<CheckedExpr>,
     },
+    AddressOfLValue {
+        stack_slot: StackSlotId,
+        offset: u64,
+    },
+    AddressOfRValue {
+        expr: Box<CheckedExpr>,
+        stack_slot: StackSlotId,
+    },
 }
 
 #[derive(Debug, Clone)]
