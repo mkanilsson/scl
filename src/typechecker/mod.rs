@@ -820,6 +820,17 @@ impl Checker {
                 self.typecheck_assignment_expr(lhs, rhs, return_type, ctx, ss)
             }
             ExprKind::AddressOf(expr) => self.typecheck_address_of_expr(expr, return_type, ctx, ss),
+            ExprKind::Block(block) => {
+                let block = self.typecheck_block(block, wanted, return_type, ctx, true, ss)?;
+                Ok(HasNever::new(
+                    CheckedExpr {
+                        type_id: block.value.type_id,
+                        lvalue: false,
+                        kind: CheckedExprKind::Block(Box::new(block.value)),
+                    },
+                    block.never,
+                ))
+            }
             kind => todo!("typecheck_expr: {}", kind),
         }
     }

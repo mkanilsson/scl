@@ -138,7 +138,7 @@ impl Parser {
         self.expect(TokenKind::CloseParen)?;
 
         let return_type = self.parse_type()?;
-        let body = self.parse_block()?;
+        let body = self.parse_block(None)?;
 
         Ok(ProcDefinition {
             ident,
@@ -248,8 +248,12 @@ impl Parser {
         })
     }
 
-    fn parse_block(&mut self) -> Result<Block> {
-        let first = self.expect(TokenKind::OpenCurly)?;
+    fn parse_block(&mut self, first: Option<Token>) -> Result<Block> {
+        let first = if let Some(first) = first {
+            first
+        } else {
+            self.expect(TokenKind::OpenCurly)?
+        };
 
         let mut stmts = vec![];
         let mut last = None;
@@ -324,6 +328,14 @@ impl Parser {
                 let last = self.expect(TokenKind::CloseParen)?;
                 return Ok(Self::new_expr(token.span, last.span, expr.kind));
             }
+            TokenKind::OpenCurly => {
+                let block = self.parse_block(Some(token))?;
+                return Ok(Self::new_expr(
+                    block.span,
+                    block.span,
+                    ExprKind::Block(Box::new(block)),
+                ));
+            }
             TokenKind::Builtin(name) => {
                 self.expect(TokenKind::OpenParen)?;
                 let params =
@@ -340,9 +352,9 @@ impl Parser {
                 self.expect(TokenKind::OpenParen)?;
                 let condition = self.parse_expr(BindingPower::Logical)?;
                 self.expect(TokenKind::CloseParen)?;
-                let true_block = self.parse_block()?;
+                let true_block = self.parse_block(None)?;
                 self.expect(TokenKind::Else)?;
-                let false_block = self.parse_block()?;
+                let false_block = self.parse_block(None)?;
 
                 return Ok(Self::new_expr(
                     token.span,

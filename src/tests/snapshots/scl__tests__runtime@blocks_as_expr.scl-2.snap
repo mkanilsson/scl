@@ -1,0 +1,32 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/blocks_as_expr.scl
+---
+export function w $add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%sv.1 =w loadw %.ss.0
+	%sv.2 =w loadw %.ss.1
+	%binop.3 =w add %sv.1, %sv.2
+	ret %binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+@body
+
+@.block.4
+	%binop.5 =w add 5, 6
+	%binop.6 =w add %binop.5, 10
+@.block.7
+	%binop.8 =w add 6, 9
+	%binop.9 =w add %binop.6, %binop.8
+	storew %binop.9, %.ss.0
+	%sv.10 =w loadw %.ss.0
+	ret %sv.10
+}

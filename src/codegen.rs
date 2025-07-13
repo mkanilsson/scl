@@ -232,6 +232,14 @@ impl Codegen {
             CheckedExprKind::AddressOfRValue { stack_slot, expr } => {
                 self.codegen_address_of_rvalue_expr(expr, *stack_slot, function, module)
             }
+            CheckedExprKind::Block(block) => self
+                .codegen_block(
+                    &format!(".block.{}", self.unique_tag()),
+                    block,
+                    function,
+                    module,
+                )
+                .unwrap(),
             kind => todo!("codegen_expr: {}", kind),
         }
     }

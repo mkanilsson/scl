@@ -85,6 +85,7 @@ pub enum CheckedExprKind {
         expr: Box<CheckedExpr>,
         stack_slot: StackSlotId,
     },
+    Block(Box<CheckedBlock>),
 }
 
 #[derive(Debug, Clone)]
