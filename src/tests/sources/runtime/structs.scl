@@ -1,0 +1,39 @@
+use std::io::printf
+
+struct Nested {
+    a: i32,
+    b: bool
+}
+
+struct Thing {
+    nested: Nested
+}
+
+proc main() void {
+    let t = Thing {
+        nested: Nested {
+            a: 10,
+            b: true
+        }
+    };
+
+    printf("Before\n");
+    printf("a = %d\n", t.nested.a);
+    printf("b = %d\n", t.nested.b);
+
+    t.nested = Nested {
+        a: 20,
+        b: false
+    };
+
+    printf("After\n");
+    printf("a = %d\n", t.nested.a);
+    printf("b = %d\n", t.nested.b);
+
+    t.nested.a = 30;
+
+    printf("After memeber assignment\n");
+    printf("a = %d\n", t.nested.a);
+    printf("b = %d\n", t.nested.b);
+    ret;
+}

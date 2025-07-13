@@ -1,0 +1,14 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/structs.scl
+---
+Before
+a = 10
+b = 1
+After
+a = 20
+b = 0
+After memeber assignment
+a = 30
+b = 0

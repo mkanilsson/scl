@@ -1,0 +1,93 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/structs.scl
+---
+type :Nested = { w, w }
+type :Thing = { :Nested }
+export function w $add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%sv.1 =w loadw %.ss.0
+	%sv.2 =w loadw %.ss.1
+	%binop.3 =w add %sv.1, %sv.2
+	ret %binop.3
+}
+export function $main() {
+@start
+	%.ss.0 =l alloc4 8
+	%.ss.1 =l alloc4 8
+	%.ss.2 =l alloc4 8
+	%.ss.3 =l alloc4 4
+	%.ss.4 =l alloc4 4
+	%.ss.5 =l alloc4 4
+	%.ss.6 =l alloc4 8
+	%.ss.7 =l alloc4 4
+	%.ss.8 =l alloc4 4
+	%.ss.9 =l alloc4 4
+	%.ss.10 =l alloc4 4
+	%.ss.11 =l alloc4 4
+	%.ss.12 =l alloc4 4
+@body
+	# Store value into Nested.a (offset: 0)
+	%offset.4 =l add %.ss.0, 0
+	storew 10, %offset.4
+	# Store value into Nested.b (offset: 4)
+	%offset.5 =l add %.ss.0, 4
+	storew 1, %offset.5
+	# Store value into Thing.nested (offset: 0)
+	%offset.6 =l add %.ss.1, 0
+	blit %.ss.0, %offset.6, 8
+	blit %.ss.1, %.ss.2, 8
+	%printf.return_value.7 =w call $printf(l $str.8, ...)
+	%offset.11 =l add %.ss.2, 0
+	%offset.12 =l add %offset.11, 0
+	%member_access.13 =w loadw %offset.12
+	%printf.return_value.9 =w call $printf(l $str.10, ..., w %member_access.13)
+	%offset.16 =l add %.ss.2, 0
+	%offset.17 =l add %offset.16, 4
+	%member_access.18 =w loadw %offset.17
+	%printf.return_value.14 =w call $printf(l $str.15, ..., w %member_access.18)
+	# Store value into Nested.a (offset: 0)
+	%offset.19 =l add %.ss.6, 0
+	storew 20, %offset.19
+	# Store value into Nested.b (offset: 4)
+	%offset.20 =l add %.ss.6, 4
+	storew 0, %offset.20
+	%.offset.21 =l add %.ss.2, 0
+	blit %.ss.6, %.offset.21, 8
+	%printf.return_value.22 =w call $printf(l $str.23, ...)
+	%offset.26 =l add %.ss.2, 0
+	%offset.27 =l add %offset.26, 0
+	%member_access.28 =w loadw %offset.27
+	%printf.return_value.24 =w call $printf(l $str.25, ..., w %member_access.28)
+	%offset.31 =l add %.ss.2, 0
+	%offset.32 =l add %offset.31, 4
+	%member_access.33 =w loadw %offset.32
+	%printf.return_value.29 =w call $printf(l $str.30, ..., w %member_access.33)
+	%.offset.34 =l add %.ss.2, 0
+	storew 30, %.offset.34
+	%printf.return_value.35 =w call $printf(l $str.36, ...)
+	%offset.39 =l add %.ss.2, 0
+	%offset.40 =l add %offset.39, 0
+	%member_access.41 =w loadw %offset.40
+	%printf.return_value.37 =w call $printf(l $str.38, ..., w %member_access.41)
+	%offset.44 =l add %.ss.2, 0
+	%offset.45 =l add %offset.44, 4
+	%member_access.46 =w loadw %offset.45
+	%printf.return_value.42 =w call $printf(l $str.43, ..., w %member_access.46)
+	ret
+}
+data $str.8 = { b "Before\n", b 0 }
+data $str.10 = { b "a = %d\n", b 0 }
+data $str.15 = { b "b = %d\n", b 0 }
+data $str.23 = { b "After\n", b 0 }
+data $str.25 = { b "a = %d\n", b 0 }
+data $str.30 = { b "b = %d\n", b 0 }
+data $str.36 = { b "After memeber assignment\n", b 0 }
+data $str.38 = { b "a = %d\n", b 0 }
+data $str.43 = { b "b = %d\n", b 0 }

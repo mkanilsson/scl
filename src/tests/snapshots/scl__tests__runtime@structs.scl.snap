@@ -1,0 +1,641 @@
+---
+source: src/tests/mod.rs
+expression: checked_main_package
+input_file: src/tests/sources/runtime/structs.scl
+---
+CheckedPackage {
+    package_id: ModuleId(
+        3,
+    ),
+    units: [
+        CheckedTranslationUnit {
+            procs: [
+                CheckedProc {
+                    name: "main",
+                    type_id: TypeId(
+                        11,
+                    ),
+                    body: CheckedBlock {
+                        stmts: [
+                            VariableDeclaration {
+                                stack_slot: StackSlotId(
+                                    2,
+                                ),
+                                value: CheckedExpr {
+                                    type_id: TypeId(
+                                        10,
+                                    ),
+                                    lvalue: false,
+                                    kind: StructInstantiation {
+                                        name: "Thing",
+                                        stack_slot: StackSlotId(
+                                            1,
+                                        ),
+                                        fields: [
+                                            (
+                                                "nested",
+                                                CheckedExpr {
+                                                    type_id: TypeId(
+                                                        9,
+                                                    ),
+                                                    lvalue: false,
+                                                    kind: StructInstantiation {
+                                                        name: "Nested",
+                                                        stack_slot: StackSlotId(
+                                                            0,
+                                                        ),
+                                                        fields: [
+                                                            (
+                                                                "a",
+                                                                CheckedExpr {
+                                                                    type_id: TypeId(
+                                                                        2,
+                                                                    ),
+                                                                    lvalue: false,
+                                                                    kind: Number(
+                                                                        10,
+                                                                    ),
+                                                                },
+                                                            ),
+                                                            (
+                                                                "b",
+                                                                CheckedExpr {
+                                                                    type_id: TypeId(
+                                                                        1,
+                                                                    ),
+                                                                    lvalue: false,
+                                                                    kind: Number(
+                                                                        1,
+                                                                    ),
+                                                                },
+                                                            ),
+                                                        ],
+                                                    },
+                                                },
+                                            ),
+                                        ],
+                                    },
+                                },
+                            },
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "Before\\n",
+                                                ),
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            3,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "a = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    2,
+                                                ),
+                                                lvalue: true,
+                                                kind: MemberAccess {
+                                                    lhs: CheckedExpr {
+                                                        type_id: TypeId(
+                                                            9,
+                                                        ),
+                                                        lvalue: true,
+                                                        kind: MemberAccess {
+                                                            lhs: CheckedExpr {
+                                                                type_id: TypeId(
+                                                                    10,
+                                                                ),
+                                                                lvalue: true,
+                                                                kind: StackValue(
+                                                                    StackSlotId(
+                                                                        2,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            name: "nested",
+                                                        },
+                                                    },
+                                                    name: "a",
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            4,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "b = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    1,
+                                                ),
+                                                lvalue: true,
+                                                kind: MemberAccess {
+                                                    lhs: CheckedExpr {
+                                                        type_id: TypeId(
+                                                            9,
+                                                        ),
+                                                        lvalue: true,
+                                                        kind: MemberAccess {
+                                                            lhs: CheckedExpr {
+                                                                type_id: TypeId(
+                                                                    10,
+                                                                ),
+                                                                lvalue: true,
+                                                                kind: StackValue(
+                                                                    StackSlotId(
+                                                                        2,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            name: "nested",
+                                                        },
+                                                    },
+                                                    name: "b",
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            5,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        9,
+                                    ),
+                                    lvalue: false,
+                                    kind: Assignment {
+                                        stack_slot: StackSlotId(
+                                            2,
+                                        ),
+                                        offset: 0,
+                                        rhs: CheckedExpr {
+                                            type_id: TypeId(
+                                                9,
+                                            ),
+                                            lvalue: false,
+                                            kind: StructInstantiation {
+                                                name: "Nested",
+                                                stack_slot: StackSlotId(
+                                                    6,
+                                                ),
+                                                fields: [
+                                                    (
+                                                        "a",
+                                                        CheckedExpr {
+                                                            type_id: TypeId(
+                                                                2,
+                                                            ),
+                                                            lvalue: false,
+                                                            kind: Number(
+                                                                20,
+                                                            ),
+                                                        },
+                                                    ),
+                                                    (
+                                                        "b",
+                                                        CheckedExpr {
+                                                            type_id: TypeId(
+                                                                1,
+                                                            ),
+                                                            lvalue: false,
+                                                            kind: Number(
+                                                                0,
+                                                            ),
+                                                        },
+                                                    ),
+                                                ],
+                                            },
+                                        },
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "After\\n",
+                                                ),
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            7,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "a = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    2,
+                                                ),
+                                                lvalue: true,
+                                                kind: MemberAccess {
+                                                    lhs: CheckedExpr {
+                                                        type_id: TypeId(
+                                                            9,
+                                                        ),
+                                                        lvalue: true,
+                                                        kind: MemberAccess {
+                                                            lhs: CheckedExpr {
+                                                                type_id: TypeId(
+                                                                    10,
+                                                                ),
+                                                                lvalue: true,
+                                                                kind: StackValue(
+                                                                    StackSlotId(
+                                                                        2,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            name: "nested",
+                                                        },
+                                                    },
+                                                    name: "a",
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            8,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "b = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    1,
+                                                ),
+                                                lvalue: true,
+                                                kind: MemberAccess {
+                                                    lhs: CheckedExpr {
+                                                        type_id: TypeId(
+                                                            9,
+                                                        ),
+                                                        lvalue: true,
+                                                        kind: MemberAccess {
+                                                            lhs: CheckedExpr {
+                                                                type_id: TypeId(
+                                                                    10,
+                                                                ),
+                                                                lvalue: true,
+                                                                kind: StackValue(
+                                                                    StackSlotId(
+                                                                        2,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            name: "nested",
+                                                        },
+                                                    },
+                                                    name: "b",
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            9,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        2,
+                                    ),
+                                    lvalue: false,
+                                    kind: Assignment {
+                                        stack_slot: StackSlotId(
+                                            2,
+                                        ),
+                                        offset: 0,
+                                        rhs: CheckedExpr {
+                                            type_id: TypeId(
+                                                2,
+                                            ),
+                                            lvalue: false,
+                                            kind: Number(
+                                                30,
+                                            ),
+                                        },
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "After memeber assignment\\n",
+                                                ),
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            10,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "a = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    2,
+                                                ),
+                                                lvalue: true,
+                                                kind: MemberAccess {
+                                                    lhs: CheckedExpr {
+                                                        type_id: TypeId(
+                                                            9,
+                                                        ),
+                                                        lvalue: true,
+                                                        kind: MemberAccess {
+                                                            lhs: CheckedExpr {
+                                                                type_id: TypeId(
+                                                                    10,
+                                                                ),
+                                                                lvalue: true,
+                                                                kind: StackValue(
+                                                                    StackSlotId(
+                                                                        2,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            name: "nested",
+                                                        },
+                                                    },
+                                                    name: "a",
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            11,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "b = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    1,
+                                                ),
+                                                lvalue: true,
+                                                kind: MemberAccess {
+                                                    lhs: CheckedExpr {
+                                                        type_id: TypeId(
+                                                            9,
+                                                        ),
+                                                        lvalue: true,
+                                                        kind: MemberAccess {
+                                                            lhs: CheckedExpr {
+                                                                type_id: TypeId(
+                                                                    10,
+                                                                ),
+                                                                lvalue: true,
+                                                                kind: StackValue(
+                                                                    StackSlotId(
+                                                                        2,
+                                                                    ),
+                                                                ),
+                                                            },
+                                                            name: "nested",
+                                                        },
+                                                    },
+                                                    name: "b",
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            12,
+                                        ),
+                                    },
+                                },
+                            ),
+                            Return {
+                                value: None,
+                            },
+                        ],
+                        last: None,
+                        type_id: TypeId(
+                            0,
+                        ),
+                    },
+                    params: [],
+                    return_type: TypeId(
+                        0,
+                    ),
+                    stack_slots: StackSlots {
+                        slots: [
+                            TypeId(
+                                9,
+                            ),
+                            TypeId(
+                                10,
+                            ),
+                            TypeId(
+                                10,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                9,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                        ],
+                    },
+                },
+            ],
+        },
+    ],
+}
