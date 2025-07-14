@@ -256,9 +256,7 @@ impl Parser {
     }
 
     fn parse_type(&mut self) -> Result<Type> {
-        let Some(current) = self.current() else {
-            todo!("Nice error message");
-        };
+        let current = self.peek();
 
         Ok(match current.kind {
             TokenKind::Identifier(_) => {
