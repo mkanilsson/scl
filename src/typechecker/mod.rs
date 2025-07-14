@@ -1516,25 +1516,6 @@ impl Checker {
         ))
     }
 
-    fn find_stack_slot_and_offset_for_assignment(&self, expr: &CheckedExpr) -> (StackSlotId, u64) {
-        match &expr.kind {
-            CheckedExprKind::StackValue(stack_slot_id) => (*stack_slot_id, 0),
-            CheckedExprKind::DirectCall { stack_slot, .. } => (*stack_slot, 0),
-            CheckedExprKind::MemberAccess { lhs, name } => {
-                let memory_layout = self.types.memory_layout_of(lhs.type_id);
-                let fields = memory_layout.fields.unwrap();
-                let field_layout = fields.get(name).unwrap();
-
-                let slot_and_offset = self.find_stack_slot_and_offset_for_assignment(lhs);
-                (
-                    slot_and_offset.0,
-                    slot_and_offset.1 + field_layout.offset as u64,
-                )
-            }
-            _ => panic!("Invalid lvalue"),
-        }
-    }
-
     fn expect_number(
         &self,
         expr: &CheckedExpr,
