@@ -554,7 +554,7 @@ impl Parser {
         }
     }
 
-    fn expected_one_of_but_got(&self, got: Token, expected: &[TokenKind]) -> Error {
+    fn expected_one_of_but_got(&self, got: &Token, expected: &[TokenKind]) -> Error {
         return Error::ExpectedOneOfButGot {
             src: self.named_source(),
             span: got.span,
@@ -643,7 +643,7 @@ impl Parser {
             _ => {
                 let got = self.next();
                 Err(self.expected_one_of_but_got(
-                    got,
+                    &got,
                     &[TokenKind::Identifier("".into()), TokenKind::Star],
                 ))
             }
