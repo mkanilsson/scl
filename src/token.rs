@@ -152,6 +152,14 @@ pub enum TokenKind {
     #[led(BindingPower::Member, Parser::parse_member_expr)]
     Dot,
 
+    #[name("<")]
+    // TODO: led
+    LessThan,
+
+    #[name(">")]
+    // TODO: led
+    GreaterThan,
+
     #[name("...")]
     DotDotDot,
 
