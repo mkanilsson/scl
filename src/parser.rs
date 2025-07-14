@@ -169,6 +169,24 @@ impl Parser {
         self.expect(TokenKind::Extern)?;
         self.expect(TokenKind::Proc)?;
         let ident = self.expect_ident()?;
+
+        let mut type_params = vec![];
+        match self.peek().kind {
+            TokenKind::OpenParen => (),
+            TokenKind::LessThan => {
+                self.expect(TokenKind::LessThan)?;
+
+                type_params = self
+                    .parse_commma_separated(TokenKind::LessThan, |parser| parser.expect_ident())?;
+
+                self.expect(TokenKind::GreaterThan)?;
+            }
+            _ => {
+                let next = self.next();
+                return Err(self
+                    .expected_one_of_but_got(&next, &[TokenKind::OpenParen, TokenKind::LessThan]));
+            }
+        }
         self.expect(TokenKind::OpenParen)?;
         let mut params = vec![];
 
@@ -205,6 +223,7 @@ impl Parser {
             params,
             return_type,
             variadic,
+            type_params,
         })
     }
 

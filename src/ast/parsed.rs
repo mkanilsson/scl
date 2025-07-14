@@ -146,6 +146,7 @@ pub struct ExternProcDefinition {
     pub params: Vec<Type>,
     pub return_type: Type,
     pub variadic: bool,
+    pub type_params: Vec<Ident>,
 }
 
 #[derive(Debug, Clone)]
