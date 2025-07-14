@@ -1,0 +1,54 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/assignment_via_pointer.scl
+---
+type :Thing = { w }
+export function w $add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%sv.1 =w loadw %.ss.0
+	%sv.2 =w loadw %.ss.1
+	%binop.3 =w add %sv.1, %sv.2
+	ret %binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc8 8
+	%.ss.2 =l alloc8 8
+	%.ss.3 =l alloc4 4
+	%.ss.4 =l alloc4 4
+	%.ss.5 =l alloc4 4
+	%.ss.6 =l alloc8 8
+	%.ss.7 =l alloc8 8
+	%.ss.8 =l alloc4 4
+	%.ss.9 =l alloc4 4
+@body
+	storew 10, %.ss.0
+	storel %.ss.0, %.ss.1
+	%sv.4 =l loadl %.ss.1
+	storew 20, %sv.4
+	%sv.7 =w loadw %.ss.0
+	%printf.return_value.5 =w call $printf(l $str.6, ..., w %sv.7)
+	# Store value into Thing.value (offset: 0)
+	%offset.8 =l add %.ss.4, 0
+	storew 30, %offset.8
+	blit %.ss.4, %.ss.5, 4
+	storel %.ss.5, %.ss.6
+	%sv.9 =l loadl %.ss.6
+	# Store value into Thing.value (offset: 0)
+	%offset.10 =l add %.ss.8, 0
+	storew 40, %offset.10
+	blit %.ss.8, %sv.9, 4
+	%offset.13 =l add %.ss.5, 0
+	%member_access.14 =w loadw %offset.13
+	%printf.return_value.11 =w call $printf(l $str.12, ..., w %member_access.14)
+	ret 0
+}
+data $str.6 = { b "a = %d\n", b 0 }
+data $str.12 = { b "c.value = %d\n", b 0 }

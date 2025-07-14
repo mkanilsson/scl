@@ -631,9 +631,7 @@ impl Codegen {
             CheckedExprKind::MemberAccess { lhs, name } => {
                 self.codegen_member_access_expr_for_read(lhs, &name, function, module)
             }
-            CheckedExprKind::Deref { .. } => {
-                todo!()
-            }
+            CheckedExprKind::Deref { expr, .. } => self.codegen_expr(expr, function, module).1,
             CheckedExprKind::Assignment { .. } => panic!("Assignment for read???"),
             _ => self.codegen_expr(expr, function, module).1,
         }

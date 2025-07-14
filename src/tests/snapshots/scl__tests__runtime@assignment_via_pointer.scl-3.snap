@@ -1,0 +1,7 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/assignment_via_pointer.scl
+---
+a = 20
+c.value = 40

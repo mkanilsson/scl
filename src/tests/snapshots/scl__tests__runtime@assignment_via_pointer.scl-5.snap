@@ -1,0 +1,6 @@
+---
+source: src/tests/mod.rs
+expression: run_cmd.status
+input_file: src/tests/sources/runtime/assignment_via_pointer.scl
+---
+exit status: 0
