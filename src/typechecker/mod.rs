@@ -778,9 +778,11 @@ impl Checker {
                 },
                 false,
             )),
-            ExprKind::Call { expr, params } => {
-                self.typecheck_call_expr(expr, params, wanted, return_type, ctx, ss)
-            }
+            ExprKind::Call {
+                expr,
+                params,
+                generic_params: _,
+            } => self.typecheck_call_expr(expr, params, wanted, return_type, ctx, ss),
             ExprKind::Bool(value) => Ok(HasNever::new(
                 CheckedExpr {
                     type_id: BOOL_TYPE_ID,

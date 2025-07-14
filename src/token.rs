@@ -144,6 +144,7 @@ pub enum TokenKind {
     #[name(":")]
     Colon,
     #[name("::")]
+    #[led(BindingPower::Call, Parser::parse_typed_call_expr)]
     ColonColon,
     #[name(",")]
     Comma,

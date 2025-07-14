@@ -77,6 +77,7 @@ pub enum ExprKind {
     Call {
         expr: Box<Expr>,
         params: Vec<Expr>,
+        generic_params: Vec<Type>,
     },
     If {
         condition: Box<Expr>,

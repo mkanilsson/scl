@@ -471,6 +471,32 @@ impl Parser {
             ExprKind::Call {
                 expr: Box::new(lhs),
                 params,
+                generic_params: vec![],
+            },
+        ))
+    }
+
+    pub fn parse_typed_call_expr(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
+        self.expect(TokenKind::ColonColon)?;
+
+        self.expect(TokenKind::LessThan)?;
+        let generic_params =
+            self.parse_commma_separated(TokenKind::GreaterThan, |parser| parser.parse_type())?;
+        self.expect(TokenKind::GreaterThan)?;
+
+        self.expect(TokenKind::OpenParen)?;
+
+        let params =
+            self.parse_commma_separated_exprs(TokenKind::CloseParen, BindingPower::Logical)?;
+        let last = self.expect(TokenKind::CloseParen)?;
+
+        Ok(Self::new_expr(
+            lhs.span,
+            last.span,
+            ExprKind::Call {
+                expr: Box::new(lhs),
+                params,
+                generic_params,
             },
         ))
     }
