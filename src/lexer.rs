@@ -67,7 +67,7 @@ impl Lexer {
         let mut string = String::from(current);
 
         while let Some(c) = self.peek() {
-            if c.is_alphabetic() || c.is_numeric() || c == '$' {
+            if c.is_alphabetic() || c.is_numeric() || c == '$' || c == '_' {
                 string.push(c);
                 self.advance();
             } else {
