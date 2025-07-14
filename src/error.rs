@@ -398,4 +398,17 @@ pub enum Error {
         span: SourceSpan,
         type_name: String,
     },
+    #[error("Generic already defined with another type")]
+    GenericAlreadyDefinedWithAnotherType {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("defined here as '{defined_name}'")]
+        defined_span: SourceSpan,
+        defined_name: String,
+
+        #[label("infered as '{infered_name}' here")]
+        infered_span: SourceSpan,
+        infered_name: String,
+    },
 }

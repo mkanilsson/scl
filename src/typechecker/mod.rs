@@ -11,7 +11,8 @@ use scope::Scope;
 use stack::{StackSlotId, StackSlots};
 use tajp::{
     BOOL_TYPE_ID, GenericId, I32_TYPE_ID, IdentTypeId, NEVER_TYPE_ID, ProcStructure,
-    STRING_TYPE_ID, StructStructure, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID,
+    STRING_TYPE_ID, Spanned, StructStructure, Type, TypeCollection, TypeId, U32_TYPE_ID,
+    VOID_TYPE_ID,
 };
 
 use crate::{
@@ -962,8 +963,11 @@ impl Checker {
         for (id, generic_param) in generic_params.iter().enumerate() {
             resolved_generics.insert(
                 GenericId(id),
-                self.types
-                    .force_find(ctx.source, ctx.module_id, generic_param)?,
+                Spanned::new(
+                    self.types
+                        .force_find(ctx.source, ctx.module_id, generic_param)?,
+                    generic_param.span,
+                ),
             );
         }
 
@@ -998,10 +1002,12 @@ impl Checker {
             let checked_expr = self.typecheck_expr(&param, wanted, return_type, ctx, true, ss)?;
 
             self.types.infer_generic_types(
+                ctx.source,
+                param.span,
                 *expected_type,
                 checked_expr.value.type_id,
                 &mut resolved_generics,
-            );
+            )?;
 
             has_encountered_never |= checked_expr.never;
 

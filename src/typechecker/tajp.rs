@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use miette::NamedSource;
+use miette::{NamedSource, SourceSpan};
 use strum::EnumIs;
 
 use crate::{
@@ -464,16 +464,17 @@ impl TypeCollection {
     pub fn resolve_generic_type(
         &mut self,
         type_id: TypeId,
-        resolved_generics: &HashMap<GenericId, TypeId>,
+        resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
     ) -> Result<TypeId> {
         let definition = match self.get_definition(type_id) {
             Type::Ptr(inner) => Type::Ptr(self.resolve_generic_type(inner, resolved_generics)?),
             Type::Proc(_) => todo!(),
             Type::Struct(_) => todo!(),
             Type::Generic(generic_id) => {
-                return Ok(*resolved_generics
+                return Ok(resolved_generics
                     .get(&generic_id)
-                    .expect("TODO: nice error about unresolved type_id"));
+                    .expect("TODO: nice error about unresolved type_id")
+                    .value);
             }
             other => other,
         };
@@ -483,12 +484,14 @@ impl TypeCollection {
 
     pub fn infer_generic_types(
         &mut self,
+        src: &NamedSource<String>,
+        expr_span: SourceSpan,
         generic_type_id: TypeId,
         real_type_id: TypeId,
-        resolved_generics: &mut HashMap<GenericId, TypeId>,
-    ) {
+        resolved_generics: &mut HashMap<GenericId, Spanned<TypeId>>,
+    ) -> Result<()> {
         if generic_type_id == real_type_id {
-            return;
+            return Ok(());
         }
 
         let generic_definition = self.get_definition(generic_type_id);
@@ -507,25 +510,34 @@ impl TypeCollection {
             (Type::Proc(_), Type::Proc(_)) => todo!(),
             (Type::Struct(_), Type::Struct(_)) => todo!(),
             (Type::Ptr(generic_inner_type_id), Type::Ptr(real_inner_type_id)) => self
-                .infer_generic_types(generic_inner_type_id, real_inner_type_id, resolved_generics),
-
-            (Type::Generic(generic_id), real_thingy) => {
-                if let Some(resolved_type_id) = resolved_generics.get(&generic_id) {
-                    if *resolved_type_id != real_type_id {
-                        todo!(
-                            "Generic already defined but mismatch, expected {:#?}, got: {:#?}",
-                            resolved_type_id,
-                            real_type_id
-                        );
+                .infer_generic_types(
+                    src,
+                    expr_span,
+                    generic_inner_type_id,
+                    real_inner_type_id,
+                    resolved_generics,
+                )?,
+            (Type::Generic(generic_id), _) => {
+                if let Some(resolved_type) = resolved_generics.get(&generic_id) {
+                    if resolved_type.value != real_type_id {
+                        return Err(Error::GenericAlreadyDefinedWithAnotherType {
+                            src: src.clone(),
+                            infered_span: expr_span,
+                            infered_name: self.name_of(real_type_id),
+                            defined_span: resolved_type.span,
+                            defined_name: self.name_of(resolved_type.value),
+                        });
                     }
                 } else {
-                    resolved_generics.insert(generic_id, real_type_id);
+                    resolved_generics.insert(generic_id, Spanned::new(real_type_id, expr_span));
                 }
             }
 
             (a, b) if a != b => todo!("Not same structure"),
             (generic, real) => panic!("Generic: {:#?}\nReal: {:#?}", generic, real),
         }
+
+        Ok(())
     }
 }
 
@@ -565,5 +577,16 @@ impl FieldLayout {
             size,
             alignment,
         }
+    }
+}
+
+pub struct Spanned<T> {
+    value: T,
+    span: SourceSpan,
+}
+
+impl<T> Spanned<T> {
+    pub fn new(value: T, span: SourceSpan) -> Self {
+        Self { value, span }
     }
 }
