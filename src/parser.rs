@@ -501,11 +501,12 @@ impl Parser {
         let current = self.peek();
 
         let Some(nud_fn) = current.nud_handler() else {
-            panic!(
-                "Expected one of {} but got {}",
-                helpers::string_join_with_or(TokenKind::nud_names().as_slice()),
-                current.kind.name(),
-            );
+            return Err(Error::ExpectedOneOfButGot {
+                src: self.named_source(),
+                span: current.span,
+                expected: helpers::string_join_with_or(TokenKind::nud_names().as_slice()),
+                got: current.kind.name(),
+            });
         };
 
         let mut lhs = nud_fn(self)?;
@@ -561,6 +562,17 @@ impl Parser {
         }
     }
 
+    fn expected_one_of_but_got(&self, got: Token, expected: &[TokenKind]) -> Error {
+        return Error::ExpectedOneOfButGot {
+            src: self.named_source(),
+            span: got.span,
+            expected: helpers::string_join_with_or(
+                &expected.iter().map(|k| k.name()).collect::<Vec<&str>>(),
+            ),
+            got: got.kind.name(),
+        };
+    }
+
     fn next(&mut self) -> Token {
         let token = self.peek().clone();
         self.i += 1;
@@ -571,7 +583,7 @@ impl Parser {
         self.tokens.get(self.i - 1).unwrap()
     }
 
-    fn peek(&mut self) -> &Token {
+    fn peek(&self) -> &Token {
         self.current().expect("Handle unexpected EOF")
     }
 

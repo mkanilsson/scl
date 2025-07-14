@@ -17,6 +17,17 @@ pub enum Error {
 
         expected: String,
     },
+    #[error("Expected one of {expected} but got {got}")]
+    ExpectedOneOfButGot {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        expected: String,
+        got: &'static str,
+    },
     #[error("Expected '{expected}' but got '{got}'")]
     ExpectedButGot {
         #[source_code]
