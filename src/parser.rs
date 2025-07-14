@@ -458,7 +458,7 @@ impl Parser {
         ))
     }
 
-    pub fn parse_call(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
+    pub fn parse_call_expr(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
         self.expect(TokenKind::OpenParen)?;
 
         let params =

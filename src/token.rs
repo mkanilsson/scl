@@ -83,7 +83,7 @@ pub enum TokenKind {
     False,
 
     #[nud(Parser::parse_primary)]
-    #[led(BindingPower::Call, Parser::parse_call)]
+    #[led(BindingPower::Call, Parser::parse_call_expr)]
     #[name("(")]
     OpenParen,
     #[name(")")]
