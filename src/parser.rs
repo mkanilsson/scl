@@ -340,14 +340,6 @@ impl Parser {
                     ExprKind::AddressOf(Box::new(expr)),
                 ));
             }
-            TokenKind::Star => {
-                let expr = self.parse_expr(BindingPower::Unary)?;
-                return Ok(Self::new_expr(
-                    token.span,
-                    expr.span,
-                    ExprKind::Deref(Box::new(expr)),
-                ));
-            }
             TokenKind::OpenParen => {
                 let expr = self.parse_expr(BindingPower::Default)?;
                 let last = self.expect(TokenKind::CloseParen)?;
@@ -625,16 +617,37 @@ impl Parser {
 
     pub fn parse_member_expr(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {
         self.expect(TokenKind::Dot)?;
-        let ident = self.expect_ident()?;
 
-        Ok(Self::new_expr(
-            lhs.span,
-            ident.span,
-            ExprKind::MemberAccess {
-                lhs: Box::new(lhs),
-                member: ident,
-            },
-        ))
+        match self.peek().kind {
+            TokenKind::Identifier(_) => {
+                let ident = self.expect_ident()?;
+
+                Ok(Self::new_expr(
+                    lhs.span,
+                    ident.span,
+                    ExprKind::MemberAccess {
+                        lhs: Box::new(lhs),
+                        member: ident,
+                    },
+                ))
+            }
+            TokenKind::Star => {
+                let star = self.expect(TokenKind::Star)?;
+
+                Ok(Self::new_expr(
+                    lhs.span,
+                    star.span,
+                    ExprKind::Deref(Box::new(lhs)),
+                ))
+            }
+            _ => {
+                let got = self.next();
+                Err(self.expected_one_of_but_got(
+                    got,
+                    &[TokenKind::Identifier("".into()), TokenKind::Star],
+                ))
+            }
+        }
     }
 
     pub fn parse_cast_expr(&mut self, lhs: Expr, _: BindingPower) -> Result<Expr> {

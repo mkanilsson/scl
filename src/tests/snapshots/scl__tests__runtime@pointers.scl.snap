@@ -87,7 +87,7 @@ CheckedPackage {
                                                 ),
                                                 lvalue: false,
                                                 kind: String(
-                                                    "*a.value = %d\\n",
+                                                    "a.value.* = %d\\n",
                                                 ),
                                             },
                                             CheckedExpr {
@@ -187,7 +187,7 @@ CheckedPackage {
                                                 ),
                                                 lvalue: false,
                                                 kind: String(
-                                                    "*c = %d\\n",
+                                                    "c.* = %d\\n",
                                                 ),
                                             },
                                             CheckedExpr {
@@ -453,7 +453,7 @@ CheckedPackage {
                                                 ),
                                                 lvalue: false,
                                                 kind: String(
-                                                    "h.value = %d\\n",
+                                                    "h = %d\\n",
                                                 ),
                                             },
                                             CheckedExpr {

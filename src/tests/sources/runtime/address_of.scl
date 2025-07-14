@@ -5,8 +5,8 @@ proc main() i32 {
     let b = &a;
 
     printf("%d\n", &a == b);
-    printf("%d\n", *&a);
-    printf("%d\n", *&25);
+    printf("%d\n", (&a).*);
+    printf("%d\n", (&25).*);
 
     0
 }

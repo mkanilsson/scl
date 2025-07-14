@@ -78,7 +78,7 @@ export function w $main() {
 	%printf.return_value.21 =w call $printf(l $str.22, ..., :Other %.ss.19)
 	ret 0
 }
-data $str.6 = { b "*a.value = %d\n", b 0 }
-data $str.10 = { b "*c = %d\n", b 0 }
+data $str.6 = { b "a.value.* = %d\n", b 0 }
+data $str.10 = { b "c.* = %d\n", b 0 }
 data $str.17 = { b "e = %d\n", b 0 }
-data $str.22 = { b "h.value = %d\n", b 0 }
+data $str.22 = { b "h = %d\n", b 0 }

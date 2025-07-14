@@ -105,9 +105,9 @@ pub enum TokenKind {
     Minus,
 
     #[name("*")]
-    #[nud(Parser::parse_primary)]
     #[led(BindingPower::Multiplicative, Parser::parse_binary_expr)]
     Star,
+
     #[name("/")]
     #[led(BindingPower::Multiplicative, Parser::parse_binary_expr)]
     Slash,
