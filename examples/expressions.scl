@@ -1,6 +1,14 @@
 use std::io::printf
 
-proc main() *i32 {
-    let a = 6;
-    a
+extern proc malloc<T>(u32) *T
+extern proc free<T>(*T) void
+
+proc main() void {
+    let a = malloc::<i32>(4);
+    a.* = 10;
+    printf("a = %p\na.* = %d\n", a, a.*);
+    free(a);
+    printf("a = %p\na.* = %d\n", a, a.*);
+
+    ret;
 }

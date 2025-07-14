@@ -1,4 +1,4 @@
-use std::{path::Path, str::FromStr};
+use std::{collections::HashMap, path::Path, str::FromStr};
 
 use ast::{
     CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit,
@@ -10,8 +10,8 @@ use proc::{Proc, ProcCollection};
 use scope::Scope;
 use stack::{StackSlotId, StackSlots};
 use tajp::{
-    BOOL_TYPE_ID, I32_TYPE_ID, IdentTypeId, NEVER_TYPE_ID, ProcStructure, STRING_TYPE_ID,
-    StructStructure, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID,
+    BOOL_TYPE_ID, GenericId, I32_TYPE_ID, IdentTypeId, NEVER_TYPE_ID, ProcStructure,
+    STRING_TYPE_ID, StructStructure, Type, TypeCollection, TypeId, U32_TYPE_ID, VOID_TYPE_ID,
 };
 
 use crate::{
@@ -466,15 +466,22 @@ impl Checker {
     ) -> Result<()> {
         let mut params: Vec<TypeId> = vec![];
         for param_type in &definition.params {
-            let type_id = self
-                .types
-                .force_find(ctx.source, ctx.module_id, param_type)?;
+            let type_id = self.types.force_find_with_generics(
+                ctx.source,
+                ctx.module_id,
+                param_type,
+                &definition.type_params,
+            )?;
+
             params.push(type_id);
         }
 
-        let return_type =
-            self.types
-                .force_find(ctx.source, ctx.module_id, &definition.return_type)?;
+        let return_type = self.types.force_find_with_generics(
+            ctx.source,
+            ctx.module_id,
+            &definition.return_type,
+            &definition.type_params,
+        )?;
 
         self.types.define_proc(
             type_id,
@@ -781,8 +788,10 @@ impl Checker {
             ExprKind::Call {
                 expr,
                 params,
-                generic_params: _,
-            } => self.typecheck_call_expr(expr, params, wanted, return_type, ctx, ss),
+                generic_params,
+            } => {
+                self.typecheck_call_expr(expr, params, generic_params, wanted, return_type, ctx, ss)
+            }
             ExprKind::Bool(value) => Ok(HasNever::new(
                 CheckedExpr {
                     type_id: BOOL_TYPE_ID,
@@ -926,6 +935,7 @@ impl Checker {
         &mut self,
         expr: &Expr,
         params: &[Expr],
+        generic_params: &[crate::ast::tajp::Type],
         wanted: Option<(TypeId, SourceSpan)>,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
@@ -947,6 +957,16 @@ impl Checker {
             )
             .as_proc();
 
+        let mut resolved_generics = HashMap::new();
+
+        for (id, generic_param) in generic_params.iter().enumerate() {
+            resolved_generics.insert(
+                GenericId(id),
+                self.types
+                    .force_find(ctx.source, ctx.module_id, generic_param)?,
+            );
+        }
+
         if params.len() < proc_type.params.len()
             || (params.len() > proc_type.params.len() && !proc_type.variadic)
         {
@@ -967,19 +987,30 @@ impl Checker {
         let mut checked_params = vec![];
         let mut has_encountered_never = false;
         for (param, expected_type) in non_variadic_params {
+            let wanted = if self.types.is_generic(*expected_type) {
+                // TODO: Check if the GenericId has already been confirmed
+                None
+            } else {
+                Some((*expected_type, (0..0).into()))
+            };
+
             // TODO: Get the location of the suspected span or allow the span to be optional
-            let checked_expr = self.typecheck_expr(
-                &param,
-                Some((*expected_type, (0..0).into())),
-                return_type,
-                ctx,
-                true,
-                ss,
-            )?;
+            let checked_expr = self.typecheck_expr(&param, wanted, return_type, ctx, true, ss)?;
+
+            self.types.infer_generic_types(
+                *expected_type,
+                checked_expr.value.type_id,
+                &mut resolved_generics,
+            );
 
             has_encountered_never |= checked_expr.never;
 
-            if checked_expr.value.type_id != *expected_type && !checked_expr.never {
+            if checked_expr.value.type_id
+                != self
+                    .types
+                    .resolve_generic_type(*expected_type, &resolved_generics)?
+                && !checked_expr.never
+            {
                 return Err(Error::ProcCallParamTypeMismatch {
                     src: ctx.source.clone(),
                     span: param.span,
@@ -1001,7 +1032,9 @@ impl Checker {
 
         Ok(HasNever::new(
             CheckedExpr {
-                type_id: proc_type.return_type,
+                type_id: self
+                    .types
+                    .resolve_generic_type(proc_type.return_type, &resolved_generics)?,
                 kind: CheckedExprKind::DirectCall {
                     name: ident,
                     params: checked_params,

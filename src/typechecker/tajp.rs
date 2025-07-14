@@ -30,6 +30,8 @@ pub enum Type {
     Proc(ProcStructure),
     Struct(StructStructure),
     Ptr(TypeId),
+
+    Generic(GenericId),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -100,6 +102,9 @@ impl Type {
             }
             Type::Struct(structure) => structure.ident.name.clone(),
             Type::Ptr(inner) => format!("*{}", collection.name_of(*inner)),
+            Type::Generic(generic_id) => {
+                format!("(TODO: Generic args in {}:{})", file!(), line!())
+            }
             Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
         }
     }
@@ -111,6 +116,15 @@ pub struct TypeId(pub usize);
 impl From<usize> for TypeId {
     fn from(value: usize) -> Self {
         TypeId(value)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GenericId(pub usize);
+
+impl From<usize> for GenericId {
+    fn from(value: usize) -> Self {
+        GenericId(value)
     }
 }
 
@@ -186,10 +200,20 @@ impl TypeCollection {
         module_id: ModuleId,
         t: &ast::tajp::Type,
     ) -> Result<TypeId> {
+        self.force_find_with_generics(src, module_id, t, &[])
+    }
+
+    pub fn force_find_with_generics(
+        &mut self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        t: &ast::tajp::Type,
+        generics: &[Ident],
+    ) -> Result<TypeId> {
         if let Some(found) = self.find(module_id, t) {
             Ok(found)
         } else {
-            self.try_add(src, module_id, t)
+            self.try_add(src, module_id, t, generics)
         }
     }
 
@@ -198,15 +222,22 @@ impl TypeCollection {
         src: &NamedSource<String>,
         module_id: ModuleId,
         t: &ast::tajp::Type,
+        generics: &[Ident],
     ) -> Result<TypeId> {
         match &t.kind {
-            ast::tajp::TypeKind::Named(_) => Err(Error::UnknownType {
-                src: src.clone(),
-                span: t.span,
-                type_name: t.kind.to_string(),
-            }),
+            ast::tajp::TypeKind::Named(name) => {
+                if let Some(generic_id) = generics.iter().position(|t| t == name) {
+                    Ok(self.register_type(Type::Generic(GenericId(generic_id))))
+                } else {
+                    Err(Error::UnknownType {
+                        src: src.clone(),
+                        span: t.span,
+                        type_name: t.kind.to_string(),
+                    })
+                }
+            }
             ast::tajp::TypeKind::Ptr(inner) => {
-                let inner = self.force_find(src, module_id, inner)?;
+                let inner = self.force_find_with_generics(src, module_id, inner, generics)?;
                 Ok(self.register_type(Type::Ptr(inner)))
             }
             ast::tajp::TypeKind::Never => panic!("This should be caught by parser"),
@@ -320,8 +351,11 @@ impl TypeCollection {
             }
             Type::Never => qbe::Type::Word,
             Type::Ptr(_) => qbe::Type::Long,
-            Type::Void => unreachable!(),
+            Type::Void => qbe::Type::Word,
             Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
+            Type::Generic(_) => {
+                unreachable!("Should've been resolved to a real type")
+            }
         }
     }
 
@@ -360,13 +394,17 @@ impl TypeCollection {
             | Type::String
             | Type::Proc { .. }
             | Type::Never
+            | Type::Void
             | Type::Ptr(_) => MemoryLayout::new(
                 self.size_of_definition(definition),
                 self.alignment_of_definition(definition),
                 None,
             ),
             Type::Struct(structure) => self.memory_layout_of_struct(&structure.fields),
-            Type::Void | Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
+            Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
+            Type::Generic(_) => {
+                unreachable!("Should've been resolved to a real type")
+            }
         }
     }
 
@@ -408,6 +446,86 @@ impl TypeCollection {
     pub fn add_to_module(&mut self, module_id: ModuleId, type_id: TypeId, ident: &Ident) {
         let parsed_for_module = self.parsed.entry(module_id).or_default();
         parsed_for_module.insert(ast::tajp::TypeKind::Named(ident.clone()), type_id);
+    }
+
+    pub fn is_generic(&self, type_id: TypeId) -> bool {
+        match self.get_definition(type_id) {
+            Type::Ptr(type_id) => self.is_generic(type_id),
+            Type::Generic(_) => true,
+            Type::Proc(definition) => {
+                self.is_generic(definition.return_type)
+                    || definition.params.iter().any(|p| self.is_generic(*p))
+            }
+            Type::Struct(_) => todo!(),
+            _ => false,
+        }
+    }
+
+    pub fn resolve_generic_type(
+        &mut self,
+        type_id: TypeId,
+        resolved_generics: &HashMap<GenericId, TypeId>,
+    ) -> Result<TypeId> {
+        let definition = match self.get_definition(type_id) {
+            Type::Ptr(inner) => Type::Ptr(self.resolve_generic_type(inner, resolved_generics)?),
+            Type::Proc(_) => todo!(),
+            Type::Struct(_) => todo!(),
+            Type::Generic(generic_id) => {
+                return Ok(*resolved_generics
+                    .get(&generic_id)
+                    .expect("TODO: nice error about unresolved type_id"));
+            }
+            other => other,
+        };
+
+        Ok(self.register_type(definition))
+    }
+
+    pub fn infer_generic_types(
+        &mut self,
+        generic_type_id: TypeId,
+        real_type_id: TypeId,
+        resolved_generics: &mut HashMap<GenericId, TypeId>,
+    ) {
+        if generic_type_id == real_type_id {
+            return;
+        }
+
+        let generic_definition = self.get_definition(generic_type_id);
+        let real_definition = self.get_definition(real_type_id);
+        match (generic_definition, real_definition) {
+            (_, Type::Generic(_)) => panic!("Real is generic..."),
+
+            (Type::UndefinedStruct, Type::UndefinedStruct) => todo!(),
+            (Type::UndefinedProc, Type::UndefinedProc) => todo!(),
+            (Type::Void, Type::Void) => todo!(),
+            (Type::Bool, Type::Bool) => todo!(),
+            (Type::I32, Type::I32) => todo!(),
+            (Type::U32, Type::U32) => todo!(),
+            (Type::String, Type::String) => todo!(),
+            (Type::Never, Type::Never) => todo!(),
+            (Type::Proc(_), Type::Proc(_)) => todo!(),
+            (Type::Struct(_), Type::Struct(_)) => todo!(),
+            (Type::Ptr(generic_inner_type_id), Type::Ptr(real_inner_type_id)) => self
+                .infer_generic_types(generic_inner_type_id, real_inner_type_id, resolved_generics),
+
+            (Type::Generic(generic_id), real_thingy) => {
+                if let Some(resolved_type_id) = resolved_generics.get(&generic_id) {
+                    if *resolved_type_id != real_type_id {
+                        todo!(
+                            "Generic already defined but mismatch, expected {:#?}, got: {:#?}",
+                            resolved_type_id,
+                            real_type_id
+                        );
+                    }
+                } else {
+                    resolved_generics.insert(generic_id, real_type_id);
+                }
+            }
+
+            (a, b) if a != b => todo!("Not same structure"),
+            (generic, real) => panic!("Generic: {:#?}\nReal: {:#?}", generic, real),
+        }
     }
 }
 
