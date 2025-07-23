@@ -1,5 +1,5 @@
 use crate::{
-    ast::parsed::{Expr, Stmt},
+    ast::parsed::{Expr, Stmt, TranslationUnit},
     new_lexer::Lexer,
 };
 use std::{fs, path::Path};
@@ -23,6 +23,11 @@ impl Parser {
     pub fn parse_stmt(stmt: &str) -> Stmt {
         let lexer = Lexer::new(&stmt);
         grammar::StmtParser::new().parse(lexer).unwrap()
+    }
+
+    pub fn parse_translation_unit(unit: &str) -> TranslationUnit {
+        let lexer = Lexer::new(&unit);
+        grammar::TranslationUnitParser::new().parse(lexer).unwrap()
     }
 }
 

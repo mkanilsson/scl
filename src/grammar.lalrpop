@@ -4,6 +4,7 @@ use crate::ast::parsed;
 use crate::ast::tajp::{TypeKind};
 use crate::ast::tajp;
 use crate::{expr, stmt, tajp};
+use miette::{NamedSource};
 
 grammar;
 
@@ -188,9 +189,21 @@ UnboxedExpr: parsed::Expr = {
 
 Types = Comma<Type>;
 
+TypeParams: Vec<tajp::Type> = {
+    "<" <types:Types> ">" => {
+        types
+    }
+}
 CallTypeParams: Vec<tajp::Type> = {
     "::" "<" <types:Types> ">" => {
         types
+    }
+}
+
+Idents = Comma<Ident>;
+GenericParams: Vec<parsed::Ident> = {
+    "<" <idents:Idents> ">" => {
+        idents
     }
 }
 
@@ -203,6 +216,103 @@ Type: tajp::Type = {
     },
     <s:@L> "*" <inner:Type> <e:@R> => {
         tajp!(s, e, TypeKind::Ptr(Box::new(inner)))
+    }
+}
+
+Import: parsed::Import = {
+    <ident:Ident> => {
+        parsed::Import::Final(ident)
+    },
+    <ident:Ident> "::" <import:Import>  => {
+        parsed::Import::Part(Box::new(import), ident)
+    }
+}
+
+StructDefinition: parsed::StructDefinition = {
+    "struct" <ident:Ident> "{" <fields:StructDefinitionFields> "}" => {
+        parsed::StructDefinition {
+            ident,
+            fields,
+        }
+    }
+}
+
+StructDefinitionFields = Comma<StructDefinitionField>;
+StructDefinitionField: (parsed::Ident, tajp::Type) = {
+    <ident:Ident> ":" <tajp:Type> => {
+        (ident, tajp)
+    } 
+}
+
+ExternProcParams: (Vec<tajp::Type>, bool) = {
+    <types:(<Type> ",")*> "..." ","? => {
+        (types, true)
+    },
+    <mut types:(<Type> ",")*> <last:Type?> => {
+        match last {
+            Some(last) => types.push(last),
+            None => {}
+        }
+
+        (types, false)
+    },
+}
+
+ExternProcDefinition: parsed::ExternProcDefinition = {
+    "extern" "proc" <ident:Ident> <type_params:GenericParams> "(" <params:ExternProcParams> ")" <return_type:Type> => {
+        parsed::ExternProcDefinition {
+            ident,
+            params: params.0,
+            variadic: params.1,
+            return_type,
+            type_params
+        }
+    }
+}
+
+ProcParams = Comma<ProcParam>;
+ProcParam: (parsed::Ident, tajp::Type) = {
+    <ident:Ident> ":" <tajp:Type> => {
+        (ident, tajp)
+    }
+}
+
+ProcDefinition: parsed::ProcDefinition = {
+    "proc" <ident:Ident> "(" <params:ProcParams> ")" <return_type:Type> <body:Block> => {
+        parsed::ProcDefinition {
+            ident,
+            params: params,
+            return_type,
+            body: *body
+        }
+    }
+}
+
+pub TranslationUnit: parsed::TranslationUnit = {
+   "use" <import:Import> <mut tu:TranslationUnit> => {
+       tu.imports.push(import);
+       tu
+   },
+   <extern_proc:ExternProcDefinition> <mut tu:TranslationUnit> => {
+       tu.extern_procs.push(extern_proc);
+       tu
+   },
+   <proc:ProcDefinition> <mut tu:TranslationUnit> => {
+       tu.procs.push(proc);
+       tu
+   },
+   <struct_definition:StructDefinition> <mut tu:TranslationUnit> => {
+       tu.structs.push(struct_definition);
+       tu
+   },
+    => {
+        parsed::TranslationUnit {
+            source: NamedSource::new("".to_string(), "".to_string()),
+            procs: vec![],
+            extern_procs: vec![],
+            structs: vec![],
+            imports: vec![],
+        }
     }
 }
 
