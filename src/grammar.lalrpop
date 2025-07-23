@@ -93,6 +93,9 @@ pub Term: Box<parsed::Expr> = {
             generic_params: vec![]
         })
     },
+    <s:@L> <block:Block> <e:@R> => {
+        expr!(s, e, ExprKind::Block(Box::new(block)))
+    },
 
     <s:@L> "(" <expr:Expr> ")" <e:@R> => {
         expr!(s, e, expr.kind)
@@ -118,6 +121,16 @@ pub Stmt: parsed::Stmt = {
     },
     <s:@L> <expr:UnboxedExpr> ";" <e:@R> => {
         stmt!(s, e, StmtKind::Expr(expr))
+    }
+}
+
+Block: parsed::Block = {
+    <s:@L> "{" <stmts:Stmt*> <last:UnboxedExpr?> "}" <e:@R> => {
+        parsed::Block {
+            stmts,
+            last,
+            span: (s..e).into()
+        }
     }
 }
 

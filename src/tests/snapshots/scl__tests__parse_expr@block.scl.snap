@@ -1,0 +1,136 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/block.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 46,
+    },
+    kind: Block(
+        Block {
+            stmts: [
+                Stmt {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            6,
+                        ),
+                        length: 11,
+                    },
+                    kind: VariableDeclaration {
+                        name: Ident {
+                            name: "a",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    10,
+                                ),
+                                length: 1,
+                            },
+                        },
+                        value: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    14,
+                                ),
+                                length: 2,
+                            },
+                            kind: Number(
+                                "20",
+                            ),
+                        },
+                    },
+                },
+                Stmt {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            22,
+                        ),
+                        length: 11,
+                    },
+                    kind: VariableDeclaration {
+                        name: Ident {
+                            name: "b",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    26,
+                                ),
+                                length: 1,
+                            },
+                        },
+                        value: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    30,
+                                ),
+                                length: 2,
+                            },
+                            kind: Number(
+                                "30",
+                            ),
+                        },
+                    },
+                },
+            ],
+            last: Some(
+                Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            39,
+                        ),
+                        length: 5,
+                    },
+                    kind: BinOp {
+                        lhs: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    39,
+                                ),
+                                length: 1,
+                            },
+                            kind: Identifier(
+                                Ident {
+                                    name: "a",
+                                    span: SourceSpan {
+                                        offset: SourceOffset(
+                                            39,
+                                        ),
+                                        length: 1,
+                                    },
+                                },
+                            ),
+                        },
+                        op: Add,
+                        rhs: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    43,
+                                ),
+                                length: 1,
+                            },
+                            kind: Identifier(
+                                Ident {
+                                    name: "b",
+                                    span: SourceSpan {
+                                        offset: SourceOffset(
+                                            43,
+                                        ),
+                                        length: 1,
+                                    },
+                                },
+                            ),
+                        },
+                    },
+                },
+            ),
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 46,
+            },
+        },
+    ),
+}
