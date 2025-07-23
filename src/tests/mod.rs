@@ -24,10 +24,10 @@ fn runtime() {
         let checked_std_package = checker.add_package(&std_package, &vec![]).unwrap();
 
         let checked_main_package = checker
-            .add_package(
-                &main_package,
-                &vec![("std".into(), checked_std_package.package_id)],
-            )
+            .add_package(&main_package, &vec![(
+                "std".into(),
+                checked_std_package.package_id,
+            )])
             .unwrap();
 
         insta::assert_debug_snapshot!(checked_main_package);
@@ -101,10 +101,10 @@ fn typecheck_errors() {
         let checked_std_package = checker.add_package(&std_package, &vec![]).unwrap();
 
         let err = checker
-            .add_package(
-                &main_package,
-                &vec![("std".into(), checked_std_package.package_id)],
-            )
+            .add_package(&main_package, &vec![(
+                "std".into(),
+                checked_std_package.package_id,
+            )])
             .err()
             .unwrap();
 

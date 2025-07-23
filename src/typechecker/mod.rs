@@ -400,13 +400,10 @@ impl Checker {
         }
 
         let type_id = self.types.register_undefined_proc();
-        self.procs.add(
-            ctx.module_id,
-            Proc {
-                type_id,
-                name: ident,
-            },
-        );
+        self.procs.add(ctx.module_id, Proc {
+            type_id,
+            name: ident,
+        });
 
         Ok(type_id)
     }

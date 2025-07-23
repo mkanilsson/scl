@@ -34,13 +34,10 @@ impl Scope {
         stack_slot: Option<StackSlotId>,
     ) {
         let len = self.scope.len();
-        self.scope[len - 1].insert(
-            ident.clone(),
-            ScopeData {
-                type_id,
-                stack_slot,
-            },
-        );
+        self.scope[len - 1].insert(ident.clone(), ScopeData {
+            type_id,
+            stack_slot,
+        });
     }
 
     pub fn enter(&mut self) {
