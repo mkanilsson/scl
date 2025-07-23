@@ -126,3 +126,13 @@ fn parse_expr() {
         insta::assert_debug_snapshot!(expr);
     });
 }
+
+#[test]
+fn parse_stmt() {
+    glob!("sources/parse_stmt/*", |file| {
+        let source = fs::read_to_string(file).unwrap();
+        let expr = crate::new_parser::Parser::parse_stmt(&source);
+
+        insta::assert_debug_snapshot!(expr);
+    });
+}

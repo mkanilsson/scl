@@ -1,0 +1,28 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_stmt/ret.scl
+---
+Stmt {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 6,
+    },
+    kind: Return {
+        value: Some(
+            Expr {
+                span: SourceSpan {
+                    offset: SourceOffset(
+                        4,
+                    ),
+                    length: 2,
+                },
+                kind: Number(
+                    "58",
+                ),
+            },
+        ),
+    },
+}

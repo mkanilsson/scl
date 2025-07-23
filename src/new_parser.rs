@@ -1,4 +1,7 @@
-use crate::{ast::parsed::Expr, new_lexer::Lexer};
+use crate::{
+    ast::parsed::{Expr, Stmt},
+    new_lexer::Lexer,
+};
 use std::{fs, path::Path};
 
 use lalrpop_util::lalrpop_mod;
@@ -16,11 +19,23 @@ impl Parser {
         let lexer = Lexer::new(&expr);
         grammar::ExprParser::new().parse(lexer).unwrap()
     }
+
+    pub fn parse_stmt(stmt: &str) -> Stmt {
+        let lexer = Lexer::new(&stmt);
+        grammar::StmtParser::new().parse(lexer).unwrap()
+    }
 }
 
 #[macro_export]
 macro_rules! expr {
     ($s:ident, $e:ident, $kind:expr) => {
         Box::new(parsed::Expr::new(($s..$e).into(), $kind))
+    };
+}
+
+#[macro_export]
+macro_rules! stmt {
+    ($s:ident, $e:ident, $kind:expr) => {
+        parsed::Stmt::new(($s..$e).into(), $kind)
     };
 }

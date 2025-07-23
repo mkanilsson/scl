@@ -1,0 +1,56 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_stmt/expr.scl
+---
+Stmt {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 9,
+    },
+    kind: Expr(
+        Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 9,
+            },
+            kind: BinOp {
+                lhs: Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            0,
+                        ),
+                        length: 1,
+                    },
+                    kind: Number(
+                        "5",
+                    ),
+                },
+                op: Multiply,
+                rhs: Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            4,
+                        ),
+                        length: 5,
+                    },
+                    kind: Identifier(
+                        Ident {
+                            name: "ident",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    4,
+                                ),
+                                length: 5,
+                            },
+                        },
+                    ),
+                },
+            },
+        },
+    ),
+}

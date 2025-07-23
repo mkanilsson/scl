@@ -1,7 +1,7 @@
 use crate::new_lexer::{Token, LexicalError};
-use crate::ast::parsed::{ExprKind, BinOp};
+use crate::ast::parsed::{ExprKind, BinOp, StmtKind};
 use crate::ast::parsed;
-use crate::expr;
+use crate::{expr, stmt};
 
 grammar;
 
@@ -104,6 +104,22 @@ pub Term: Box<parsed::Expr> = {
     },
 }
 
+pub Stmt: parsed::Stmt = {
+    <s:@L> "let" <name:Ident> "=" <value:UnboxedExpr> <e:@R> => {
+        stmt!(s, e, StmtKind::VariableDeclaration {
+            name,
+            value
+        })
+    },
+    <s:@L> "ret" <value:UnboxedExpr?> <e:@R> => {
+        stmt!(s, e, StmtKind::Return {
+            value,
+        })
+    },
+    <s:@L> <expr:UnboxedExpr> <e:@R> => {
+        stmt!(s, e, StmtKind::Expr(expr))
+    }
+}
 
 Ident: parsed::Ident = {
     <s:@L> <ident:"identifier"> <e:@R> => {
