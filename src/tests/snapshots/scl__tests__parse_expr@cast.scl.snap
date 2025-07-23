@@ -1,0 +1,55 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/cast.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 10,
+    },
+    kind: Cast {
+        lhs: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 2,
+            },
+            kind: Number(
+                "58",
+            ),
+        },
+        tajp: Type {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    6,
+                ),
+                length: 4,
+            },
+            kind: Ptr(
+                Type {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            7,
+                        ),
+                        length: 3,
+                    },
+                    kind: Named(
+                        Ident {
+                            name: "u32",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    7,
+                                ),
+                                length: 3,
+                            },
+                        },
+                    ),
+                },
+            ),
+        },
+    },
+}

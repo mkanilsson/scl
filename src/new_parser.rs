@@ -39,3 +39,10 @@ macro_rules! stmt {
         parsed::Stmt::new(($s..$e).into(), $kind)
     };
 }
+
+#[macro_export]
+macro_rules! tajp {
+    ($s:ident, $e:ident, $kind:expr) => {
+        tajp::Type::new(($s..$e).into(), $kind)
+    };
+}

@@ -1,7 +1,9 @@
 use crate::new_lexer::{Token, LexicalError};
 use crate::ast::parsed::{ExprKind, BinOp, StmtKind};
 use crate::ast::parsed;
-use crate::{expr, stmt};
+use crate::ast::tajp::{TypeKind};
+use crate::ast::tajp;
+use crate::{expr, stmt, tajp};
 
 grammar;
 
@@ -48,7 +50,7 @@ pub Expr: Box<parsed::Expr> = {
     <s:@L> <lhs:Expr> "==" <rhs:Expr> <e:@R> => {
         expr!(s, e, ExprKind::BinOp {
             lhs,
-            op: BinOp::Subtract,
+            op: BinOp::Equal,
             rhs,
         })
     },
@@ -93,6 +95,15 @@ pub Term: Box<parsed::Expr> = {
             generic_params: vec![]
         })
     },
+    <s:@L> <builtin:"builtin"> "(" <params:ProcCallParams> ")" <e:@R> => {
+        expr!(s, e, ExprKind::Builtin(builtin, params))
+    },
+    <s:@L> <lhs:Term> "as" <tajp:Type> <e:@R> => {
+        expr!(s, e, ExprKind::Cast {
+            lhs,
+            tajp,
+        })
+    },
     <s:@L> <block:Block> <e:@R> => {
         expr!(s, e, ExprKind::Block(block))
     },
@@ -102,13 +113,13 @@ pub Term: Box<parsed::Expr> = {
     },
 
     #[precedence(level="2")]
-   <s:@L> "if" "(" <condition:Expr> ")" <true_block:Block> "else" <false_block:Block> <e:@R> => {
-        expr!(s, e, ExprKind::If {
-            condition,
-            true_block,
-            false_block,
-        })
-   },
+    <s:@L> "if" "(" <condition:Expr> ")" <true_block:Block> "else" <false_block:Block> <e:@R> => {
+         expr!(s, e, ExprKind::If {
+             condition,
+             true_block,
+             false_block,
+         })
+    },
     <s:@L> "&" <expr:Term> <e:@R> => {
         expr!(s, e, ExprKind::AddressOf(expr))
     },
@@ -159,6 +170,18 @@ ProcCallParams = Comma<UnboxedExpr>;
 UnboxedExpr: parsed::Expr = {
     <expr:Expr> => {
         *expr
+    }
+}
+
+Type: tajp::Type = {
+    <s:@L> <ident:Ident> <e:@R> => {
+        tajp!(s, e, TypeKind::Named(ident))
+    },
+    <s:@L> "!" <e:@R> => {
+        tajp!(s, e, TypeKind::Never)
+    },
+    <s:@L> "*" <inner:Type> <e:@R> => {
+        tajp!(s, e, TypeKind::Ptr(Box::new(inner)))
     }
 }
 
