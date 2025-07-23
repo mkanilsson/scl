@@ -1,0 +1,53 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/member_access_and_deref.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 10,
+    },
+    kind: Deref(
+        Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 8,
+            },
+            kind: MemberAccess {
+                lhs: Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            0,
+                        ),
+                        length: 1,
+                    },
+                    kind: Identifier(
+                        Ident {
+                            name: "s",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    0,
+                                ),
+                                length: 1,
+                            },
+                        },
+                    ),
+                },
+                member: Ident {
+                    name: "member",
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            2,
+                        ),
+                        length: 6,
+                    },
+                },
+            },
+        },
+    ),
+}

@@ -5,9 +5,15 @@ edition = "2024"
 
 [dependencies]
 insta = { version = "1.43.1", features = ["glob"] }
+lalrpop = { version = "0.22.2", features = ["unicode"] }
+lalrpop-util = "0.22.2"
+logos = "0.15.0"
 miette = { version = "7.6.0", features = ["fancy"] }
 nanoid = "0.4.0"
 pratt-derive = { path = "pratt-derive" }
 qbe = "2.5.0"
 strum = { version = "0.27.1", features = ["derive"] }
 thiserror = "2.0.12"
+
+[build-dependencies]
+lalrpop = "0.22.2"

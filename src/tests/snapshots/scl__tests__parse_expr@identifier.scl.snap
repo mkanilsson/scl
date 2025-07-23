@@ -1,0 +1,24 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/identifier.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 6,
+    },
+    kind: Identifier(
+        Ident {
+            name: "my_var",
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 6,
+            },
+        },
+    ),
+}

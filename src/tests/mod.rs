@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, process::Command};
+use std::{env, fs, path::PathBuf, process::Command};
 
 use insta::glob;
 use miette::{GraphicalReportHandler, GraphicalTheme};
@@ -114,5 +114,15 @@ fn typecheck_errors() {
             .unwrap();
 
         insta::assert_snapshot!(buf);
+    });
+}
+
+#[test]
+fn parse_expr() {
+    glob!("sources/parse_expr/*", |file| {
+        let source = fs::read_to_string(file).unwrap();
+        let expr = crate::new_parser::Parser::parse_expr(&source);
+
+        insta::assert_debug_snapshot!(expr);
     });
 }

@@ -1,0 +1,59 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/proc_call.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 31,
+    },
+    kind: Call {
+        expr: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 6,
+            },
+            kind: Identifier(
+                Ident {
+                    name: "printf",
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            0,
+                        ),
+                        length: 6,
+                    },
+                },
+            ),
+        },
+        params: [
+            Expr {
+                span: SourceSpan {
+                    offset: SourceOffset(
+                        7,
+                    ),
+                    length: 19,
+                },
+                kind: String(
+                    "Hello, world %d\\n",
+                ),
+            },
+            Expr {
+                span: SourceSpan {
+                    offset: SourceOffset(
+                        28,
+                    ),
+                    length: 2,
+                },
+                kind: Number(
+                    "58",
+                ),
+            },
+        ],
+        generic_params: [],
+    },
+}

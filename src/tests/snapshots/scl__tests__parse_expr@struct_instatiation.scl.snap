@@ -1,0 +1,92 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/struct_instatiation.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 42,
+    },
+    kind: StructInstantiation {
+        name: Ident {
+            name: "Thing",
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 5,
+            },
+        },
+        members: [
+            (
+                Ident {
+                    name: "a",
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            12,
+                        ),
+                        length: 1,
+                    },
+                },
+                Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            15,
+                        ),
+                        length: 7,
+                    },
+                    kind: String(
+                        "hello",
+                    ),
+                },
+            ),
+            (
+                Ident {
+                    name: "other",
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            28,
+                        ),
+                        length: 5,
+                    },
+                },
+                Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            35,
+                        ),
+                        length: 5,
+                    },
+                    kind: BinOp {
+                        lhs: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    35,
+                                ),
+                                length: 1,
+                            },
+                            kind: Number(
+                                "5",
+                            ),
+                        },
+                        op: Add,
+                        rhs: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    39,
+                                ),
+                                length: 1,
+                            },
+                            kind: Number(
+                                "9",
+                            ),
+                        },
+                    },
+                },
+            ),
+        ],
+    },
+}

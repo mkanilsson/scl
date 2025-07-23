@@ -1,0 +1,56 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/address_of.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 11,
+    },
+    kind: BinOp {
+        lhs: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 6,
+            },
+            kind: AddressOf(
+                Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            1,
+                        ),
+                        length: 5,
+                    },
+                    kind: Identifier(
+                        Ident {
+                            name: "ident",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    1,
+                                ),
+                                length: 5,
+                            },
+                        },
+                    ),
+                },
+            ),
+        },
+        op: Add,
+        rhs: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    9,
+                ),
+                length: 2,
+            },
+            kind: Number(
+                "20",
+            ),
+        },
+    },
+}

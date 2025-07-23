@@ -1,0 +1,16 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/negative_number.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 3,
+    },
+    kind: Number(
+        "-78",
+    ),
+}

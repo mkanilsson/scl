@@ -1,0 +1,4 @@
+Thing {
+    a: "hello",
+    other: 5 + 9
+}

@@ -1,0 +1,180 @@
+use crate::new_lexer::{Token, LexicalError};
+use crate::ast::parsed::{ExprKind, BinOp};
+use crate::ast::parsed;
+
+grammar;
+
+pub Expr: Box<parsed::Expr> = {
+    #[precedence(level="1")]
+    Term,
+
+    #[precedence(level="2")] #[assoc(side="left")]
+    <s:@L> <lhs:Expr> "*" <rhs:Expr> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+            lhs,
+            op: BinOp::Multiply,
+            rhs,
+        }))
+    },
+    <s:@L> <lhs:Expr> "/" <rhs:Expr> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+            lhs,
+            op: BinOp::Divide,
+            rhs,
+        }))
+    },
+
+    #[precedence(level="3")] #[assoc(side="left")]
+    <s:@L> <lhs:Expr> "+" <rhs:Expr> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+            lhs,
+            op: BinOp::Add,
+            rhs,
+        }))
+    },
+    <s:@L> <lhs:Expr> "-" <rhs:Expr> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+            lhs,
+            op: BinOp::Subtract,
+            rhs,
+        }))
+    },
+
+    // TODO: shift (<<, >>)
+    // TODO: size comparison (<, <=, >, >=)
+
+    #[precedence(level="6")] #[assoc(side="left")]
+    <s:@L> <lhs:Expr> "==" <rhs:Expr> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+            lhs,
+            op: BinOp::Subtract,
+            rhs,
+        }))
+    },
+}
+
+pub Term: Box<parsed::Expr> = {
+    #[precedence(level="1")]
+    <s:@L> <ident:Ident> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Identifier(ident)))
+    },
+    <s:@L> <str:"string"> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::String(str)))
+    },
+    <s:@L> <num:"number"> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Number(num))) 
+    },
+    <s:@L> "true" <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Bool(true))) 
+    },
+    <s:@L> "false" <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Bool(false))) 
+    },
+    <s:@L> <lhs:Term> "." <ident:Ident> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::MemberAccess {
+            lhs,
+            member: ident,
+        }))
+    },
+    <s:@L> <lhs:Term> "." "*" <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Deref(lhs)))
+    },
+    <s:@L> <ident:Ident> "{" <members:StructInstantiationMembers> "}" <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::StructInstantiation {
+            name: ident,
+            members: members,
+        }))
+    },
+    <s:@L> <expr:Term> "(" <params:ProcCallParams> ")" <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Call {
+            expr,
+            params,
+            generic_params: vec![]
+        }))
+    },
+
+    <s:@L> "(" <expr:Expr> ")" <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), expr.kind))
+    },
+
+    #[precedence(level="2")]
+    <s:@L> "&" <expr:Term> <e:@R> => {
+        Box::new(parsed::Expr::new((s..e).into(), ExprKind::AddressOf(expr)))
+    },
+}
+
+Ident: parsed::Ident = {
+    <s:@L> <ident:"identifier"> <e:@R> => {
+        parsed::Ident::new(ident, (s..e).into())
+    }
+}
+
+StructInstantiationMembers = Comma<StructInstantiationMember>;
+StructInstantiationMember: (parsed::Ident, parsed::Expr) = {
+    <ident:Ident> ":" <expr:Expr> => {
+        (ident, *expr)
+    } 
+}
+
+ProcCallParams = Comma<UnboxedExpr>;
+
+UnboxedExpr: parsed::Expr = {
+    <expr:Expr> => {
+        *expr
+    }
+}
+
+// Utils
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+extern  {
+    type Location = usize;
+    type Error = LexicalError;
+
+    enum Token {
+        "number" => Token::Number(<String>),
+        "identifier" => Token::Identifier(<String>),
+        "string" => Token::String(<String>),
+        "builtin" => Token::Builtin(<String>),
+        "true" => Token::True,
+        "false" => Token::False,
+        ")" => Token::OpenParen,
+        "(" => Token::CloseParen,
+        "if" => Token::If,
+        "else" => Token::Else,
+        "let" => Token::Let,
+        "+" => Token::Plus,
+        "-" => Token::Minus,
+        "*" => Token::Star,
+        "/" => Token::Slash,
+        "&" => Token::Ampersand,
+        "=" => Token::Equal,
+        ";" => Token::Semicolon,
+        "==" => Token::EqualEqual,
+        "!=" => Token::ExclamationEqual,
+        "!" => Token::Exclamation,
+        "{" => Token::OpenCurly,
+        "}" => Token::CloseCurly,
+        ":" => Token::Colon,
+        "::" => Token::ColonColon,
+        "," => Token::Comma,
+        "." => Token::Dot,
+        "<" => Token::LessThan,
+        ">" => Token::GreaterThan,
+        "..." => Token::DotDotDot,
+        "ret" => Token::Ret,
+        "proc" => Token::Proc,
+        "extern" => Token::Extern,
+        "struct" => Token::Struct,
+        "use" => Token::Use,
+        "as" => Token::As,
+    }
+}

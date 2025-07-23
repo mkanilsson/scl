@@ -1,0 +1,60 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/paren_precedence.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 12,
+    },
+    kind: BinOp {
+        lhs: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 7,
+            },
+            kind: BinOp {
+                lhs: Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            1,
+                        ),
+                        length: 1,
+                    },
+                    kind: Number(
+                        "5",
+                    ),
+                },
+                op: Add,
+                rhs: Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            5,
+                        ),
+                        length: 1,
+                    },
+                    kind: Number(
+                        "3",
+                    ),
+                },
+            },
+        },
+        op: Multiply,
+        rhs: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    10,
+                ),
+                length: 2,
+            },
+            kind: Number(
+                "10",
+            ),
+        },
+    },
+}
