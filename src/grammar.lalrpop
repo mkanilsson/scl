@@ -1,6 +1,7 @@
 use crate::new_lexer::{Token, LexicalError};
 use crate::ast::parsed::{ExprKind, BinOp};
 use crate::ast::parsed;
+use crate::expr;
 
 grammar;
 
@@ -10,34 +11,34 @@ pub Expr: Box<parsed::Expr> = {
 
     #[precedence(level="2")] #[assoc(side="left")]
     <s:@L> <lhs:Expr> "*" <rhs:Expr> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+        expr!(s, e, ExprKind::BinOp {
             lhs,
             op: BinOp::Multiply,
             rhs,
-        }))
+        })
     },
     <s:@L> <lhs:Expr> "/" <rhs:Expr> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+        expr!(s, e, ExprKind::BinOp {
             lhs,
             op: BinOp::Divide,
             rhs,
-        }))
+        })
     },
 
     #[precedence(level="3")] #[assoc(side="left")]
     <s:@L> <lhs:Expr> "+" <rhs:Expr> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+        expr!(s, e, ExprKind::BinOp {
             lhs,
             op: BinOp::Add,
             rhs,
-        }))
+        })
     },
     <s:@L> <lhs:Expr> "-" <rhs:Expr> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+        expr!(s, e, ExprKind::BinOp {
             lhs,
             op: BinOp::Subtract,
             rhs,
-        }))
+        })
     },
 
     // TODO: shift (<<, >>)
@@ -45,63 +46,64 @@ pub Expr: Box<parsed::Expr> = {
 
     #[precedence(level="6")] #[assoc(side="left")]
     <s:@L> <lhs:Expr> "==" <rhs:Expr> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::BinOp {
+        expr!(s, e, ExprKind::BinOp {
             lhs,
             op: BinOp::Subtract,
             rhs,
-        }))
+        })
     },
 }
 
 pub Term: Box<parsed::Expr> = {
     #[precedence(level="1")]
     <s:@L> <ident:Ident> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Identifier(ident)))
+        expr!(s, e, ExprKind::Identifier(ident))
     },
     <s:@L> <str:"string"> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::String(str)))
+        expr!(s, e, ExprKind::String(str))
     },
     <s:@L> <num:"number"> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Number(num))) 
+        expr!(s, e, ExprKind::Number(num))
     },
     <s:@L> "true" <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Bool(true))) 
+        expr!(s, e, ExprKind::Bool(true))
     },
     <s:@L> "false" <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Bool(false))) 
+        expr!(s, e, ExprKind::Bool(false))
     },
     <s:@L> <lhs:Term> "." <ident:Ident> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::MemberAccess {
+        expr!(s, e, ExprKind::MemberAccess {
             lhs,
             member: ident,
-        }))
+        })
     },
     <s:@L> <lhs:Term> "." "*" <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Deref(lhs)))
+        expr!(s, e, ExprKind::Deref(lhs))
     },
     <s:@L> <ident:Ident> "{" <members:StructInstantiationMembers> "}" <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::StructInstantiation {
+        expr!(s, e, ExprKind::StructInstantiation {
             name: ident,
             members: members,
-        }))
+        })
     },
     <s:@L> <expr:Term> "(" <params:ProcCallParams> ")" <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::Call {
+        expr!(s, e, ExprKind::Call {
             expr,
             params,
             generic_params: vec![]
-        }))
+        })
     },
 
     <s:@L> "(" <expr:Expr> ")" <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), expr.kind))
+        expr!(s, e, expr.kind)
     },
 
     #[precedence(level="2")]
     <s:@L> "&" <expr:Term> <e:@R> => {
-        Box::new(parsed::Expr::new((s..e).into(), ExprKind::AddressOf(expr)))
+        expr!(s, e, ExprKind::AddressOf(expr))
     },
 }
+
 
 Ident: parsed::Ident = {
     <s:@L> <ident:"identifier"> <e:@R> => {

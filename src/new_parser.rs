@@ -17,3 +17,10 @@ impl Parser {
         grammar::ExprParser::new().parse(lexer).unwrap()
     }
 }
+
+#[macro_export]
+macro_rules! expr {
+    ($s:ident, $e:ident, $kind:expr) => {
+        Box::new(parsed::Expr::new(($s..$e).into(), $kind))
+    };
+}
