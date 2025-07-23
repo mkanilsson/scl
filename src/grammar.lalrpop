@@ -54,6 +54,15 @@ pub Expr: Box<parsed::Expr> = {
             rhs,
         })
     },
+
+    // TODO: Move this to stmt
+    #[precedence(level="7")] #[assoc(side="left")]
+    <s:@L> <lhs:Expr> "=" <rhs:Expr> <e:@R> => {
+        expr!(s, e, ExprKind::Assignment {
+            lhs,
+            rhs,
+        })
+    },
 }
 
 pub Term: Box<parsed::Expr> = {
@@ -88,11 +97,15 @@ pub Term: Box<parsed::Expr> = {
             members: members,
         })
     },
-    <s:@L> <expr:Term> "(" <params:ProcCallParams> ")" <e:@R> => {
+    <s:@L> <expr:Term> <type_params:CallTypeParams?> "(" <params:ProcCallParams> ")" <e:@R> => {
         expr!(s, e, ExprKind::Call {
             expr,
             params,
-            generic_params: vec![]
+            generic_params: if let Some(type_params) = type_params {
+                type_params
+            } else {
+                vec![]
+            }
         })
     },
     <s:@L> <builtin:"builtin"> "(" <params:ProcCallParams> ")" <e:@R> => {
@@ -170,6 +183,14 @@ ProcCallParams = Comma<UnboxedExpr>;
 UnboxedExpr: parsed::Expr = {
     <expr:Expr> => {
         *expr
+    }
+}
+
+Types = Comma<Type>;
+
+CallTypeParams: Vec<tajp::Type> = {
+    "::" "<" <types:Types> ">" => {
+        types
     }
 }
 
