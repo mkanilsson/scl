@@ -4,19 +4,22 @@ use insta::glob;
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use nanoid::nanoid;
 
-use crate::{codegen::Codegen, package::Package, typechecker::Checker};
+use crate::{codegen::Codegen, package::Package, parser::Parser, typechecker::Checker};
 
 #[test]
 fn runtime() {
+    println!("Parsing std");
     let std_package = Package::from_path("std", "std".into()).unwrap();
     let std_package = std_package.parse().unwrap();
 
+    println!("std parsed");
     fn generate_tempfile(extension: &str) -> PathBuf {
         let name = format!("{}.{extension}", nanoid!());
         env::temp_dir().join(name)
     }
 
     glob!("sources/runtime/*", |file| {
+        println!("Runtime: {}", file.display());
         let main_package = Package::from_file(file.into()).unwrap();
         let main_package = main_package.parse().unwrap();
 
@@ -121,7 +124,7 @@ fn typecheck_errors() {
 fn parse_expr() {
     glob!("sources/parse_expr/*", |file| {
         let source = fs::read_to_string(file).unwrap();
-        let expr = crate::new_parser::Parser::parse_expr(&source);
+        let expr = Parser::parse_expr(&source);
 
         insta::assert_debug_snapshot!(expr);
     });
@@ -131,7 +134,7 @@ fn parse_expr() {
 fn parse_stmt() {
     glob!("sources/parse_stmt/*", |file| {
         let source = fs::read_to_string(file).unwrap();
-        let expr = crate::new_parser::Parser::parse_stmt(&source);
+        let expr = Parser::parse_stmt(&source);
 
         insta::assert_debug_snapshot!(expr);
     });

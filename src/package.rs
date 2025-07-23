@@ -2,7 +2,6 @@ use crate::{
     ast::parsed::TranslationUnit,
     error::{Error, Result},
     helpers::find_duplicate,
-    lexer::Lexer,
     parser::Parser,
     typechecker::{ast::CheckedTranslationUnit, module::ModuleId},
 };
@@ -129,9 +128,7 @@ impl Package {
     }
 
     fn parse_module(module: Module) -> Result<ParsedModule> {
-        let lexer = Lexer::new(module.path.clone());
-        let parser = Parser::new(lexer);
-        let unit = parser.parse()?;
+        let unit = Parser::parse_translation_unit(&module.path)?;
 
         let mut children = vec![];
 

@@ -14,14 +14,10 @@ mod codegen;
 mod error;
 mod helpers;
 mod lexer;
-mod new_lexer;
-mod new_parser;
 mod package;
 mod parser;
-mod pratt;
 #[cfg(test)]
 mod tests;
-mod token;
 mod typechecker;
 
 fn main() -> miette::Result<()> {

@@ -27,12 +27,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arrayvec"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
-
-[[package]]
 name = "ascii-canvas"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -155,47 +149,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "deluxe"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ed332aaf752b459088acf3dd4eca323e3ef4b83c70a84ca48fb0ec5305f1488"
-dependencies = [
- "deluxe-core",
- "deluxe-macros",
- "once_cell",
- "proc-macro2",
- "syn",
-]
-
-[[package]]
-name = "deluxe-core"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eddada51c8576df9d6a8450c351ff63042b092c9458b8ac7d20f89cbd0ffd313"
-dependencies = [
- "arrayvec",
- "proc-macro2",
- "quote",
- "strsim",
- "syn",
-]
-
-[[package]]
-name = "deluxe-macros"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f87546d9c837f0b7557e47b8bd6eae52c3c223141b76aa233c345c9ab41d9117"
-dependencies = [
- "deluxe-core",
- "heck 0.4.1",
- "if_chain",
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -302,21 +255,9 @@ checksum = "84b26c544d002229e640969970a2e74021aadf6e2f96372b9c58eff97de08eb3"
 
 [[package]]
 name = "heck"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95505c38b4572b2d910cecb0281560f54b440a19336cbbcb27bf6ce6adc6f5a8"
-
-[[package]]
-name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
-
-[[package]]
-name = "if_chain"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb56e1aa765b4b4f3aadfab769793b7087bb03a4ea4920644a6d238e2df5b9ed"
 
 [[package]]
 name = "indexmap"
@@ -604,30 +545,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "pratt-derive"
-version = "0.1.0"
-dependencies = [
- "deluxe",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "precomputed-hash"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "925383efa346730478fb4838dbe9137d2a47675ad789c546d150a6e1dd4ab31c"
-
-[[package]]
-name = "proc-macro-crate"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f4c021e1093a56626774e81216a4ce732a735e5bad4868a03f3ed65ca0c3919"
-dependencies = [
- "once_cell",
- "toml_edit",
-]
 
 [[package]]
 name = "proc-macro2"
@@ -774,7 +695,6 @@ dependencies = [
  "logos",
  "miette",
  "nanoid",
- "pratt-derive",
  "qbe",
  "strum",
  "thiserror",
@@ -853,12 +773,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "strsim"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
-
-[[package]]
 name = "strum"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -873,7 +787,7 @@ version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
 dependencies = [
- "heck 0.5.0",
+ "heck",
  "proc-macro2",
  "quote",
  "rustversion",
@@ -959,23 +873,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "toml_datetime"
-version = "0.6.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3da5db5a963e24bc68be8b17b6fa82814bb22ee8660f192bb182771d498f09a3"
-
-[[package]]
-name = "toml_edit"
-version = "0.19.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
-dependencies = [
- "indexmap",
- "toml_datetime",
- "winnow",
 ]
 
 [[package]]
@@ -1117,15 +1014,6 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
-
-[[package]]
-name = "winnow"
-version = "0.5.40"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f593a95398737aeed53e489c785df13f3618e41dbcd6718c6addbf1395aa6876"
-dependencies = [
- "memchr",
-]
 
 [[package]]
 name = "zerocopy"

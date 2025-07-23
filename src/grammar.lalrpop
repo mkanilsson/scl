@@ -1,4 +1,4 @@
-use crate::new_lexer::{Token, LexicalError};
+use crate::lexer::{Token, LexicalError};
 use crate::ast::parsed::{ExprKind, BinOp, StmtKind};
 use crate::ast::parsed;
 use crate::ast::tajp::{TypeKind};
@@ -259,13 +259,17 @@ ExternProcParams: (Vec<tajp::Type>, bool) = {
 }
 
 ExternProcDefinition: parsed::ExternProcDefinition = {
-    "extern" "proc" <ident:Ident> <type_params:GenericParams> "(" <params:ExternProcParams> ")" <return_type:Type> => {
+    "extern" "proc" <ident:Ident> <type_params:GenericParams?> "(" <params:ExternProcParams> ")" <return_type:Type> => {
         parsed::ExternProcDefinition {
             ident,
             params: params.0,
             variadic: params.1,
             return_type,
-            type_params
+            type_params: if let Some(type_params) = type_params {
+                type_params
+            } else {
+                vec![]
+            }
         }
     }
 }
@@ -289,22 +293,22 @@ ProcDefinition: parsed::ProcDefinition = {
 }
 
 pub TranslationUnit: parsed::TranslationUnit = {
-   "use" <import:Import> <mut tu:TranslationUnit> => {
-       tu.imports.push(import);
-       tu
-   },
-   <extern_proc:ExternProcDefinition> <mut tu:TranslationUnit> => {
-       tu.extern_procs.push(extern_proc);
-       tu
-   },
-   <proc:ProcDefinition> <mut tu:TranslationUnit> => {
-       tu.procs.push(proc);
-       tu
-   },
-   <struct_definition:StructDefinition> <mut tu:TranslationUnit> => {
-       tu.structs.push(struct_definition);
-       tu
-   },
+    <mut tu:TranslationUnit> "use" <import:Import>  => {
+        tu.imports.push(import);
+        tu
+    },
+    <mut tu:TranslationUnit> <extern_proc:ExternProcDefinition> => {
+        tu.extern_procs.push(extern_proc);
+        tu
+    },
+    <mut tu:TranslationUnit> <proc:ProcDefinition> => {
+        tu.procs.push(proc);
+        tu
+    },
+    <mut tu:TranslationUnit> <struct_definition:StructDefinition> => {
+        tu.structs.push(struct_definition);
+        tu
+    },
     => {
         parsed::TranslationUnit {
             source: NamedSource::new("".to_string(), "".to_string()),
