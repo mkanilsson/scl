@@ -1,0 +1,78 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/if.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 38,
+    },
+    kind: If {
+        condition: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    4,
+                ),
+                length: 4,
+            },
+            kind: Bool(
+                true,
+            ),
+        },
+        true_block: Block {
+            stmts: [],
+            last: Some(
+                Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            16,
+                        ),
+                        length: 1,
+                    },
+                    kind: Identifier(
+                        Ident {
+                            name: "a",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    16,
+                                ),
+                                length: 1,
+                            },
+                        },
+                    ),
+                },
+            ),
+            span: SourceSpan {
+                offset: SourceOffset(
+                    10,
+                ),
+                length: 9,
+            },
+        },
+        false_block: Block {
+            stmts: [],
+            last: Some(
+                Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            31,
+                        ),
+                        length: 5,
+                    },
+                    kind: Bool(
+                        false,
+                    ),
+                },
+            ),
+            span: SourceSpan {
+                offset: SourceOffset(
+                    25,
+                ),
+                length: 13,
+            },
+        },
+    },
+}

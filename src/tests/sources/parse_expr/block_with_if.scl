@@ -1,0 +1,5 @@
+{
+    let a = 2;
+    if (false) { a } else { b };
+    if (true) { a } else { b }
+}

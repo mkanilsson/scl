@@ -1,0 +1,229 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/block_with_if.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 82,
+    },
+    kind: Block(
+        Block {
+            stmts: [
+                Stmt {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            6,
+                        ),
+                        length: 10,
+                    },
+                    kind: VariableDeclaration {
+                        name: Ident {
+                            name: "a",
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    10,
+                                ),
+                                length: 1,
+                            },
+                        },
+                        value: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    14,
+                                ),
+                                length: 1,
+                            },
+                            kind: Number(
+                                "2",
+                            ),
+                        },
+                    },
+                },
+                Stmt {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            21,
+                        ),
+                        length: 28,
+                    },
+                    kind: Expr(
+                        Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    21,
+                                ),
+                                length: 27,
+                            },
+                            kind: If {
+                                condition: Expr {
+                                    span: SourceSpan {
+                                        offset: SourceOffset(
+                                            25,
+                                        ),
+                                        length: 5,
+                                    },
+                                    kind: Bool(
+                                        false,
+                                    ),
+                                },
+                                true_block: Block {
+                                    stmts: [],
+                                    last: Some(
+                                        Expr {
+                                            span: SourceSpan {
+                                                offset: SourceOffset(
+                                                    34,
+                                                ),
+                                                length: 1,
+                                            },
+                                            kind: Identifier(
+                                                Ident {
+                                                    name: "a",
+                                                    span: SourceSpan {
+                                                        offset: SourceOffset(
+                                                            34,
+                                                        ),
+                                                        length: 1,
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                    span: SourceSpan {
+                                        offset: SourceOffset(
+                                            32,
+                                        ),
+                                        length: 5,
+                                    },
+                                },
+                                false_block: Block {
+                                    stmts: [],
+                                    last: Some(
+                                        Expr {
+                                            span: SourceSpan {
+                                                offset: SourceOffset(
+                                                    45,
+                                                ),
+                                                length: 1,
+                                            },
+                                            kind: Identifier(
+                                                Ident {
+                                                    name: "b",
+                                                    span: SourceSpan {
+                                                        offset: SourceOffset(
+                                                            45,
+                                                        ),
+                                                        length: 1,
+                                                    },
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                    span: SourceSpan {
+                                        offset: SourceOffset(
+                                            43,
+                                        ),
+                                        length: 5,
+                                    },
+                                },
+                            },
+                        },
+                    ),
+                },
+            ],
+            last: Some(
+                Expr {
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            54,
+                        ),
+                        length: 26,
+                    },
+                    kind: If {
+                        condition: Expr {
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    58,
+                                ),
+                                length: 4,
+                            },
+                            kind: Bool(
+                                true,
+                            ),
+                        },
+                        true_block: Block {
+                            stmts: [],
+                            last: Some(
+                                Expr {
+                                    span: SourceSpan {
+                                        offset: SourceOffset(
+                                            66,
+                                        ),
+                                        length: 1,
+                                    },
+                                    kind: Identifier(
+                                        Ident {
+                                            name: "a",
+                                            span: SourceSpan {
+                                                offset: SourceOffset(
+                                                    66,
+                                                ),
+                                                length: 1,
+                                            },
+                                        },
+                                    ),
+                                },
+                            ),
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    64,
+                                ),
+                                length: 5,
+                            },
+                        },
+                        false_block: Block {
+                            stmts: [],
+                            last: Some(
+                                Expr {
+                                    span: SourceSpan {
+                                        offset: SourceOffset(
+                                            77,
+                                        ),
+                                        length: 1,
+                                    },
+                                    kind: Identifier(
+                                        Ident {
+                                            name: "b",
+                                            span: SourceSpan {
+                                                offset: SourceOffset(
+                                                    77,
+                                                ),
+                                                length: 1,
+                                            },
+                                        },
+                                    ),
+                                },
+                            ),
+                            span: SourceSpan {
+                                offset: SourceOffset(
+                                    75,
+                                ),
+                                length: 5,
+                            },
+                        },
+                    },
+                },
+            ),
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 82,
+            },
+        },
+    ),
+}

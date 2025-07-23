@@ -94,7 +94,7 @@ pub Term: Box<parsed::Expr> = {
         })
     },
     <s:@L> <block:Block> <e:@R> => {
-        expr!(s, e, ExprKind::Block(Box::new(block)))
+        expr!(s, e, ExprKind::Block(block))
     },
 
     <s:@L> "(" <expr:Expr> ")" <e:@R> => {
@@ -102,6 +102,13 @@ pub Term: Box<parsed::Expr> = {
     },
 
     #[precedence(level="2")]
+   <s:@L> "if" "(" <condition:Expr> ")" <true_block:Block> "else" <false_block:Block> <e:@R> => {
+        expr!(s, e, ExprKind::If {
+            condition,
+            true_block,
+            false_block,
+        })
+   },
     <s:@L> "&" <expr:Term> <e:@R> => {
         expr!(s, e, ExprKind::AddressOf(expr))
     },
@@ -124,14 +131,14 @@ pub Stmt: parsed::Stmt = {
     }
 }
 
-Block: parsed::Block = {
+Block: Box<parsed::Block> = {
     <s:@L> "{" <stmts:Stmt*> <last:UnboxedExpr?> "}" <e:@R> => {
-        parsed::Block {
+        Box::new(parsed::Block {
             stmts,
-            last,
+            last: last,
             span: (s..e).into()
-        }
-    }
+        })
+    },
 }
 
 Ident: parsed::Ident = {
