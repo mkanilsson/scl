@@ -8,7 +8,7 @@ Stmt {
         offset: SourceOffset(
             0,
         ),
-        length: 9,
+        length: 10,
     },
     kind: Expr(
         Expr {
