@@ -1,0 +1,38 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/if_as_expr.scl
+---
+export function w $add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%sv.1 =w loadw %.ss.0
+	%sv.2 =w loadw %.ss.1
+	%binop.3 =w add %sv.1, %sv.2
+	ret %binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	%.ss.2 =l alloc4 4
+@body
+	jnz 1, @if.true.4, @if.false.4
+@if.true.4
+	storew 2, %.ss.0
+	jmp @if.after.4
+@if.false.4
+	storew 3, %.ss.0
+	jmp @if.after.4
+@if.after.4
+	%sv.5 =w loadw %.ss.0
+	storew %sv.5, %.ss.1
+	%sv.8 =w loadw %.ss.1
+	%printf.return_value.6 =w call $printf(l $str.7, ..., w %sv.8)
+	ret 0
+}
+data $str.7 = { b "Value: %d", b 0 }

@@ -214,10 +214,19 @@ impl Codegen {
                 self.codegen_member_access_expr(expr, lhs, name, function, module)
             }
             CheckedExprKind::If {
+                stack_slot,
                 condition,
                 false_block,
                 true_block,
-            } => self.codegen_if_expr(condition, true_block, false_block, function, module),
+            } => self.codegen_if_expr(
+                expr.type_id,
+                condition,
+                true_block,
+                false_block,
+                *stack_slot,
+                function,
+                module,
+            ),
             CheckedExprKind::StackValue(stack_slot) => {
                 self.codegen_stack_value_expr(expr.type_id, *stack_slot, function)
             }
@@ -511,9 +520,11 @@ impl Codegen {
 
     fn codegen_if_expr<'a>(
         &'a self,
+        type_id: TypeId,
         condition: &CheckedExpr,
         true_block: &CheckedBlock,
         false_block: &CheckedBlock,
+        stack_slot: StackSlotId,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
@@ -521,6 +532,8 @@ impl Codegen {
         let true_block_tag = format!("if.true.{}", unique_tag);
         let false_block_tag = format!("if.false.{}", unique_tag);
         let after_block_tag = format!("if.after.{}", unique_tag);
+
+        let dest = Value::Temporary(stack_slot.qbe_name());
 
         // TODO: Convert to Word size if it's something else
         let condition = self.codegen_expr(condition, function, module);
@@ -530,15 +543,22 @@ impl Codegen {
             false_block_tag.clone(),
         ));
 
-        self.codegen_block(&true_block_tag, true_block, function, module);
+        if let Some((t, value)) = self.codegen_block(&true_block_tag, true_block, function, module)
+        {
+            self.store(t, value, dest.clone(), function);
+        }
         function.add_instr(Instr::Jmp(after_block_tag.clone()));
 
-        self.codegen_block(&false_block_tag, false_block, function, module);
+        if let Some((t, value)) =
+            self.codegen_block(&false_block_tag, false_block, function, module)
+        {
+            self.store(t, value, dest.clone(), function);
+        }
         function.add_instr(Instr::Jmp(after_block_tag.clone()));
 
         function.add_block(after_block_tag);
 
-        (Type::Word, Value::Temporary("todo_if_as_exprs".into()))
+        self.codegen_stack_value_expr(type_id, stack_slot, function)
     }
 
     fn codegen_block<'a>(

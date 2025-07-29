@@ -68,6 +68,7 @@ pub enum CheckedExprKind {
         name: String,
     },
     If {
+        stack_slot: StackSlotId,
         condition: Box<CheckedExpr>,
         false_block: Box<CheckedBlock>,
         true_block: Box<CheckedBlock>,

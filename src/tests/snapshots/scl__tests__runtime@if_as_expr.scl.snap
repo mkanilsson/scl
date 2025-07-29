@@ -1,0 +1,155 @@
+---
+source: src/tests/mod.rs
+expression: checked_main_package
+input_file: src/tests/sources/runtime/if_as_expr.scl
+---
+CheckedPackage {
+    package_id: ModuleId(
+        3,
+    ),
+    units: [
+        CheckedTranslationUnit {
+            procs: [
+                CheckedProc {
+                    name: "main",
+                    type_id: TypeId(
+                        9,
+                    ),
+                    body: CheckedBlock {
+                        stmts: [
+                            VariableDeclaration {
+                                stack_slot: StackSlotId(
+                                    1,
+                                ),
+                                value: CheckedExpr {
+                                    type_id: TypeId(
+                                        2,
+                                    ),
+                                    lvalue: false,
+                                    kind: If {
+                                        stack_slot: StackSlotId(
+                                            0,
+                                        ),
+                                        condition: CheckedExpr {
+                                            type_id: TypeId(
+                                                1,
+                                            ),
+                                            lvalue: false,
+                                            kind: Number(
+                                                1,
+                                            ),
+                                        },
+                                        false_block: CheckedBlock {
+                                            stmts: [],
+                                            last: Some(
+                                                CheckedExpr {
+                                                    type_id: TypeId(
+                                                        2,
+                                                    ),
+                                                    lvalue: false,
+                                                    kind: Number(
+                                                        3,
+                                                    ),
+                                                },
+                                            ),
+                                            type_id: TypeId(
+                                                2,
+                                            ),
+                                        },
+                                        true_block: CheckedBlock {
+                                            stmts: [],
+                                            last: Some(
+                                                CheckedExpr {
+                                                    type_id: TypeId(
+                                                        2,
+                                                    ),
+                                                    lvalue: false,
+                                                    kind: Number(
+                                                        2,
+                                                    ),
+                                                },
+                                            ),
+                                            type_id: TypeId(
+                                                2,
+                                            ),
+                                        },
+                                    },
+                                },
+                            },
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        name: "printf",
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "Value: %d",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    2,
+                                                ),
+                                                lvalue: true,
+                                                kind: StackValue(
+                                                    StackSlotId(
+                                                        1,
+                                                    ),
+                                                ),
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            2,
+                                        ),
+                                    },
+                                },
+                            ),
+                        ],
+                        last: Some(
+                            CheckedExpr {
+                                type_id: TypeId(
+                                    2,
+                                ),
+                                lvalue: false,
+                                kind: Number(
+                                    0,
+                                ),
+                            },
+                        ),
+                        type_id: TypeId(
+                            2,
+                        ),
+                    },
+                    params: [],
+                    return_type: TypeId(
+                        2,
+                    ),
+                    stack_slots: StackSlots {
+                        slots: [
+                            TypeId(
+                                2,
+                            ),
+                            TypeId(
+                                2,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                        ],
+                    },
+                },
+            ],
+        },
+    ],
+}

@@ -1312,6 +1312,7 @@ impl Checker {
         Ok(HasNever::new(
             CheckedExpr {
                 kind: CheckedExprKind::If {
+                    stack_slot: ss.allocate(type_id),
                     condition: Box::new(checked_condition.value),
                     true_block: Box::new(checked_true_block.value),
                     false_block: Box::new(checked_false_block.value),

@@ -1,0 +1,13 @@
+use std::io::printf
+
+proc main() i32 {
+    let a = if (true) {
+        2
+    } else {
+        3
+    };
+
+    printf("Value: %d", a);
+
+    0
+}
