@@ -59,8 +59,12 @@ pub enum Token {
     Dot,
     #[token("<")]
     LessThan,
+    #[token("<=")]
+    LessThanOrEqual,
     #[token(">")]
     GreaterThan,
+    #[token(">=")]
+    GreaterThanOrEqual,
     #[token("...")]
     DotDotDot,
     #[token("ret")]

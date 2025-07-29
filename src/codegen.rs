@@ -603,6 +603,34 @@ impl Codegen {
                 let op = match compare {
                     BinOp::Equal => qbe::Cmp::Eq,
                     BinOp::NotEqual => qbe::Cmp::Ne,
+                    BinOp::LessThan => {
+                        if self.checker.types.is_unsigned(lhs.type_id) {
+                            qbe::Cmp::Ult
+                        } else {
+                            qbe::Cmp::Slt
+                        }
+                    }
+                    BinOp::LessThanOrEqual => {
+                        if self.checker.types.is_unsigned(lhs.type_id) {
+                            qbe::Cmp::Ule
+                        } else {
+                            qbe::Cmp::Sle
+                        }
+                    }
+                    BinOp::GreaterThan => {
+                        if self.checker.types.is_unsigned(lhs.type_id) {
+                            qbe::Cmp::Ugt
+                        } else {
+                            qbe::Cmp::Sgt
+                        }
+                    }
+                    BinOp::GreaterThanOrEqual => {
+                        if self.checker.types.is_unsigned(lhs.type_id) {
+                            qbe::Cmp::Uge
+                        } else {
+                            qbe::Cmp::Sge
+                        }
+                    }
                     _ => unreachable!(),
                 };
                 Instr::Cmp(

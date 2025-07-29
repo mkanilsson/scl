@@ -881,7 +881,12 @@ impl Checker {
                         checked_rhs.value,
                         ctx,
                     )?,
-                BinOp::Equal | BinOp::NotEqual => {
+                BinOp::Equal
+                | BinOp::NotEqual
+                | BinOp::LessThan
+                | BinOp::LessThanOrEqual
+                | BinOp::GreaterThan
+                | BinOp::GreaterThanOrEqual => {
                     self.typecheck_boolable_binop_expr(checked_lhs.value, op, checked_rhs.value)?
                 }
             },

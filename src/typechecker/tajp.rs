@@ -75,6 +75,10 @@ impl Type {
         matches!(self, Type::I32 | Type::U32)
     }
 
+    pub fn is_unsigned(&self) -> bool {
+        matches!(self, Type::U32)
+    }
+
     pub fn to_string(&self, collection: &TypeCollection) -> String {
         match self {
             Type::Void => "void".into(),
@@ -301,6 +305,10 @@ impl TypeCollection {
 
     pub fn is_ptr(&self, type_id: TypeId) -> bool {
         self.get_definition(type_id).is_ptr()
+    }
+
+    pub fn is_unsigned(&self, type_id: TypeId) -> bool {
+        self.get_definition(type_id).is_unsigned()
     }
 
     pub fn define_struct(&mut self, type_id: TypeId, s: Type) {

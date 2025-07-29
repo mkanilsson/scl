@@ -45,7 +45,35 @@ pub Expr: Box<parsed::Expr> = {
     },
 
     // TODO: shift (<<, >>)
-    // TODO: size comparison (<, <=, >, >=)
+    #[precedence(level="5")] #[assoc(side="left")]
+    <s:@L> <lhs:Expr> "<" <rhs:Expr> <e:@R> => {
+        expr!(s, e, ExprKind::BinOp {
+            lhs,
+            op: BinOp::LessThan,
+            rhs,
+        })
+    },
+    <s:@L> <lhs:Expr> "<=" <rhs:Expr> <e:@R> => {
+        expr!(s, e, ExprKind::BinOp {
+            lhs,
+            op: BinOp::LessThanOrEqual,
+            rhs,
+        })
+    },
+    <s:@L> <lhs:Expr> ">" <rhs:Expr> <e:@R> => {
+        expr!(s, e, ExprKind::BinOp {
+            lhs,
+            op: BinOp::GreaterThan,
+            rhs,
+        })
+    },
+    <s:@L> <lhs:Expr> ">=" <rhs:Expr> <e:@R> => {
+        expr!(s, e, ExprKind::BinOp {
+            lhs,
+            op: BinOp::GreaterThanOrEqual,
+            rhs,
+        })
+    },
 
     #[precedence(level="6")] #[assoc(side="left")]
     <s:@L> <lhs:Expr> "==" <rhs:Expr> <e:@R> => {
@@ -364,7 +392,9 @@ extern  {
         "," => Token::Comma,
         "." => Token::Dot,
         "<" => Token::LessThan,
+        "<=" => Token::LessThanOrEqual,
         ">" => Token::GreaterThan,
+        ">=" => Token::GreaterThanOrEqual,
         "..." => Token::DotDotDot,
         "ret" => Token::Ret,
         "proc" => Token::Proc,

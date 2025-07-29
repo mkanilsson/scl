@@ -116,6 +116,10 @@ pub enum BinOp {
     Divide,
     Equal,
     NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 }
 
 #[derive(Debug, Clone)]
