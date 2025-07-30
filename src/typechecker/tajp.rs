@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use miette::{NamedSource, SourceSpan};
 use strum::EnumIs;
@@ -106,10 +106,31 @@ impl Type {
             }
             Type::Struct(structure) => structure.ident.name.clone(),
             Type::Ptr(inner) => format!("*{}", collection.name_of(*inner)),
-            Type::Generic(generic_id) => {
+            Type::Generic(_) => {
                 format!("(TODO: Generic args in {}:{})", file!(), line!())
             }
-            Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
+            Type::UndefinedStruct | Type::UndefinedProc => {
+                unreachable!()
+            }
+        }
+    }
+
+    pub fn to_mangled_string(&self, collection: &TypeCollection) -> String {
+        match self {
+            Type::Void | Type::Bool | Type::I32 | Type::U32 | Type::String | Type::Never => {
+                self.to_string(collection)
+            }
+            Type::Proc(_) => {
+                todo!()
+            }
+            Type::Struct(_) => todo!(),
+            Type::Ptr(inner) => format!("P{}", collection.mangled_name_of(*inner)),
+            Type::Generic(_) => {
+                unreachable!()
+            }
+            Type::UndefinedStruct | Type::UndefinedProc => {
+                unreachable!()
+            }
         }
     }
 }
@@ -123,7 +144,7 @@ impl From<usize> for TypeId {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct GenericId(pub usize);
 
 impl From<usize> for GenericId {
@@ -292,6 +313,10 @@ impl TypeCollection {
         self.types.get(type_id.0).unwrap().to_string(self)
     }
 
+    pub fn mangled_name_of(&self, type_id: TypeId) -> String {
+        self.types.get(type_id.0).unwrap().to_mangled_string(self)
+    }
+
     pub fn inner_of(&self, type_id: TypeId) -> TypeId {
         match self.types.get(type_id.0).unwrap() {
             Type::Ptr(type_id) => *type_id,
@@ -360,7 +385,9 @@ impl TypeCollection {
             Type::Never => qbe::Type::Word,
             Type::Ptr(_) => qbe::Type::Long,
             Type::Void => qbe::Type::Word,
-            Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
+            Type::UndefinedStruct | Type::UndefinedProc => {
+                unreachable!()
+            }
             Type::Generic(_) => {
                 unreachable!("Should've been resolved to a real type")
             }
@@ -409,7 +436,9 @@ impl TypeCollection {
                 None,
             ),
             Type::Struct(structure) => self.memory_layout_of_struct(&structure.fields),
-            Type::UndefinedStruct | Type::UndefinedProc => unreachable!(),
+            Type::UndefinedStruct | Type::UndefinedProc => {
+                unreachable!()
+            }
             Type::Generic(_) => {
                 unreachable!("Should've been resolved to a real type")
             }
@@ -476,7 +505,20 @@ impl TypeCollection {
     ) -> Result<TypeId> {
         let definition = match self.get_definition(type_id) {
             Type::Ptr(inner) => Type::Ptr(self.resolve_generic_type(inner, resolved_generics)?),
-            Type::Proc(_) => todo!(),
+            Type::Proc(proc) => {
+                let return_type = self.resolve_generic_type(proc.return_type, resolved_generics)?;
+
+                let mut params = vec![];
+                for param in proc.params {
+                    params.push(self.resolve_generic_type(param, resolved_generics)?);
+                }
+
+                Type::Proc(ProcStructure {
+                    params,
+                    return_type,
+                    variadic: proc.variadic,
+                })
+            }
             Type::Struct(_) => todo!(),
             Type::Generic(generic_id) => {
                 return Ok(resolved_generics
@@ -588,9 +630,10 @@ impl FieldLayout {
     }
 }
 
+#[derive(Debug)]
 pub struct Spanned<T> {
-    value: T,
-    span: SourceSpan,
+    pub value: T,
+    pub span: SourceSpan,
 }
 
 impl<T> Spanned<T> {
@@ -598,3 +641,16 @@ impl<T> Spanned<T> {
         Self { value, span }
     }
 }
+
+impl<T: Hash> Hash for Spanned<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
+
+impl<T: PartialEq> PartialEq for Spanned<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+impl<T: Eq> Eq for Spanned<T> {}

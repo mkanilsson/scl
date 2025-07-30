@@ -7,12 +7,13 @@ use crate::{
     error::{Error, Result},
 };
 
-use super::{stack::StackSlotId, tajp::TypeId};
+use super::{proc::ProcId, stack::StackSlotId, tajp::TypeId};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ScopeData {
     pub type_id: TypeId,
     pub stack_slot: Option<StackSlotId>,
+    pub proc_id: Option<ProcId>,
 }
 
 #[derive(Debug)]
@@ -32,11 +33,13 @@ impl Scope {
         ident: &Ident,
         type_id: TypeId,
         stack_slot: Option<StackSlotId>,
+        proc_id: Option<ProcId>,
     ) {
         let len = self.scope.len();
         self.scope[len - 1].insert(ident.clone(), ScopeData {
             type_id,
             stack_slot,
+            proc_id,
         });
     }
 

@@ -310,12 +310,17 @@ ProcParam: (parsed::Ident, tajp::Type) = {
 }
 
 ProcDefinition: parsed::ProcDefinition = {
-    "proc" <ident:Ident> "(" <params:ProcParams> ")" <return_type:Type> <body:Block> => {
+    "proc" <ident:Ident> <type_params:GenericParams?> "(" <params:ProcParams> ")" <return_type:Type> <body:Block> => {
         parsed::ProcDefinition {
             ident,
             params: params,
             return_type,
-            body: *body
+            body: *body,
+            type_params: if let Some(type_params) = type_params {
+                type_params
+            } else {
+                vec![]
+            }
         }
     }
 }

@@ -1,0 +1,7 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/generic_proc.scl
+---
+a = 2, b = 80, max = 80
+c = 12, d = 11, max = 12

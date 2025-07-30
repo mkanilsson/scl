@@ -3,10 +3,11 @@ use std::{collections::HashMap, path::Path, str::FromStr};
 use ast::{
     CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit,
 };
+use indexmap::IndexMap;
 use miette::{NamedSource, SourceSpan};
 use module::{Module, ModuleCollection, ModuleId};
 use package::PackageCollection;
-use proc::{Proc, ProcCollection};
+use proc::{Proc, ProcCollection, ProcId};
 use scope::Scope;
 use stack::{StackSlotId, StackSlots};
 use tajp::{
@@ -28,7 +29,7 @@ use crate::{
 pub mod ast;
 pub mod module;
 mod package;
-mod proc;
+pub mod proc;
 mod scope;
 pub mod stack;
 pub mod tajp;
@@ -38,8 +39,10 @@ pub struct Checker {
     pub types: TypeCollection,
     scope: Scope,
     modules: ModuleCollection,
-    procs: ProcCollection,
+    pub procs: ProcCollection,
     packages: PackageCollection,
+    pub instantiated_generic_procs: IndexMap<(ProcId, Vec<TypeId>), (ProcId, CheckedProc)>,
+    pub generic_procs: HashMap<ProcId, ProcDefinition>,
 }
 
 struct CheckerContext<'a> {
@@ -56,6 +59,8 @@ impl Checker {
             modules: ModuleCollection::new(),
             procs: ProcCollection::new(),
             packages: PackageCollection::new(),
+            instantiated_generic_procs: IndexMap::new(),
+            generic_procs: HashMap::new(),
         }
     }
 
@@ -68,7 +73,13 @@ impl Checker {
 
         // TODO: Find a way to limit struct and proc lookups in these functions
         self.declare_structs(&package.path, &package.unit, &package.modules)?;
-        self.declare_procs(&package.path, &package.unit, &package.modules)?;
+        let generic_procs = self
+            .declare_procs(&package.path, &package.unit, &package.modules)?
+            .iter()
+            .map(|p| (*p.0, (**p.1).clone()))
+            .collect::<HashMap<_, _>>();
+
+        self.generic_procs.extend(generic_procs);
 
         for dependency in dependencies {
             self.add_dependency(package_id, dependency);
@@ -164,33 +175,38 @@ impl Checker {
         }
     }
 
-    fn declare_procs(
+    fn declare_procs<'a>(
         &mut self,
         path: &Path,
-        unit: &TranslationUnit,
-        modules: &[ParsedModule],
-    ) -> Result<()> {
+        unit: &'a TranslationUnit,
+        modules: &'a [ParsedModule],
+    ) -> Result<HashMap<ProcId, &'a ProcDefinition>> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
             unit,
             source: &unit.source,
         };
 
+        let mut generic_procs = HashMap::new();
+
         for child in modules {
-            self.declare_procs(&child.path, &child.unit, &child.children)?;
+            generic_procs.extend(self.declare_procs(&child.path, &child.unit, &child.children)?);
         }
 
         // FIXME: Procs with the same structure will have different TypeId's when they should have
         //        the same
         for proc in &unit.procs {
-            self.add_proc_name(proc, &ctx)?;
+            let proc_id = self.add_proc_name(proc, &ctx)?;
+            if proc.type_params.len() > 0 {
+                generic_procs.insert(proc_id, proc);
+            }
         }
 
         for proc in &unit.extern_procs {
             self.add_extern_proc_name(proc, &ctx)?;
         }
 
-        Ok(())
+        Ok(generic_procs)
     }
 
     fn define_structs(
@@ -329,11 +345,15 @@ impl Checker {
         self.scope.enter();
 
         for proc in self.procs.for_scope(ctx.module_id) {
-            self.scope.add_to_scope(&proc.0, proc.1, None);
+            self.scope.add_to_scope(&proc.0, proc.1, None, Some(proc.2));
         }
 
         let mut checked_procs = vec![];
         for proc in &unit.procs {
+            if proc.type_params.len() > 0 {
+                continue;
+            }
+
             checked_procs.push(self.typecheck_proc(proc, ctx)?);
         }
 
@@ -361,13 +381,21 @@ impl Checker {
                 });
             }
 
-            let type_id = self.types.force_find(ctx.source, ctx.module_id, &param.1)?;
+            let type_id = self.types.force_find_with_generics(
+                ctx.source,
+                ctx.module_id,
+                &param.1,
+                &definition.type_params,
+            )?;
             params.push((param.0.clone(), type_id));
         }
 
-        let return_type =
-            self.types
-                .force_find(ctx.source, ctx.module_id, &definition.return_type)?;
+        let return_type = self.types.force_find_with_generics(
+            ctx.source,
+            ctx.module_id,
+            &definition.return_type,
+            &definition.type_params,
+        )?;
 
         self.types.define_proc(
             type_id,
@@ -389,7 +417,13 @@ impl Checker {
         Ok(type_id)
     }
 
-    fn add_proc(&mut self, ident: Ident, ctx: &CheckerContext) -> Result<TypeId> {
+    fn add_proc(
+        &mut self,
+        ident: Ident,
+        external: bool,
+        generic: bool,
+        ctx: &CheckerContext,
+    ) -> Result<ProcId> {
         if let Some(span) = self.procs.find_original_span(ctx.module_id, &ident) {
             return Err(Error::ProcNameCollision {
                 src: ctx.source.clone(),
@@ -400,24 +434,26 @@ impl Checker {
         }
 
         let type_id = self.types.register_undefined_proc();
-        self.procs.add(ctx.module_id, Proc {
+        Ok(self.procs.add(ctx.module_id, Proc {
             type_id,
             name: ident,
-        });
-
-        Ok(type_id)
+            module_id: ctx.module_id,
+            external,
+            generic,
+            generic_instances: Vec::new(),
+        }))
     }
 
     fn add_extern_proc_name(
         &mut self,
         proc: &ExternProcDefinition,
         ctx: &CheckerContext,
-    ) -> Result<TypeId> {
-        self.add_proc(proc.ident.clone(), ctx)
+    ) -> Result<ProcId> {
+        self.add_proc(proc.ident.clone(), true, false, ctx)
     }
 
-    fn add_proc_name(&mut self, proc: &ProcDefinition, ctx: &CheckerContext) -> Result<TypeId> {
-        self.add_proc(proc.ident.clone(), ctx)
+    fn add_proc_name(&mut self, proc: &ProcDefinition, ctx: &CheckerContext) -> Result<ProcId> {
+        self.add_proc(proc.ident.clone(), true, proc.type_params.len() > 0, ctx)
     }
 
     fn define_struct(
@@ -493,17 +529,14 @@ impl Checker {
         Ok(())
     }
 
-    fn typecheck_proc(
+    fn typecheck_proc_with_type_id(
         &mut self,
         proc: &ProcDefinition,
+        type_id: TypeId,
+        proc_id: ProcId,
         ctx: &CheckerContext,
     ) -> Result<CheckedProc> {
-        let scope_data = self
-            .scope
-            .find(&proc.ident)
-            .expect("Proc to have been added to scope");
-
-        let definition = self.types.get_definition(scope_data.type_id).as_proc();
+        let definition = self.types.get_definition(type_id).as_proc();
 
         self.scope.enter();
 
@@ -512,7 +545,8 @@ impl Checker {
         let mut params = vec![];
         for param in proc.params.iter().map(|p| &p.0).zip(definition.params) {
             let stack_slot = ss.allocate(param.1);
-            self.scope.add_to_scope(param.0, param.1, Some(stack_slot));
+            self.scope
+                .add_to_scope(param.0, param.1, Some(stack_slot), None);
             params.push((param.0.name.clone(), stack_slot));
         }
 
@@ -544,13 +578,27 @@ impl Checker {
         self.scope.exit();
 
         Ok(CheckedProc {
-            type_id: scope_data.type_id,
+            proc_id: proc_id,
+            type_id: type_id,
             body: body.value,
             name: proc.ident.name.clone(),
             params,
             return_type: definition.return_type,
             stack_slots: ss,
         })
+    }
+
+    fn typecheck_proc(
+        &mut self,
+        proc: &ProcDefinition,
+        ctx: &CheckerContext,
+    ) -> Result<CheckedProc> {
+        let scope_data = self
+            .scope
+            .find(&proc.ident)
+            .expect("Proc to have been added to scope");
+
+        self.typecheck_proc_with_type_id(proc, scope_data.type_id, scope_data.proc_id.unwrap(), ctx)
     }
 
     fn typecheck_block(
@@ -685,7 +733,7 @@ impl Checker {
         let expr = self.typecheck_expr(expr, None, return_type, ctx, true, ss)?;
         let stack_slot = ss.allocate(expr.value.type_id);
         self.scope
-            .add_to_scope(ident, expr.value.type_id, Some(stack_slot));
+            .add_to_scope(ident, expr.value.type_id, Some(stack_slot), None);
 
         Ok(HasNever::new(
             CheckedStmt::VariableDeclaration {
@@ -951,14 +999,16 @@ impl Checker {
             _ => todo!("Indirect calls"),
         };
 
-        let proc_type = self
-            .types
-            .get_definition(
-                self.scope
-                    .force_find_from_string(ctx.source, &ident)?
-                    .type_id,
-            )
-            .as_proc();
+        let mut type_id = self
+            .scope
+            .force_find_from_string(ctx.source, &ident)?
+            .type_id;
+
+        let proc_type = self.types.get_definition(type_id).as_proc();
+
+        let mut proc_id =
+            self.procs
+                .force_find(ctx.source, ctx.module_id, &Ident::new(ident, expr.span))?;
 
         let mut resolved_generics = HashMap::new();
 
@@ -1038,20 +1088,51 @@ impl Checker {
             checked_params.push(checked_expr.value);
         }
 
+        let return_type_id = self
+            .types
+            .resolve_generic_type(proc_type.return_type, &resolved_generics)?;
+
+        if self.procs.is_generic(proc_id) {
+            let mut generic_types = resolved_generics.iter().collect::<Vec<_>>();
+            generic_types.sort_by(|a, b| a.0.cmp(&b.0));
+            let generic_types: Vec<TypeId> = generic_types.into_iter().map(|t| t.1.value).collect();
+
+            if let Some((nongeneric_proc_id, _)) = self
+                .instantiated_generic_procs
+                .get(&(proc_id, generic_types.clone()))
+            {
+                proc_id = *nongeneric_proc_id;
+            } else {
+                type_id = self
+                    .types
+                    .resolve_generic_type(type_id, &resolved_generics)?;
+
+                let proc = self.generic_procs.get(&proc_id).unwrap().clone();
+                let nongeneric_proc_id = proc_id;
+                proc_id = self
+                    .procs
+                    .add_generic(proc_id, type_id, generic_types.clone());
+
+                // TODO: Update ctx
+                let checked = self.typecheck_proc_with_type_id(&proc, type_id, proc_id, ctx)?;
+
+                self.instantiated_generic_procs
+                    .insert((nongeneric_proc_id, generic_types), (proc_id, checked));
+            }
+        }
+
         Ok(HasNever::new(
             CheckedExpr {
-                type_id: self
-                    .types
-                    .resolve_generic_type(proc_type.return_type, &resolved_generics)?,
+                type_id: return_type_id,
                 kind: CheckedExprKind::DirectCall {
-                    name: ident,
+                    proc_id: proc_id,
                     params: checked_params,
                     variadic_after: if proc_type.variadic {
                         Some(proc_type.params.len() as u64)
                     } else {
                         None
                     },
-                    stack_slot: ss.allocate(proc_type.return_type),
+                    stack_slot: ss.allocate(return_type_id),
                 },
                 lvalue: true,
             },

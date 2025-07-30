@@ -11,6 +11,9 @@ CheckedPackage {
         CheckedTranslationUnit {
             procs: [
                 CheckedProc {
+                    proc_id: ProcId(
+                        3,
+                    ),
                     name: "main",
                     type_id: TypeId(
                         11,
@@ -84,7 +87,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -112,7 +117,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -169,7 +176,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -294,7 +303,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -322,7 +333,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -379,7 +392,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -484,7 +499,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -512,7 +529,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(
@@ -569,7 +588,9 @@ CheckedPackage {
                                     ),
                                     lvalue: true,
                                     kind: DirectCall {
-                                        name: "printf",
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
                                         params: [
                                             CheckedExpr {
                                                 type_id: TypeId(

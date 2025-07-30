@@ -3,6 +3,7 @@ use strum::Display;
 use crate::ast::parsed::BinOp;
 
 use super::{
+    proc::ProcId,
     stack::{StackSlotId, StackSlots},
     tajp::TypeId,
 };
@@ -14,6 +15,7 @@ pub struct CheckedTranslationUnit {
 
 #[derive(Debug, Clone)]
 pub struct CheckedProc {
+    pub proc_id: ProcId,
     pub name: String,
     pub type_id: TypeId,
     pub body: CheckedBlock,
@@ -53,7 +55,7 @@ pub enum CheckedExprKind {
         rhs: Box<CheckedExpr>,
     },
     DirectCall {
-        name: String,
+        proc_id: ProcId,
         params: Vec<CheckedExpr>,
         variadic_after: Option<u64>,
         stack_slot: StackSlotId,

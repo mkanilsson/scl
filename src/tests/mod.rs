@@ -19,7 +19,6 @@ fn runtime() {
     }
 
     glob!("sources/runtime/*", |file| {
-        println!("Runtime: {}", file.display());
         let main_package = Package::from_file(file.into()).unwrap();
         let main_package = main_package.parse().unwrap();
 

@@ -1,0 +1,330 @@
+---
+source: src/tests/mod.rs
+expression: checked_main_package
+input_file: src/tests/sources/runtime/generic_proc.scl
+---
+CheckedPackage {
+    package_id: ModuleId(
+        3,
+    ),
+    units: [
+        CheckedTranslationUnit {
+            procs: [
+                CheckedProc {
+                    proc_id: ProcId(
+                        4,
+                    ),
+                    name: "main",
+                    type_id: TypeId(
+                        10,
+                    ),
+                    body: CheckedBlock {
+                        stmts: [
+                            VariableDeclaration {
+                                stack_slot: StackSlotId(
+                                    0,
+                                ),
+                                value: CheckedExpr {
+                                    type_id: TypeId(
+                                        2,
+                                    ),
+                                    lvalue: false,
+                                    kind: Number(
+                                        50,
+                                    ),
+                                },
+                            },
+                            VariableDeclaration {
+                                stack_slot: StackSlotId(
+                                    1,
+                                ),
+                                value: CheckedExpr {
+                                    type_id: TypeId(
+                                        2,
+                                    ),
+                                    lvalue: false,
+                                    kind: Number(
+                                        80,
+                                    ),
+                                },
+                            },
+                            VariableDeclaration {
+                                stack_slot: StackSlotId(
+                                    2,
+                                ),
+                                value: CheckedExpr {
+                                    type_id: TypeId(
+                                        2,
+                                    ),
+                                    lvalue: false,
+                                    kind: Number(
+                                        2,
+                                    ),
+                                },
+                            },
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "a = %d, b = %d, max = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    2,
+                                                ),
+                                                lvalue: true,
+                                                kind: StackValue(
+                                                    StackSlotId(
+                                                        2,
+                                                    ),
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    2,
+                                                ),
+                                                lvalue: true,
+                                                kind: StackValue(
+                                                    StackSlotId(
+                                                        1,
+                                                    ),
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    2,
+                                                ),
+                                                lvalue: true,
+                                                kind: DirectCall {
+                                                    proc_id: ProcId(
+                                                        5,
+                                                    ),
+                                                    params: [
+                                                        CheckedExpr {
+                                                            type_id: TypeId(
+                                                                2,
+                                                            ),
+                                                            lvalue: true,
+                                                            kind: StackValue(
+                                                                StackSlotId(
+                                                                    2,
+                                                                ),
+                                                            ),
+                                                        },
+                                                        CheckedExpr {
+                                                            type_id: TypeId(
+                                                                2,
+                                                            ),
+                                                            lvalue: true,
+                                                            kind: StackValue(
+                                                                StackSlotId(
+                                                                    1,
+                                                                ),
+                                                            ),
+                                                        },
+                                                    ],
+                                                    variadic_after: None,
+                                                    stack_slot: StackSlotId(
+                                                        3,
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            4,
+                                        ),
+                                    },
+                                },
+                            ),
+                            VariableDeclaration {
+                                stack_slot: StackSlotId(
+                                    5,
+                                ),
+                                value: CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: false,
+                                    kind: Number(
+                                        12,
+                                    ),
+                                },
+                            },
+                            VariableDeclaration {
+                                stack_slot: StackSlotId(
+                                    6,
+                                ),
+                                value: CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: false,
+                                    kind: Number(
+                                        11,
+                                    ),
+                                },
+                            },
+                            Expr(
+                                CheckedExpr {
+                                    type_id: TypeId(
+                                        3,
+                                    ),
+                                    lvalue: true,
+                                    kind: DirectCall {
+                                        proc_id: ProcId(
+                                            1,
+                                        ),
+                                        params: [
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    4,
+                                                ),
+                                                lvalue: false,
+                                                kind: String(
+                                                    "c = %d, d = %d, max = %d\\n",
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    3,
+                                                ),
+                                                lvalue: true,
+                                                kind: StackValue(
+                                                    StackSlotId(
+                                                        5,
+                                                    ),
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    3,
+                                                ),
+                                                lvalue: true,
+                                                kind: StackValue(
+                                                    StackSlotId(
+                                                        6,
+                                                    ),
+                                                ),
+                                            },
+                                            CheckedExpr {
+                                                type_id: TypeId(
+                                                    3,
+                                                ),
+                                                lvalue: true,
+                                                kind: DirectCall {
+                                                    proc_id: ProcId(
+                                                        6,
+                                                    ),
+                                                    params: [
+                                                        CheckedExpr {
+                                                            type_id: TypeId(
+                                                                3,
+                                                            ),
+                                                            lvalue: true,
+                                                            kind: StackValue(
+                                                                StackSlotId(
+                                                                    5,
+                                                                ),
+                                                            ),
+                                                        },
+                                                        CheckedExpr {
+                                                            type_id: TypeId(
+                                                                3,
+                                                            ),
+                                                            lvalue: true,
+                                                            kind: StackValue(
+                                                                StackSlotId(
+                                                                    6,
+                                                                ),
+                                                            ),
+                                                        },
+                                                    ],
+                                                    variadic_after: None,
+                                                    stack_slot: StackSlotId(
+                                                        7,
+                                                    ),
+                                                },
+                                            },
+                                        ],
+                                        variadic_after: Some(
+                                            1,
+                                        ),
+                                        stack_slot: StackSlotId(
+                                            8,
+                                        ),
+                                    },
+                                },
+                            ),
+                        ],
+                        last: Some(
+                            CheckedExpr {
+                                type_id: TypeId(
+                                    2,
+                                ),
+                                lvalue: false,
+                                kind: Number(
+                                    0,
+                                ),
+                            },
+                        ),
+                        type_id: TypeId(
+                            2,
+                        ),
+                    },
+                    params: [],
+                    return_type: TypeId(
+                        2,
+                    ),
+                    stack_slots: StackSlots {
+                        slots: [
+                            TypeId(
+                                2,
+                            ),
+                            TypeId(
+                                2,
+                            ),
+                            TypeId(
+                                2,
+                            ),
+                            TypeId(
+                                2,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                            TypeId(
+                                3,
+                            ),
+                        ],
+                    },
+                },
+            ],
+        },
+    ],
+}

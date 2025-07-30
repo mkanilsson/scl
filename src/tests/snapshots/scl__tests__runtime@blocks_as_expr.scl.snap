@@ -11,6 +11,9 @@ CheckedPackage {
         CheckedTranslationUnit {
             procs: [
                 CheckedProc {
+                    proc_id: ProcId(
+                        3,
+                    ),
                     name: "main",
                     type_id: TypeId(
                         9,

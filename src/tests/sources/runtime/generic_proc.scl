@@ -1,0 +1,22 @@
+use std::io::printf
+
+proc max<T>(a: T, b: T) T {
+    if (a > b) {
+        a
+    } else {
+        b
+    }
+}
+
+proc main() i32 {
+    let a = 50;
+    let b = 80;
+    let a = 2;
+    printf("a = %d, b = %d, max = %d\n", a, b, max(a, b));
+
+    let c = 12 as u32;
+    let d = 11 as u32;
+    printf("c = %d, d = %d, max = %d\n", c, d, max(c, d));
+
+    0
+}

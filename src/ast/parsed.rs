@@ -143,6 +143,7 @@ pub struct ProcDefinition {
     pub params: Vec<(Ident, Type)>,
     pub return_type: Type,
     pub body: Block,
+    pub type_params: Vec<Ident>,
 }
 
 #[derive(Debug, Clone)]

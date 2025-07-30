@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::fmt::Display;
 
 use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::Ident;
 use crate::error::{Error, Result};
 
+use super::Checker;
 use super::{module::ModuleId, tajp::TypeId};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -13,6 +15,12 @@ pub struct ProcId(pub usize);
 impl From<usize> for ProcId {
     fn from(value: usize) -> Self {
         ProcId(value)
+    }
+}
+
+impl Display for ProcId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
@@ -35,6 +43,27 @@ impl ProcCollection {
         let parsed_for_module = self.parsed.entry(module_id).or_default();
         parsed_for_module.insert(proc.name.clone(), id.into());
         self.procs.push(proc);
+        id.into()
+    }
+
+    pub fn add_generic(
+        &mut self,
+        original: ProcId,
+        type_id: TypeId,
+        generics: Vec<TypeId>,
+    ) -> ProcId {
+        let id = self.procs.len();
+
+        let generic = &self.procs[original.0];
+        self.procs.push(Proc {
+            generic: false,
+            external: false,
+            module_id: generic.module_id,
+            type_id,
+            name: generic.name.clone(),
+            generic_instances: generics,
+        });
+
         id.into()
     }
 
@@ -74,14 +103,14 @@ impl ProcCollection {
         self.parsed.get(&module_id)?.get(ident).copied()
     }
 
-    pub fn for_scope(&self, module_id: ModuleId) -> Vec<(Ident, TypeId)> {
+    pub fn for_scope(&self, module_id: ModuleId) -> Vec<(Ident, TypeId, ProcId)> {
         let Some(module) = self.parsed.get(&module_id) else {
             return vec![];
         };
 
         module
             .iter()
-            .map(|(k, v)| (k.clone(), self.procs[v.0].type_id))
+            .map(|(k, v)| (k.clone(), self.procs[v.0].type_id, *v))
             .collect()
     }
 
@@ -89,10 +118,43 @@ impl ProcCollection {
         let module = self.parsed.get(&module_id)?;
         Some(module.get_key_value(ident)?.0.span)
     }
+
+    pub fn mangled_name_of(&self, proc_id: ProcId, checker: &Checker) -> String {
+        let proc = &self.procs[proc_id.0];
+
+        if proc.external {
+            proc.name.name.clone()
+        } else {
+            // TODO: Add module prefix
+
+            let base = proc.name.name.clone();
+
+            if proc.generic_instances.len() > 0 {
+                let types = proc
+                    .generic_instances
+                    .iter()
+                    .map(|t| checker.types.mangled_name_of(*t))
+                    .collect::<Vec<_>>()
+                    .join(".");
+
+                format!("{base}.{}.{types}", proc.generic_instances.len())
+            } else {
+                base
+            }
+        }
+    }
+
+    pub fn is_generic(&self, proc_id: ProcId) -> bool {
+        self.procs[proc_id.0].generic
+    }
 }
 
 #[derive(Debug)]
 pub struct Proc {
     pub name: Ident,
     pub type_id: TypeId,
+    pub module_id: ModuleId,
+    pub external: bool,
+    pub generic: bool,
+    pub generic_instances: Vec<TypeId>,
 }

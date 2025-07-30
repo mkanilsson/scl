@@ -10,6 +10,7 @@ use crate::{
             CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt,
             CheckedTranslationUnit,
         },
+        proc::ProcId,
         stack::StackSlotId,
         tajp::{TypeId, VOID_TYPE_ID},
     },
@@ -47,6 +48,10 @@ impl Codegen {
             }
         }
 
+        for proc in &self.checker.instantiated_generic_procs {
+            self.codegen_proc(&proc.1.1, &mut module);
+        }
+
         format!("{}", module)
     }
 
@@ -70,7 +75,14 @@ impl Codegen {
             Some(self.checker.types.qbe_type_of(proc.return_type))
         };
 
-        let mut func = Function::new(Linkage::public(), proc.name.clone(), params, return_type);
+        let mut func = Function::new(
+            Linkage::public(),
+            self.checker
+                .procs
+                .mangled_name_of(proc.proc_id, &self.checker),
+            params,
+            return_type,
+        );
 
         func.add_block("start");
         for (slot, type_id) in proc.stack_slots.slots.iter().enumerate() {
@@ -185,13 +197,13 @@ impl Codegen {
                 self.codegen_binop_expr(lhs, *op, rhs, function, module)
             }
             CheckedExprKind::DirectCall {
-                name,
+                proc_id,
                 params,
                 variadic_after,
                 stack_slot,
             } => self.codegen_direct_call_expr(
                 expr,
-                name,
+                *proc_id,
                 params,
                 *variadic_after,
                 *stack_slot,
@@ -294,13 +306,15 @@ impl Codegen {
     fn codegen_direct_call_expr<'a>(
         &'a self,
         expr: &CheckedExpr,
-        name: &str,
+        proc_id: ProcId,
         params: &Vec<CheckedExpr>,
         variadic_after: Option<u64>,
         stack_slot: StackSlotId,
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
+        let name = self.checker.procs.mangled_name_of(proc_id, &self.checker);
+
         let result_value = Value::Temporary(format!("{name}.return_value.{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
@@ -316,7 +330,7 @@ impl Codegen {
         function.assign_instr(
             result_value.clone(),
             result_type.clone(),
-            Instr::Call(name.to_string(), generated_params, variadic_after),
+            Instr::Call(name, generated_params, variadic_after),
         );
 
         let dest = Value::Temporary(stack_slot.qbe_name());
