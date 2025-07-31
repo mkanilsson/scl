@@ -2,15 +2,15 @@ use logos::{Logos, SpannedIter};
 
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"[ \t\n\f]+")]
-pub enum Token {
-    #[regex("-*[0-9]+", |lex| lex.slice().to_string())]
-    Number(String),
-    #[regex("[a-zA-Z]+[a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
-    Identifier(String),
-    #[regex(r#""([^"\\]|\\.)*""#, |lex| { let slice = lex.slice(); slice[1..slice.len() - 1].to_string() })]
-    String(String),
-    #[regex("@[a-zA-Z]+[a-zA-Z0-9_]*", |lex| lex.slice()[1..].to_string())]
-    Builtin(String),
+pub enum Token<'source> {
+    #[regex("-*[0-9]+")]
+    Number(&'source str),
+    #[regex("[a-zA-Z]+[a-zA-Z0-9_]*")]
+    Identifier(&'source str),
+    #[regex(r#""([^"\\]|\\.)*""#, |lex| { let slice = lex.slice(); &slice[1..slice.len() - 1] })]
+    String(&'source str),
+    #[regex("@[a-zA-Z]+[a-zA-Z0-9_]*", |lex| &lex.slice()[1..])]
+    Builtin(&'source str),
     #[token("true")]
     True,
     #[token("false")]
@@ -96,7 +96,7 @@ impl From<()> for LexicalError {
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 
 pub struct Lexer<'input> {
-    token_stream: SpannedIter<'input, Token>,
+    token_stream: SpannedIter<'input, Token<'input>>,
 }
 
 impl<'input> Lexer<'input> {
@@ -107,8 +107,8 @@ impl<'input> Lexer<'input> {
     }
 }
 
-impl Iterator for Lexer<'_> {
-    type Item = Spanned<Token, usize, LexicalError>;
+impl<'input> Iterator for Lexer<'input> {
+    type Item = Spanned<Token<'input>, usize, LexicalError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.token_stream

@@ -6,7 +6,7 @@ use crate::ast::tajp;
 use crate::{expr, stmt, tajp};
 use miette::{NamedSource};
 
-grammar;
+grammar<'input>;
 
 pub Expr: Box<parsed::Expr> = {
     #[precedence(level="1")]
@@ -100,10 +100,10 @@ pub Term: Box<parsed::Expr> = {
         expr!(s, e, ExprKind::Identifier(ident))
     },
     <s:@L> <str:"string"> <e:@R> => {
-        expr!(s, e, ExprKind::String(str))
+        expr!(s, e, ExprKind::String(str.to_string()))
     },
     <s:@L> <num:"number"> <e:@R> => {
-        expr!(s, e, ExprKind::Number(num))
+        expr!(s, e, ExprKind::Number(num.to_string()))
     },
     <s:@L> "true" <e:@R> => {
         expr!(s, e, ExprKind::Bool(true))
@@ -138,7 +138,7 @@ pub Term: Box<parsed::Expr> = {
         })
     },
     <s:@L> <builtin:"builtin"> "(" <params:ProcCallParams> ")" <e:@R> => {
-        expr!(s, e, ExprKind::Builtin(builtin, params))
+        expr!(s, e, ExprKind::Builtin(builtin.to_string(), params))
     },
     <s:@L> <lhs:Term> "as" <tajp:Type> <e:@R> => {
         expr!(s, e, ExprKind::Cast {
@@ -196,7 +196,7 @@ Block: Box<parsed::Block> = {
 
 Ident: parsed::Ident = {
     <s:@L> <ident:"identifier"> <e:@R> => {
-        parsed::Ident::new(ident, (s..e).into())
+        parsed::Ident::new(ident.to_string(), (s..e).into())
     }
 }
 
@@ -363,15 +363,15 @@ Comma<T>: Vec<T> = {
     }
 };
 
-extern  {
+extern {
     type Location = usize;
     type Error = LexicalError;
 
-    enum Token {
-        "number" => Token::Number(<String>),
-        "identifier" => Token::Identifier(<String>),
-        "string" => Token::String(<String>),
-        "builtin" => Token::Builtin(<String>),
+    enum Token<'input> {
+        "number" => Token::Number(<&'input str>),
+        "identifier" => Token::Identifier(<&'input str>),
+        "string" => Token::String(<&'input str>),
+        "builtin" => Token::Builtin(<&'input str>),
         "true" => Token::True,
         "false" => Token::False,
         ")" => Token::OpenParen,

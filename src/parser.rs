@@ -19,7 +19,7 @@ lalrpop_mod! {
 pub struct Parser;
 
 impl Parser {
-    pub fn parse_expr(expr: &str) -> Box<Expr> {
+    pub fn parse_expr<'input>(expr: &'input str) -> Box<Expr> {
         let lexer = Lexer::new(expr);
         grammar::ExprParser::new().parse(lexer).unwrap()
     }
