@@ -394,26 +394,12 @@ impl TypeCollection {
         }
     }
 
-    pub fn alignment_of(&self, type_id: TypeId) -> usize {
-        let definition = self.get_definition(type_id);
-        self.alignment_of_definition(&definition)
-    }
-
     fn alignment_of_definition(&self, definition: &Type) -> usize {
         self.qbe_type_of_definition(definition).align() as usize
     }
 
-    pub fn size_of(&self, type_id: TypeId) -> usize {
-        let definition = self.get_definition(type_id);
-        self.size_of_definition(&definition)
-    }
-
     fn size_of_definition(&self, definition: &Type) -> usize {
         self.qbe_type_of_definition(definition).size() as usize
-    }
-
-    fn size_of_struct(&self, fields: &Vec<IdentTypeId>) -> usize {
-        self.memory_layout_of_struct(fields).size
     }
 
     pub fn memory_layout_of(&self, type_id: TypeId) -> MemoryLayout {
@@ -614,6 +600,7 @@ impl MemoryLayout {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)] // NOTE: These will be useful when I add llvm support
 pub struct FieldLayout {
     pub offset: usize,
     pub size: usize,

@@ -39,22 +39,6 @@ pub enum Error {
         expected: String,
         got: String,
     },
-    #[error("Expected identifier before struct instantation")]
-    IdentBeforeStructInstantation {
-        #[source_code]
-        src: NamedSource<String>,
-
-        #[label("here")]
-        span: SourceSpan,
-    },
-    #[error("Expected proc or struct definition, extern proc or use")]
-    ExpectedProcStructExternUse {
-        #[source_code]
-        src: NamedSource<String>,
-
-        #[label("here")]
-        span: SourceSpan,
-    },
     #[error("Unknown type '{type_name}'")]
     UnknownType {
         #[source_code]

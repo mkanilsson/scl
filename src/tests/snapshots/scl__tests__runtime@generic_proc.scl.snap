@@ -14,10 +14,6 @@ CheckedPackage {
                     proc_id: ProcId(
                         4,
                     ),
-                    name: "main",
-                    type_id: TypeId(
-                        10,
-                    ),
                     body: CheckedBlock {
                         stmts: [
                             VariableDeclaration {

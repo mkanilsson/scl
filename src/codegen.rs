@@ -450,21 +450,6 @@ impl Codegen {
         (Type::Long, generated_expr)
     }
 
-    fn codegen_address_of_rvalue_expr<'a>(
-        &'a self,
-        expr: &CheckedExpr,
-        stack_slot: StackSlotId,
-        function: &mut Function<'a>,
-        module: &mut Module<'a>,
-    ) -> (Type<'a>, Value) {
-        let generated_expr = self.codegen_expr(expr, function, module);
-        let value = Value::Temporary(stack_slot.qbe_name());
-
-        self.store(generated_expr.0, generated_expr.1, value.clone(), function);
-
-        (Type::Long, value)
-    }
-
     fn codegen_deref_expr<'a>(
         &'a self,
         type_id: TypeId,
@@ -489,25 +474,6 @@ impl Codegen {
 
         // Load the data from the ptr and store it in the new slot
         self.load(t.clone(), ptr, dest.clone(), function);
-
-        (t, dest)
-    }
-
-    fn codegen_deref_rvalue_expr<'a>(
-        &'a self,
-        type_id: TypeId,
-        expr: &CheckedExpr,
-        stack_slot: StackSlotId,
-        function: &mut Function<'a>,
-        module: &mut Module<'a>,
-    ) -> (Type<'a>, Value) {
-        let generated_expr = self.codegen_expr(expr, function, module);
-
-        let dest = Value::Temporary(stack_slot.qbe_name());
-        let t = self.checker.types.qbe_type_of(type_id);
-
-        // Load the data from the ptr and store it in the new slot
-        self.load(t.clone(), generated_expr.1, dest.clone(), function);
 
         (t, dest)
     }

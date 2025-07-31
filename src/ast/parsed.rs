@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use miette::{NamedSource, SourceSpan};
+use miette::SourceSpan;
 use strum::Display;
 
 use super::tajp::Type;

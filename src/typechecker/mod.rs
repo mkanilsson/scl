@@ -593,9 +593,7 @@ impl Checker {
 
         Ok(CheckedProc {
             proc_id,
-            type_id,
             body: body.value,
-            name: proc.ident.name.clone(),
             params,
             return_type: definition.return_type,
             stack_slots: ss,

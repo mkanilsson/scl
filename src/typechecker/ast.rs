@@ -16,8 +16,6 @@ pub struct CheckedTranslationUnit {
 #[derive(Debug, Clone)]
 pub struct CheckedProc {
     pub proc_id: ProcId,
-    pub name: String,
-    pub type_id: TypeId,
     pub body: CheckedBlock,
     pub params: Vec<(String, StackSlotId)>,
     pub return_type: TypeId,
