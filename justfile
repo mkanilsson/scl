@@ -9,6 +9,9 @@ run:
 test:
     cargo test
 
+fmt:
+    cargo fmt
+
 review:
     cargo insta review
 
