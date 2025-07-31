@@ -10,10 +10,10 @@ export function w $add(w %a, w %b) {
 	storew %a, %.ss.0
 	storew %b, %.ss.1
 @body
-	%sv.1 =w loadw %.ss.0
-	%sv.2 =w loadw %.ss.1
-	%binop.3 =w add %sv.1, %sv.2
-	ret %binop.3
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
 }
 export function w $main() {
 @start
@@ -30,41 +30,41 @@ export function w $main() {
 	%.ss.10 =l alloc4 4
 	%.ss.11 =l alloc4 4
 @body
-	%binop.6 =w csltw 9, 10
-	%printf.return_value.4 =w call $printf(l $str.5, ..., w %binop.6)
-	%binop.9 =w csltw 10, 10
-	%printf.return_value.7 =w call $printf(l $str.8, ..., w %binop.9)
-	%binop.12 =w csltw 11, 10
-	%printf.return_value.10 =w call $printf(l $str.11, ..., w %binop.12)
-	%binop.15 =w cslew 9, 10
-	%printf.return_value.13 =w call $printf(l $str.14, ..., w %binop.15)
-	%binop.18 =w cslew 10, 10
-	%printf.return_value.16 =w call $printf(l $str.17, ..., w %binop.18)
-	%binop.21 =w cslew 11, 10
-	%printf.return_value.19 =w call $printf(l $str.20, ..., w %binop.21)
-	%binop.24 =w csgtw 9, 10
-	%printf.return_value.22 =w call $printf(l $str.23, ..., w %binop.24)
-	%binop.27 =w csgtw 10, 10
-	%printf.return_value.25 =w call $printf(l $str.26, ..., w %binop.27)
-	%binop.30 =w csgtw 11, 10
-	%printf.return_value.28 =w call $printf(l $str.29, ..., w %binop.30)
-	%binop.33 =w csgew 9, 10
-	%printf.return_value.31 =w call $printf(l $str.32, ..., w %binop.33)
-	%binop.36 =w csgew 10, 10
-	%printf.return_value.34 =w call $printf(l $str.35, ..., w %binop.36)
-	%binop.39 =w csgew 11, 10
-	%printf.return_value.37 =w call $printf(l $str.38, ..., w %binop.39)
+	%.binop.6 =w csltw 9, 10
+	%.printf.return_value.4 =w call $printf(l $.str.5, ..., w %.binop.6)
+	%.binop.9 =w csltw 10, 10
+	%.printf.return_value.7 =w call $printf(l $.str.8, ..., w %.binop.9)
+	%.binop.12 =w csltw 11, 10
+	%.printf.return_value.10 =w call $printf(l $.str.11, ..., w %.binop.12)
+	%.binop.15 =w cslew 9, 10
+	%.printf.return_value.13 =w call $printf(l $.str.14, ..., w %.binop.15)
+	%.binop.18 =w cslew 10, 10
+	%.printf.return_value.16 =w call $printf(l $.str.17, ..., w %.binop.18)
+	%.binop.21 =w cslew 11, 10
+	%.printf.return_value.19 =w call $printf(l $.str.20, ..., w %.binop.21)
+	%.binop.24 =w csgtw 9, 10
+	%.printf.return_value.22 =w call $printf(l $.str.23, ..., w %.binop.24)
+	%.binop.27 =w csgtw 10, 10
+	%.printf.return_value.25 =w call $printf(l $.str.26, ..., w %.binop.27)
+	%.binop.30 =w csgtw 11, 10
+	%.printf.return_value.28 =w call $printf(l $.str.29, ..., w %.binop.30)
+	%.binop.33 =w csgew 9, 10
+	%.printf.return_value.31 =w call $printf(l $.str.32, ..., w %.binop.33)
+	%.binop.36 =w csgew 10, 10
+	%.printf.return_value.34 =w call $printf(l $.str.35, ..., w %.binop.36)
+	%.binop.39 =w csgew 11, 10
+	%.printf.return_value.37 =w call $printf(l $.str.38, ..., w %.binop.39)
 	ret 0
 }
-data $str.5 = { b "9 < 10 = %d\n", b 0 }
-data $str.8 = { b "10 < 10 = %d\n", b 0 }
-data $str.11 = { b "11 < 10 = %d\n", b 0 }
-data $str.14 = { b "9 <= 10 = %d\n", b 0 }
-data $str.17 = { b "10 <= 10 = %d\n", b 0 }
-data $str.20 = { b "11 <= 10 = %d\n", b 0 }
-data $str.23 = { b "9 > 10 = %d\n", b 0 }
-data $str.26 = { b "10 > 10 = %d\n", b 0 }
-data $str.29 = { b "11 > 10 = %d\n", b 0 }
-data $str.32 = { b "9 >= 10 = %d\n", b 0 }
-data $str.35 = { b "10 >= 10 = %d\n", b 0 }
-data $str.38 = { b "11 >= 10 = %d\n", b 0 }
+data $.str.5 = { b "9 < 10 = %d\n", b 0 }
+data $.str.8 = { b "10 < 10 = %d\n", b 0 }
+data $.str.11 = { b "11 < 10 = %d\n", b 0 }
+data $.str.14 = { b "9 <= 10 = %d\n", b 0 }
+data $.str.17 = { b "10 <= 10 = %d\n", b 0 }
+data $.str.20 = { b "11 <= 10 = %d\n", b 0 }
+data $.str.23 = { b "9 > 10 = %d\n", b 0 }
+data $.str.26 = { b "10 > 10 = %d\n", b 0 }
+data $.str.29 = { b "11 > 10 = %d\n", b 0 }
+data $.str.32 = { b "9 >= 10 = %d\n", b 0 }
+data $.str.35 = { b "10 >= 10 = %d\n", b 0 }
+data $.str.38 = { b "11 >= 10 = %d\n", b 0 }

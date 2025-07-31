@@ -10,10 +10,10 @@ export function w $add(w %a, w %b) {
 	storew %a, %.ss.0
 	storew %b, %.ss.1
 @body
-	%sv.1 =w loadw %.ss.0
-	%sv.2 =w loadw %.ss.1
-	%binop.3 =w add %sv.1, %sv.2
-	ret %binop.3
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
 }
 export function w $main() {
 @start
@@ -30,20 +30,20 @@ export function w $main() {
 	storew 50, %.ss.0
 	storew 80, %.ss.1
 	storew 2, %.ss.2
-	%sv.6 =w loadw %.ss.2
-	%sv.7 =w loadw %.ss.1
-	%sv.9 =w loadw %.ss.2
-	%sv.10 =w loadw %.ss.1
-	%max.1.i32.return_value.8 =w call $max.1.i32(w %sv.9, w %sv.10)
-	%printf.return_value.4 =w call $printf(l $str.5, ..., w %sv.6, w %sv.7, w %max.1.i32.return_value.8)
+	%.sv.6 =w loadw %.ss.2
+	%.sv.7 =w loadw %.ss.1
+	%.sv.9 =w loadw %.ss.2
+	%.sv.10 =w loadw %.ss.1
+	%.max.1.i32.return_value.8 =w call $max.1.i32(w %.sv.9, w %.sv.10)
+	%.printf.return_value.4 =w call $printf(l $.str.5, ..., w %.sv.6, w %.sv.7, w %.max.1.i32.return_value.8)
 	storew 12, %.ss.5
 	storew 11, %.ss.6
-	%sv.13 =w loadw %.ss.5
-	%sv.14 =w loadw %.ss.6
-	%sv.16 =w loadw %.ss.5
-	%sv.17 =w loadw %.ss.6
-	%max.1.u32.return_value.15 =w call $max.1.u32(w %sv.16, w %sv.17)
-	%printf.return_value.11 =w call $printf(l $str.12, ..., w %sv.13, w %sv.14, w %max.1.u32.return_value.15)
+	%.sv.13 =w loadw %.ss.5
+	%.sv.14 =w loadw %.ss.6
+	%.sv.16 =w loadw %.ss.5
+	%.sv.17 =w loadw %.ss.6
+	%.max.1.u32.return_value.15 =w call $max.1.u32(w %.sv.16, w %.sv.17)
+	%.printf.return_value.11 =w call $printf(l $.str.12, ..., w %.sv.13, w %.sv.14, w %.max.1.u32.return_value.15)
 	ret 0
 }
 export function w $max.1.i32(w %a, w %b) {
@@ -54,21 +54,21 @@ export function w $max.1.i32(w %a, w %b) {
 	storew %a, %.ss.0
 	storew %b, %.ss.1
 @body
-	%sv.19 =w loadw %.ss.0
-	%sv.20 =w loadw %.ss.1
-	%binop.21 =w csgtw %sv.19, %sv.20
-	jnz %binop.21, @if.true.18, @if.false.18
-@if.true.18
-	%sv.22 =w loadw %.ss.0
-	storew %sv.22, %.ss.2
-	jmp @if.after.18
-@if.false.18
-	%sv.23 =w loadw %.ss.1
-	storew %sv.23, %.ss.2
-	jmp @if.after.18
-@if.after.18
-	%sv.24 =w loadw %.ss.2
-	ret %sv.24
+	%.sv.19 =w loadw %.ss.0
+	%.sv.20 =w loadw %.ss.1
+	%.binop.21 =w csgtw %.sv.19, %.sv.20
+	jnz %.binop.21, @.if.true.18, @.if.false.18
+@.if.true.18
+	%.sv.22 =w loadw %.ss.0
+	storew %.sv.22, %.ss.2
+	jmp @.if.after.18
+@.if.false.18
+	%.sv.23 =w loadw %.ss.1
+	storew %.sv.23, %.ss.2
+	jmp @.if.after.18
+@.if.after.18
+	%.sv.24 =w loadw %.ss.2
+	ret %.sv.24
 }
 export function w $max.1.u32(w %a, w %b) {
 @start
@@ -78,21 +78,21 @@ export function w $max.1.u32(w %a, w %b) {
 	storew %a, %.ss.0
 	storew %b, %.ss.1
 @body
-	%sv.26 =w loadw %.ss.0
-	%sv.27 =w loadw %.ss.1
-	%binop.28 =w cugtw %sv.26, %sv.27
-	jnz %binop.28, @if.true.25, @if.false.25
-@if.true.25
-	%sv.29 =w loadw %.ss.0
-	storew %sv.29, %.ss.2
-	jmp @if.after.25
-@if.false.25
-	%sv.30 =w loadw %.ss.1
-	storew %sv.30, %.ss.2
-	jmp @if.after.25
-@if.after.25
-	%sv.31 =w loadw %.ss.2
-	ret %sv.31
+	%.sv.26 =w loadw %.ss.0
+	%.sv.27 =w loadw %.ss.1
+	%.binop.28 =w cugtw %.sv.26, %.sv.27
+	jnz %.binop.28, @.if.true.25, @.if.false.25
+@.if.true.25
+	%.sv.29 =w loadw %.ss.0
+	storew %.sv.29, %.ss.2
+	jmp @.if.after.25
+@.if.false.25
+	%.sv.30 =w loadw %.ss.1
+	storew %.sv.30, %.ss.2
+	jmp @.if.after.25
+@.if.after.25
+	%.sv.31 =w loadw %.ss.2
+	ret %.sv.31
 }
-data $str.5 = { b "a = %d, b = %d, max = %d\n", b 0 }
-data $str.12 = { b "c = %d, d = %d, max = %d\n", b 0 }
+data $.str.5 = { b "a = %d, b = %d, max = %d\n", b 0 }
+data $.str.12 = { b "c = %d, d = %d, max = %d\n", b 0 }

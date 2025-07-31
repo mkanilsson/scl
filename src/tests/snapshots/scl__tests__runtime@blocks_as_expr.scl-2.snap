@@ -10,10 +10,10 @@ export function w $add(w %a, w %b) {
 	storew %a, %.ss.0
 	storew %b, %.ss.1
 @body
-	%sv.1 =w loadw %.ss.0
-	%sv.2 =w loadw %.ss.1
-	%binop.3 =w add %sv.1, %sv.2
-	ret %binop.3
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
 }
 export function w $main() {
 @start
@@ -21,12 +21,12 @@ export function w $main() {
 @body
 
 @.block.4
-	%binop.5 =w add 5, 6
-	%binop.6 =w add %binop.5, 10
+	%.binop.5 =w add 5, 6
+	%.binop.6 =w add %.binop.5, 10
 @.block.7
-	%binop.8 =w add 6, 9
-	%binop.9 =w add %binop.6, %binop.8
-	storew %binop.9, %.ss.0
-	%sv.10 =w loadw %.ss.0
-	ret %sv.10
+	%.binop.8 =w add 6, 9
+	%.binop.9 =w add %.binop.6, %.binop.8
+	storew %.binop.9, %.ss.0
+	%.sv.10 =w loadw %.ss.0
+	ret %.sv.10
 }

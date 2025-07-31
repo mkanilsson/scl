@@ -293,7 +293,7 @@ impl Codegen {
             (Type::Byte, DataItem::Const(0)),
         ];
 
-        let name = format!("str.{}", self.unique_tag());
+        let name = format!(".str.{}", self.unique_tag());
 
         module.add_data(DataDef::new(Linkage::private(), name.clone(), None, items));
 
@@ -315,7 +315,7 @@ impl Codegen {
     ) -> (Type<'a>, Value) {
         let name = self.checker.procs.mangled_name_of(proc_id, &self.checker);
 
-        let result_value = Value::Temporary(format!("{name}.return_value.{}", self.unique_tag()));
+        let result_value = Value::Temporary(format!(".{name}.return_value.{}", self.unique_tag()));
         let result_type = self.checker.types.qbe_type_of(expr.type_id);
 
         let mut generated_params = vec![];
@@ -358,7 +358,7 @@ impl Codegen {
             let expr = self.codegen_expr(&field.1, function, module);
 
             // Get offset
-            let offset_value = Value::Temporary(format!("offset.{}", self.unique_tag()));
+            let offset_value = Value::Temporary(format!(".offset.{}", self.unique_tag()));
             let field_layout = fields_offsets.get(&field.0).unwrap();
 
             function.blocks.last_mut().unwrap().add_comment(format!(
@@ -391,7 +391,7 @@ impl Codegen {
 
         let generated_lhs = self.codegen_expr(lhs, function, module);
 
-        let offset_value = Value::Temporary(format!("offset.{}", self.unique_tag()));
+        let offset_value = Value::Temporary(format!(".offset.{}", self.unique_tag()));
 
         function.assign_instr(
             offset_value.clone(),
@@ -407,7 +407,8 @@ impl Codegen {
         match result_type {
             Type::Aggregate(_) => (Type::Long, offset_value),
             _ => {
-                let result_value = Value::Temporary(format!("member_access.{}", self.unique_tag()));
+                let result_value =
+                    Value::Temporary(format!(".member_access.{}", self.unique_tag()));
 
                 function.assign_instr(
                     result_value.clone(),
@@ -432,7 +433,7 @@ impl Codegen {
         match tajp {
             Type::Aggregate(_) => (tajp, value),
             _ => {
-                let name = format!("sv.{}", self.unique_tag());
+                let name = format!(".sv.{}", self.unique_tag());
                 let dest = Value::Temporary(name);
                 function.assign_instr(dest.clone(), tajp.clone(), Instr::Load(tajp.clone(), value));
                 (tajp, dest)
@@ -509,9 +510,9 @@ impl Codegen {
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
         let unique_tag = self.unique_tag();
-        let true_block_tag = format!("if.true.{}", unique_tag);
-        let false_block_tag = format!("if.false.{}", unique_tag);
-        let after_block_tag = format!("if.after.{}", unique_tag);
+        let true_block_tag = format!(".if.true.{}", unique_tag);
+        let false_block_tag = format!(".if.false.{}", unique_tag);
+        let after_block_tag = format!(".if.after.{}", unique_tag);
 
         let dest = Value::Temporary(stack_slot.qbe_name());
 
@@ -571,7 +572,7 @@ impl Codegen {
         let generated_lhs = self.codegen_expr(lhs, function, module);
         let generated_rhs = self.codegen_expr(rhs, function, module);
 
-        let binop_result = Value::Temporary(format!("binop.{}", self.unique_tag()));
+        let binop_result = Value::Temporary(format!(".binop.{}", self.unique_tag()));
 
         #[allow(unreachable_patterns)]
         let inst = match op {
