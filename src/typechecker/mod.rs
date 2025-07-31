@@ -1104,8 +1104,10 @@ impl Checker {
                     .procs
                     .add_generic(proc_id, type_id, generic_types.clone());
 
-                // TODO: Update ctx
-                let checked = self.typecheck_proc_with_type_id(&proc, type_id, proc_id, ctx)?;
+                let checked =
+                    self.typecheck_proc_with_type_id(&proc, type_id, proc_id, &CheckerContext {
+                        module_id: self.procs.module_for(nongeneric_proc_id),
+                    })?;
 
                 self.instantiated_generic_procs
                     .insert((nongeneric_proc_id, generic_types), (proc_id, checked));

@@ -147,6 +147,10 @@ impl ProcCollection {
     pub fn is_generic(&self, proc_id: ProcId) -> bool {
         self.procs[proc_id.0].generic
     }
+
+    pub fn module_for(&self, proc_id: ProcId) -> ModuleId {
+        self.procs[proc_id.0].module_id
+    }
 }
 
 #[derive(Debug)]
