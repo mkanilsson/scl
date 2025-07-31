@@ -1,12 +1,13 @@
 use miette::NamedSource;
 
 use crate::{
-    ast::parsed::Ident,
+    ast::parsed::{Ident, TranslationUnit},
     error::{Error, Result},
 };
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
+    rc::Rc,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -51,7 +52,7 @@ impl ModuleCollection {
         haystack: ModuleId,
         name: &Ident,
     ) -> Result<ModuleId> {
-        for child in &self.modules[haystack.0].children {
+        for child in self.modules[haystack.0].children.iter() {
             if self.modules[child.0].name == name.name {
                 return Ok(*child);
             }
@@ -68,12 +69,21 @@ impl ModuleCollection {
     pub fn source_for(&self, module_id: ModuleId) -> &NamedSource<String> {
         &self.modules[module_id.0].source
     }
+
+    pub fn children_for(&self, module_id: ModuleId) -> Rc<Vec<ModuleId>> {
+        Rc::clone(&self.modules[module_id.0].children)
+    }
+
+    pub fn unit_for(&self, module_id: ModuleId) -> Rc<TranslationUnit> {
+        Rc::clone(&self.modules[module_id.0].unit)
+    }
 }
 
 #[derive(Debug)]
 pub struct Module {
     pub name: String,
     pub path: PathBuf,
-    pub children: Vec<ModuleId>,
+    pub children: Rc<Vec<ModuleId>>,
     pub source: NamedSource<String>,
+    pub unit: Rc<TranslationUnit>,
 }

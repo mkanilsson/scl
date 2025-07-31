@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::Path, str::FromStr};
+use std::{collections::HashMap, path::PathBuf, rc::Rc, str::FromStr};
 
 use ast::{
     CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit,
@@ -22,7 +22,7 @@ use crate::{
         StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
-    helpers::{self, string_join_with_and},
+    helpers::string_join_with_and,
     package::{CheckedPackage, ParsedModule, ParsedPackage},
 };
 
@@ -45,8 +45,7 @@ pub struct Checker {
     pub generic_procs: HashMap<ProcId, ProcDefinition>,
 }
 
-struct CheckerContext<'a> {
-    unit: &'a TranslationUnit,
+struct CheckerContext {
     module_id: ModuleId,
 }
 
@@ -68,12 +67,18 @@ impl Checker {
         package: ParsedPackage,
         dependencies: &[(String, ModuleId)],
     ) -> Result<CheckedPackage> {
-        let package_id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
+        let package_id = self.create_module_ids(
+            package.name,
+            package.path,
+            package.source,
+            package.unit,
+            package.modules,
+        )?;
 
         // TODO: Find a way to limit struct and proc lookups in these functions
-        self.declare_structs(&package.path, &package.unit, &package.modules)?;
+        self.declare_structs(package_id)?;
         let generic_procs = self
-            .declare_procs(&package.path, &package.unit, &package.modules)?
+            .declare_procs(package_id)?
             .iter()
             .map(|p| (*p.0, (**p.1).clone()))
             .collect::<HashMap<_, _>>();
@@ -84,10 +89,10 @@ impl Checker {
             self.add_dependency(package_id, dependency);
         }
 
-        self.resolve_imports(package_id, &package.path, &package.unit, &package.modules)?;
-        self.define_structs(&package.path, &package.unit, &package.modules)?;
-        self.define_procs(&package.path, &package.unit, &package.modules)?;
-        let units = self.check_package(&package.path, package.unit, package.modules)?;
+        self.resolve_imports(package_id, package_id)?;
+        self.define_structs(package_id)?;
+        self.define_procs(package_id)?;
+        let units = self.check_package(package_id)?;
 
         Ok(CheckedPackage::new(package_id, units))
     }
@@ -96,23 +101,16 @@ impl Checker {
         self.packages.register_dependency(package_id, dependency);
     }
 
-    fn resolve_imports(
-        &mut self,
-        package_id: ModuleId,
-        path: &Path,
-        unit: &TranslationUnit,
-        modules: &[ParsedModule],
-    ) -> Result<()> {
+    fn resolve_imports(&mut self, package_id: ModuleId, module_id: ModuleId) -> Result<()> {
         let ctx = CheckerContext {
-            module_id: self.modules.find_from_path(path).unwrap(),
-            unit,
+            module_id: package_id,
         };
-        for import in &unit.imports {
+        for import in &self.modules.unit_for(module_id).imports {
             self.resolve_import_part(ctx.module_id, package_id, import, true, &ctx)?;
         }
 
-        for module in modules {
-            self.resolve_imports(package_id, &module.path, &module.unit, &module.children)?;
+        for module in self.modules.children_for(module_id).iter() {
+            self.resolve_imports(package_id, *module)?;
         }
 
         Ok(())
@@ -184,27 +182,24 @@ impl Checker {
 
     fn declare_procs<'a>(
         &mut self,
-        path: &Path,
-        unit: &'a TranslationUnit,
-        modules: &'a [ParsedModule],
-    ) -> Result<HashMap<ProcId, &'a ProcDefinition>> {
-        let ctx = CheckerContext {
-            module_id: self.modules.find_from_path(path).unwrap(),
-            unit,
-        };
+        module_id: ModuleId,
+    ) -> Result<HashMap<ProcId, Rc<ProcDefinition>>> {
+        let ctx = CheckerContext { module_id };
 
         let mut generic_procs = HashMap::new();
 
-        for child in modules {
-            generic_procs.extend(self.declare_procs(&child.path, &child.unit, &child.children)?);
+        for child_id in self.modules.children_for(module_id).iter() {
+            generic_procs.extend(self.declare_procs(*child_id)?);
         }
+
+        let unit = self.modules.unit_for(module_id);
 
         // FIXME: Procs with the same structure will have different TypeId's when they should have
         //        the same
         for proc in &unit.procs {
             let proc_id = self.add_proc_name(proc, &ctx)?;
             if !proc.type_params.is_empty() {
-                generic_procs.insert(proc_id, proc);
+                generic_procs.insert(proc_id, Rc::clone(proc));
             }
         }
 
@@ -215,25 +210,17 @@ impl Checker {
         Ok(generic_procs)
     }
 
-    fn define_structs(
-        &mut self,
-        path: &Path,
-        unit: &TranslationUnit,
-        modules: &[ParsedModule],
-    ) -> Result<()> {
-        let ctx = CheckerContext {
-            module_id: self.modules.find_from_path(path).unwrap(),
-            unit,
-        };
+    fn define_structs(&mut self, module_id: ModuleId) -> Result<()> {
+        let ctx = CheckerContext { module_id };
 
-        for child in modules {
-            self.define_structs(&child.path, &child.unit, &child.children)?;
+        for child_id in self.modules.children_for(module_id).iter() {
+            self.define_structs(*child_id)?;
         }
 
-        for s in &unit.structs {
+        for s in &self.modules.unit_for(module_id).structs {
             let struct_type_id = self.types.force_find_by_name(
-                self.modules.source_for(ctx.module_id),
-                ctx.module_id,
+                self.modules.source_for(module_id),
+                module_id,
                 &s.ident,
             )?;
 
@@ -243,20 +230,14 @@ impl Checker {
         Ok(())
     }
 
-    fn define_procs(
-        &mut self,
-        path: &Path,
-        unit: &TranslationUnit,
-        modules: &[ParsedModule],
-    ) -> Result<()> {
-        let ctx = CheckerContext {
-            module_id: self.modules.find_from_path(path).unwrap(),
-            unit,
-        };
+    fn define_procs(&mut self, module_id: ModuleId) -> Result<()> {
+        let ctx = CheckerContext { module_id };
 
-        for child in modules {
-            self.define_procs(&child.path, &child.unit, &child.children)?;
+        for child_id in self.modules.children_for(module_id).iter() {
+            self.define_procs(*child_id)?;
         }
+
+        let unit = self.modules.unit_for(module_id);
 
         for proc in &unit.procs {
             self.define_proc(
@@ -285,21 +266,13 @@ impl Checker {
         Ok(())
     }
 
-    fn check_package(
-        &mut self,
-        path: &Path,
-        unit: TranslationUnit,
-        modules: Vec<ParsedModule>,
-    ) -> Result<Vec<CheckedTranslationUnit>> {
-        let ctx = CheckerContext {
-            module_id: self.modules.find_from_path(&path).unwrap(),
-            unit: &unit,
-        };
+    fn check_package(&mut self, module_id: ModuleId) -> Result<Vec<CheckedTranslationUnit>> {
+        let ctx = CheckerContext { module_id };
 
         let mut units = vec![];
 
-        for child in modules {
-            units.extend(self.check_package(&child.path, child.unit, child.children)?);
+        for child_id in self.modules.children_for(module_id).iter() {
+            units.extend(self.check_package(*child_id)?);
         }
 
         units.push(self.check_unit(&ctx)?);
@@ -307,22 +280,14 @@ impl Checker {
         Ok(units)
     }
 
-    fn declare_structs(
-        &mut self,
-        path: &Path,
-        unit: &TranslationUnit,
-        modules: &[ParsedModule],
-    ) -> Result<()> {
-        let ctx = CheckerContext {
-            module_id: self.modules.find_from_path(path).unwrap(),
-            unit,
-        };
+    fn declare_structs(&mut self, module_id: ModuleId) -> Result<()> {
+        let ctx = CheckerContext { module_id };
 
-        for child in modules {
-            self.declare_structs(&child.path, &child.unit, &child.children)?;
+        for child_id in self.modules.children_for(module_id).iter() {
+            self.declare_structs(*child_id)?;
         }
 
-        for s in &unit.structs {
+        for s in &self.modules.unit_for(module_id).structs {
             self.add_struct_name(s, &ctx)?;
         }
 
@@ -331,22 +296,29 @@ impl Checker {
 
     fn create_module_ids(
         &mut self,
-        name: &str,
-        path: &Path,
-        modules: &[ParsedModule],
+        name: String,
+        path: PathBuf,
+        source: NamedSource<String>,
+        unit: TranslationUnit,
+        modules: Vec<ParsedModule>,
     ) -> Result<ModuleId> {
         let mut children = vec![];
         for child in modules {
-            children.push(self.create_module_ids(&child.name, &child.path, &child.children)?);
+            children.push(self.create_module_ids(
+                child.name,
+                child.path,
+                child.source,
+                child.unit,
+                child.children,
+            )?);
         }
 
-        let source = fs::read_to_string(path).unwrap();
-
         Ok(self.modules.add(Module {
-            children,
-            path: path.to_owned(),
-            name: name.to_string(),
-            source: NamedSource::new(helpers::relative_path(path), source.to_string()),
+            children: Rc::new(children),
+            path,
+            name,
+            source,
+            unit: Rc::new(unit),
         }))
     }
 
@@ -358,7 +330,7 @@ impl Checker {
         }
 
         let mut checked_procs = vec![];
-        for proc in &ctx.unit.procs {
+        for proc in &self.modules.unit_for(ctx.module_id).procs {
             if !proc.type_params.is_empty() {
                 continue;
             }

@@ -334,7 +334,7 @@ pub TranslationUnit: parsed::TranslationUnit = {
         tu
     },
     <mut tu:TranslationUnit> <proc:ProcDefinition> => {
-        tu.procs.push(proc);
+        tu.procs.push(proc.into());
         tu
     },
     <mut tu:TranslationUnit> <struct_definition:StructDefinition> => {

@@ -1,4 +1,4 @@
-use std::hash::Hash;
+use std::{hash::Hash, rc::Rc};
 
 use miette::SourceSpan;
 use strum::Display;
@@ -124,7 +124,7 @@ pub enum BinOp {
 
 #[derive(Debug, Clone)]
 pub struct TranslationUnit {
-    pub procs: Vec<ProcDefinition>,
+    pub procs: Vec<Rc<ProcDefinition>>,
     pub extern_procs: Vec<ExternProcDefinition>,
     pub structs: Vec<StructDefinition>,
     pub imports: Vec<Import>,

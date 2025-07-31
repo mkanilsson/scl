@@ -143,6 +143,7 @@ impl Package {
             path: module.path,
             modules: module.children,
             unit: module.unit,
+            source: module.source,
         })
     }
 
@@ -171,6 +172,7 @@ pub struct ParsedPackage {
     pub unit: TranslationUnit,
     pub path: PathBuf,
     pub modules: Vec<ParsedModule>,
+    pub source: NamedSource<String>,
 }
 
 #[derive(Debug, Clone)]
