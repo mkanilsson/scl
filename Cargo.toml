@@ -17,3 +17,7 @@ thiserror = "2.0.12"
 
 [build-dependencies]
 lalrpop = "0.22.2"
+
+[profile.profile]
+inherits = "release"
+debug = true
