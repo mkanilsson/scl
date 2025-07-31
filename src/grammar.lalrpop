@@ -344,7 +344,6 @@ pub TranslationUnit: parsed::TranslationUnit = {
     },
     => {
         parsed::TranslationUnit {
-            source: NamedSource::new("".to_string(), "".to_string()),
             procs: vec![],
             extern_procs: vec![],
             structs: vec![],

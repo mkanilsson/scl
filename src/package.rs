@@ -1,17 +1,20 @@
+use miette::NamedSource;
+
 use crate::{
     ast::parsed::TranslationUnit,
     error::{Error, Result},
-    helpers::find_duplicate,
+    helpers::{self, find_duplicate},
     parser::Parser,
     typechecker::{ast::CheckedTranslationUnit, module::ModuleId},
 };
-use std::path::PathBuf;
+use std::{fs, path::PathBuf};
 
 #[derive(Debug)]
 pub struct Module {
     name: String,
     path: PathBuf,
     children: Vec<Module>,
+    source: NamedSource<String>,
 }
 
 #[derive(Debug)]
@@ -19,6 +22,7 @@ pub struct Package {
     name: String,
     path: PathBuf,
     modules: Vec<Module>,
+    source: NamedSource<String>,
 }
 
 // TODO: Handle errors
@@ -27,20 +31,27 @@ impl Package {
         let path = Self::to_absolute_path(path.join("src"));
         let modules = Self::find_modules(path.clone())?;
 
+        let path = path.join("lib.scl");
+        let source = fs::read_to_string(&path).unwrap();
+
         Ok(Self {
             name: name.into(),
-            path: path.join("lib.scl"),
             modules,
+            source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
+            path,
         })
     }
 
     pub fn from_file(path: PathBuf) -> Result<Self> {
         let path = Self::to_absolute_path(path);
 
+        let source = fs::read_to_string(&path).unwrap();
+
         Ok(Self {
-            path,
             name: "main".to_string(),
             modules: vec![],
+            source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
+            path,
         })
     }
 
@@ -68,10 +79,13 @@ impl Package {
                     continue;
                 }
 
+                let source = fs::read_to_string(&path).unwrap();
+
                 children.push(Module {
                     children: vec![],
-                    path,
                     name: file_name.to_string(),
+                    source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
+                    path,
                 });
             }
         }
@@ -96,10 +110,14 @@ impl Package {
             });
         }
 
+        let path = path.join(format!("{}.scl", root_file_name));
+        let source = fs::read_to_string(&path).unwrap();
+
         Ok(Module {
             name: name.into(),
-            path: path.join(format!("{}.scl", root_file_name)),
             children,
+            source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
+            path,
         })
     }
 
@@ -117,6 +135,7 @@ impl Package {
             children: self.modules,
             path: self.path,
             name: self.name,
+            source: self.source,
         })?;
 
         Ok(ParsedPackage {
@@ -128,7 +147,7 @@ impl Package {
     }
 
     fn parse_module(module: Module) -> Result<ParsedModule> {
-        let unit = Parser::parse_translation_unit(&module.path)?;
+        let unit = Parser::parse_translation_unit(&module.source)?;
 
         let mut children = vec![];
 
@@ -141,11 +160,12 @@ impl Package {
             path: module.path,
             unit,
             children,
+            source: module.source,
         })
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedPackage {
     pub name: String,
     pub unit: TranslationUnit,
@@ -153,12 +173,13 @@ pub struct ParsedPackage {
     pub modules: Vec<ParsedModule>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedModule {
     pub name: String,
     pub unit: TranslationUnit,
     pub path: PathBuf,
     pub children: Vec<ParsedModule>,
+    pub source: NamedSource<String>,
 }
 
 #[derive(Debug)]

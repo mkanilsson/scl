@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, str::FromStr};
+use std::{collections::HashMap, fs, path::Path, str::FromStr};
 
 use ast::{
     CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit,
@@ -22,7 +22,7 @@ use crate::{
         StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
-    helpers::string_join_with_and,
+    helpers::{self, string_join_with_and},
     package::{CheckedPackage, ParsedModule, ParsedPackage},
 };
 
@@ -47,7 +47,6 @@ pub struct Checker {
 
 struct CheckerContext<'a> {
     unit: &'a TranslationUnit,
-    source: &'a NamedSource<String>,
     module_id: ModuleId,
 }
 
@@ -66,7 +65,7 @@ impl Checker {
 
     pub fn add_package(
         &mut self,
-        package: &ParsedPackage,
+        package: ParsedPackage,
         dependencies: &[(String, ModuleId)],
     ) -> Result<CheckedPackage> {
         let package_id = self.create_module_ids(&package.name, &package.path, &package.modules)?;
@@ -88,7 +87,7 @@ impl Checker {
         self.resolve_imports(package_id, &package.path, &package.unit, &package.modules)?;
         self.define_structs(&package.path, &package.unit, &package.modules)?;
         self.define_procs(&package.path, &package.unit, &package.modules)?;
-        let units = self.check_package(&package.path, &package.unit, &package.modules)?;
+        let units = self.check_package(&package.path, package.unit, package.modules)?;
 
         Ok(CheckedPackage::new(package_id, units))
     }
@@ -106,7 +105,6 @@ impl Checker {
     ) -> Result<()> {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
-            source: &unit.source,
             unit,
         };
         for import in &unit.imports {
@@ -144,7 +142,9 @@ impl Checker {
                         )
                     }
                 } else {
-                    let module_id = self.modules.force_find_in(ctx.source, module_id, ident)?;
+                    let module_id = self
+                        .modules
+                        .force_find_in(ctx.module_id, module_id, ident)?;
                     self.resolve_import_part(import_to, module_id, import, false, ctx)
                 }
             }
@@ -153,20 +153,27 @@ impl Checker {
                     todo!("This should show an error message");
                 }
 
-                if let Ok(type_id) = self.types.force_find_by_name(ctx.source, module_id, ident) {
+                if let Ok(type_id) = self.types.force_find_by_name(
+                    self.modules.source_for(ctx.module_id),
+                    module_id,
+                    ident,
+                ) {
                     // TODO: Verify that the name is unique
                     self.types.add_to_module(import_to, type_id, ident);
                     return Ok(());
                 }
 
-                if let Ok(proc_id) = self.procs.force_find(ctx.source, module_id, ident) {
+                if let Ok(proc_id) =
+                    self.procs
+                        .force_find(self.modules.source_for(module_id), module_id, ident)
+                {
                     // TODO: Verify that the name is unique
                     self.procs.add_to_module(import_to, proc_id, ident);
                     return Ok(());
                 }
 
                 Err(Error::ProcOrStructNotFound {
-                    src: ctx.source.clone(),
+                    src: self.modules.source_for(ctx.module_id).clone(),
                     span: ident.span,
                     wanted_name: ident.name.clone(),
                     module_name: "TODO".to_string(),
@@ -184,7 +191,6 @@ impl Checker {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
             unit,
-            source: &unit.source,
         };
 
         let mut generic_procs = HashMap::new();
@@ -218,7 +224,6 @@ impl Checker {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
             unit,
-            source: &unit.source,
         };
 
         for child in modules {
@@ -226,9 +231,11 @@ impl Checker {
         }
 
         for s in &unit.structs {
-            let struct_type_id =
-                self.types
-                    .force_find_by_name(&unit.source, ctx.module_id, &s.ident)?;
+            let struct_type_id = self.types.force_find_by_name(
+                self.modules.source_for(ctx.module_id),
+                ctx.module_id,
+                &s.ident,
+            )?;
 
             self.define_struct(s, struct_type_id, &ctx)?;
         }
@@ -245,7 +252,6 @@ impl Checker {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
             unit,
-            source: &unit.source,
         };
 
         for child in modules {
@@ -255,8 +261,11 @@ impl Checker {
         for proc in &unit.procs {
             self.define_proc(
                 proc,
-                self.procs
-                    .force_find_type_of(ctx.source, ctx.module_id, &proc.ident)?,
+                self.procs.force_find_type_of(
+                    self.modules.source_for(ctx.module_id),
+                    ctx.module_id,
+                    &proc.ident,
+                )?,
                 &ctx,
             )?;
         }
@@ -264,8 +273,11 @@ impl Checker {
         for extern_proc in &unit.extern_procs {
             self.define_extern_proc(
                 extern_proc,
-                self.procs
-                    .force_find_type_of(ctx.source, ctx.module_id, &extern_proc.ident)?,
+                self.procs.force_find_type_of(
+                    self.modules.source_for(ctx.module_id),
+                    ctx.module_id,
+                    &extern_proc.ident,
+                )?,
                 &ctx,
             )?;
         }
@@ -276,22 +288,21 @@ impl Checker {
     fn check_package(
         &mut self,
         path: &Path,
-        unit: &TranslationUnit,
-        modules: &[ParsedModule],
+        unit: TranslationUnit,
+        modules: Vec<ParsedModule>,
     ) -> Result<Vec<CheckedTranslationUnit>> {
         let ctx = CheckerContext {
-            module_id: self.modules.find_from_path(path).unwrap(),
-            unit,
-            source: &unit.source,
+            module_id: self.modules.find_from_path(&path).unwrap(),
+            unit: &unit,
         };
 
         let mut units = vec![];
 
         for child in modules {
-            units.extend(self.check_package(&child.path, &child.unit, &child.children)?);
+            units.extend(self.check_package(&child.path, child.unit, child.children)?);
         }
 
-        units.push(self.check_unit(unit, &ctx)?);
+        units.push(self.check_unit(&ctx)?);
 
         Ok(units)
     }
@@ -305,7 +316,6 @@ impl Checker {
         let ctx = CheckerContext {
             module_id: self.modules.find_from_path(path).unwrap(),
             unit,
-            source: &unit.source,
         };
 
         for child in modules {
@@ -330,18 +340,17 @@ impl Checker {
             children.push(self.create_module_ids(&child.name, &child.path, &child.children)?);
         }
 
+        let source = fs::read_to_string(path).unwrap();
+
         Ok(self.modules.add(Module {
             children,
             path: path.to_owned(),
             name: name.to_string(),
+            source: NamedSource::new(helpers::relative_path(path), source.to_string()),
         }))
     }
 
-    fn check_unit(
-        &mut self,
-        unit: &TranslationUnit,
-        ctx: &CheckerContext,
-    ) -> Result<CheckedTranslationUnit> {
+    fn check_unit(&mut self, ctx: &CheckerContext) -> Result<CheckedTranslationUnit> {
         self.scope.enter();
 
         for proc in self.procs.for_scope(ctx.module_id) {
@@ -349,7 +358,7 @@ impl Checker {
         }
 
         let mut checked_procs = vec![];
-        for proc in &unit.procs {
+        for proc in &ctx.unit.procs {
             if !proc.type_params.is_empty() {
                 continue;
             }
@@ -371,10 +380,13 @@ impl Checker {
         ctx: &CheckerContext,
     ) -> Result<()> {
         let mut params: Vec<(Ident, TypeId)> = vec![];
+
+        let source = self.modules.source_for(ctx.module_id);
+
         for param in &definition.params {
             if let Some(original) = params.iter().find(|p| p.0.name == param.0.name) {
                 return Err(Error::ProcParmNameCollision {
-                    src: ctx.source.clone(),
+                    src: source.clone(),
                     original_span: original.0.span,
                     redefined_span: param.0.span,
                     name: param.0.name.clone(),
@@ -382,7 +394,7 @@ impl Checker {
             }
 
             let type_id = self.types.force_find_with_generics(
-                ctx.source,
+                source,
                 ctx.module_id,
                 &param.1,
                 &definition.type_params,
@@ -391,7 +403,7 @@ impl Checker {
         }
 
         let return_type = self.types.force_find_with_generics(
-            ctx.source,
+            source,
             ctx.module_id,
             &definition.return_type,
             &definition.type_params,
@@ -426,7 +438,7 @@ impl Checker {
     ) -> Result<ProcId> {
         if let Some(span) = self.procs.find_original_span(ctx.module_id, &ident) {
             return Err(Error::ProcNameCollision {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 original_span: span,
                 redefined_span: ident.span,
                 name: ident.name,
@@ -463,17 +475,18 @@ impl Checker {
         ctx: &CheckerContext,
     ) -> Result<()> {
         let mut fields: Vec<IdentTypeId> = vec![];
+        let source = self.modules.source_for(ctx.module_id);
         for field in &s.fields {
             if let Some(original) = fields.iter().find(|p| p.ident.name == field.0.name) {
                 return Err(Error::StructFieldNameCollision {
-                    src: ctx.source.clone(),
+                    src: source.clone(),
                     original_span: original.ident.span,
                     redefined_span: field.0.span,
                     name: field.0.name.clone(),
                 });
             }
 
-            let type_id = self.types.force_find(ctx.source, ctx.module_id, &field.1)?;
+            let type_id = self.types.force_find(source, ctx.module_id, &field.1)?;
             fields.push(IdentTypeId {
                 ident: field.0.clone(),
                 type_id,
@@ -498,10 +511,11 @@ impl Checker {
         type_id: TypeId,
         ctx: &CheckerContext,
     ) -> Result<()> {
+        let source = self.modules.source_for(ctx.module_id);
         let mut params: Vec<TypeId> = vec![];
         for param_type in &definition.params {
             let type_id = self.types.force_find_with_generics(
-                ctx.source,
+                source,
                 ctx.module_id,
                 param_type,
                 &definition.type_params,
@@ -511,7 +525,7 @@ impl Checker {
         }
 
         let return_type = self.types.force_find_with_generics(
-            ctx.source,
+            source,
             ctx.module_id,
             &definition.return_type,
             &definition.type_params,
@@ -563,7 +577,7 @@ impl Checker {
 
         if body.value.type_id != return_type.0 && !body.never {
             return Err(Error::ReturnValueDoesntMatch {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 return_type_span: return_type.1,
                 expr_span: if let Some(last) = &proc.body.last {
                     last.span
@@ -625,7 +639,7 @@ impl Checker {
         } else {
             if requires_value && !has_encountered_never {
                 return Err(Error::BlockRequiresValue {
-                    src: ctx.source.clone(),
+                    src: self.modules.source_for(ctx.module_id).clone(),
                     span: block.span,
                 });
             }
@@ -684,7 +698,7 @@ impl Checker {
             Some(value) => {
                 if return_type.0 == VOID_TYPE_ID {
                     return Err(Error::ReturnShouldntHaveValue {
-                        src: ctx.source.clone(),
+                        src: self.modules.source_for(ctx.module_id).clone(),
                         span: value.span,
                     });
                 }
@@ -694,7 +708,7 @@ impl Checker {
 
                 if expr.value.type_id != return_type.0 && !expr.never {
                     return Err(Error::ReturnValueDoesntMatch {
-                        src: ctx.source.clone(),
+                        src: self.modules.source_for(ctx.module_id).clone(),
                         return_type_span: return_type.1,
                         expr_span: value.span,
                         return_type: self.types.name_of(return_type.0),
@@ -711,7 +725,7 @@ impl Checker {
             None => {
                 if return_type.0 != VOID_TYPE_ID {
                     return Err(Error::ReturnShouldHaveValue {
-                        src: ctx.source.clone(),
+                        src: self.modules.source_for(ctx.module_id).clone(),
                         span,
                         name: self.types.name_of(return_type.0),
                     });
@@ -756,7 +770,9 @@ impl Checker {
         #[allow(unreachable_patterns)]
         match &expr.kind {
             ExprKind::Identifier(ident) => {
-                let scope_data = self.scope.force_find(ctx.source, ident)?;
+                let scope_data = self
+                    .scope
+                    .force_find(self.modules.source_for(ctx.module_id), ident)?;
 
                 Ok(HasNever::new(
                     CheckedExpr {
@@ -910,7 +926,7 @@ impl Checker {
 
         if checked_lhs.value.type_id != checked_rhs.value.type_id && !has_encountered_never {
             return Err(Error::BinOpSidesMismatch {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 lhs_span: lhs.span,
                 rhs_span: rhs.span,
                 lhs_type_name: self.types.name_of(checked_lhs.value.type_id),
@@ -1001,14 +1017,16 @@ impl Checker {
 
         let mut type_id = self
             .scope
-            .force_find_from_string(ctx.source, &ident)?
+            .force_find_from_string(self.modules.source_for(ctx.module_id), &ident)?
             .type_id;
 
         let proc_type = self.types.get_definition(type_id).as_proc();
 
-        let mut proc_id =
-            self.procs
-                .force_find(ctx.source, ctx.module_id, &Ident::new(ident, expr.span))?;
+        let mut proc_id = self.procs.force_find(
+            self.modules.source_for(ctx.module_id),
+            ctx.module_id,
+            &Ident::new(ident, expr.span),
+        )?;
 
         let mut resolved_generics = HashMap::new();
 
@@ -1016,8 +1034,11 @@ impl Checker {
             resolved_generics.insert(
                 GenericId(id),
                 Spanned::new(
-                    self.types
-                        .force_find(ctx.source, ctx.module_id, generic_param)?,
+                    self.types.force_find(
+                        self.modules.source_for(ctx.module_id),
+                        ctx.module_id,
+                        generic_param,
+                    )?,
                     generic_param.span,
                 ),
             );
@@ -1027,7 +1048,7 @@ impl Checker {
             || (params.len() > proc_type.params.len() && !proc_type.variadic)
         {
             return Err(Error::ProcCallParamCountMismatch {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: expr.span,
                 expected: proc_type.params.len(),
                 got: params.len(),
@@ -1054,7 +1075,7 @@ impl Checker {
             let checked_expr = self.typecheck_expr(&param, wanted, return_type, ctx, true, ss)?;
 
             self.types.infer_generic_types(
-                ctx.source,
+                self.modules.source_for(ctx.module_id),
                 param.span,
                 *expected_type,
                 checked_expr.value.type_id,
@@ -1070,7 +1091,7 @@ impl Checker {
                 && !checked_expr.never
             {
                 return Err(Error::ProcCallParamTypeMismatch {
-                    src: ctx.source.clone(),
+                    src: self.modules.source_for(ctx.module_id).clone(),
                     span: param.span,
                     expected: self.types.name_of(*expected_type),
                     got: self.types.name_of(checked_expr.value.type_id),
@@ -1153,7 +1174,7 @@ impl Checker {
             "type_name" => {
                 if params.len() != 1 {
                     return Err(Error::BuiltinParamCountMismatch {
-                        src: ctx.source.clone(),
+                        src: self.modules.source_for(ctx.module_id).clone(),
                         span: expr.span,
                         name: name.to_string(),
                         expected: 1,
@@ -1172,7 +1193,7 @@ impl Checker {
                 })
             }
             name => Err(Error::UnknownBuiltin {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: expr.span,
                 name: name.to_string(),
             }),
@@ -1188,14 +1209,16 @@ impl Checker {
         ctx: &CheckerContext,
         ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
-        let struct_type_id = self
-            .types
-            .force_find_by_name(ctx.source, ctx.module_id, name)?;
+        let struct_type_id = self.types.force_find_by_name(
+            self.modules.source_for(ctx.module_id),
+            ctx.module_id,
+            name,
+        )?;
 
         let definition = self.types.get_definition(struct_type_id);
         if !definition.is_struct() {
             return Err(Error::StructInstantiationOnNonStruct {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: name.span,
             });
         }
@@ -1210,7 +1233,7 @@ impl Checker {
             let defined_field = s.fields.iter().find(|f| f.ident == field.0);
             let Some(defined_field) = defined_field else {
                 return Err(Error::StructInstantiationFieldDoesntExist {
-                    src: ctx.source.clone(),
+                    src: self.modules.source_for(ctx.module_id).clone(),
                     span: field.0.span,
                     struct_name: name.name.clone(),
                     field_name: field.0.name.clone(),
@@ -1219,7 +1242,7 @@ impl Checker {
 
             if let Some(existing_field) = checked_fields.iter().find(|f| f.0 == field.0) {
                 return Err(Error::StructInstantiationFieldAlreadyDeclared {
-                    src: ctx.source.clone(),
+                    src: self.modules.source_for(ctx.module_id).clone(),
                     original_span: existing_field.0.span,
                     redefined_span: field.0.span,
                     field_name: field.0.name.clone(),
@@ -1239,7 +1262,7 @@ impl Checker {
 
             if checked_expr.value.type_id != defined_field.type_id && !checked_expr.never {
                 return Err(Error::StructInstantiationFieldTypeMismatch {
-                    src: ctx.source.clone(),
+                    src: self.modules.source_for(ctx.module_id).clone(),
                     span: field.1.span,
                     struct_name: name.name.clone(),
                     field_name: field.0.name.clone(),
@@ -1261,7 +1284,7 @@ impl Checker {
             }
 
             return Err(Error::StructInstantiationMissingFields {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: expr.span,
                 struct_name: name.name.clone(),
                 fields: string_join_with_and(
@@ -1305,7 +1328,7 @@ impl Checker {
         let definition = self.types.get_definition(checked_lhs.value.type_id);
         if !definition.is_struct() {
             return Err(Error::MemberAccessNotAStruct {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: lhs.span,
                 got: self.types.name_of(checked_lhs.value.type_id),
             });
@@ -1315,7 +1338,7 @@ impl Checker {
 
         let Some(field) = definition.fields.iter().find(|f| f.ident == *member) else {
             return Err(Error::MemberAccessUnknownField {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: member.span,
                 struct_name: self.types.name_of(checked_lhs.value.type_id),
                 field_name: member.name.clone(),
@@ -1369,7 +1392,7 @@ impl Checker {
 
         if checked_condition.value.type_id != BOOL_TYPE_ID && !checked_condition.never {
             return Err(Error::ExpectedButGot {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: condition.span,
                 expected: "bool".to_string(),
                 got: self.types.name_of(checked_condition.value.type_id),
@@ -1381,7 +1404,7 @@ impl Checker {
             && !(checked_true_block.never || checked_false_block.never)
         {
             return Err(Error::IfTypeMismatch {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 true_block_span: true_block.span,
                 true_block_type: self.types.name_of(checked_true_block.value.type_id),
                 false_block_span: false_block.span,
@@ -1419,7 +1442,9 @@ impl Checker {
         ctx: &CheckerContext,
         ss: &mut StackSlots,
     ) -> Result<HasNever<CheckedExpr>> {
-        let wanted = self.types.force_find(ctx.source, ctx.module_id, t)?;
+        let wanted =
+            self.types
+                .force_find(self.modules.source_for(ctx.module_id), ctx.module_id, t)?;
         let checked_lhs =
             self.typecheck_expr(lhs, Some((wanted, t.span)), return_type, ctx, true, ss)?;
 
@@ -1444,7 +1469,7 @@ impl Checker {
             (got, wanted) if got == wanted => checked_lhs.value.kind,
             (VOID_TYPE_ID, _) | (_, VOID_TYPE_ID) | _ => {
                 return Err(Error::InvalidCast {
-                    src: ctx.source.clone(),
+                    src: self.modules.source_for(ctx.module_id).clone(),
                     span,
                     got: self.types.name_of(checked_lhs.value.type_id),
                     wanted: self.types.name_of(wanted),
@@ -1514,7 +1539,7 @@ impl Checker {
 
         if !self.types.is_ptr(checked_expr.value.type_id) {
             return Err(Error::DerefNonPtr {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: expr.span,
                 type_name: self.types.name_of(checked_expr.value.type_id),
             });
@@ -1573,14 +1598,14 @@ impl Checker {
 
         if !checked_lhs.value.lvalue {
             return Err(Error::CantAssignToRValue {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: lhs.span,
             });
         }
 
         if checked_lhs.value.type_id != checked_rhs.value.type_id && !checked_rhs.never {
             return Err(Error::ExpectedButGot {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span: rhs.span,
                 expected: self.types.name_of(checked_lhs.value.type_id),
                 got: self.types.name_of(checked_rhs.value.type_id),
@@ -1608,7 +1633,7 @@ impl Checker {
     ) -> Result<()> {
         if !self.types.is_number(expr.type_id) {
             Err(Error::ExpectedButGot {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span,
                 expected: "number".to_string(),
                 got: self.types.name_of(expr.type_id),
@@ -1629,7 +1654,7 @@ impl Checker {
             Ok(value)
         } else {
             Err(Error::InvalidNumber {
-                src: ctx.source.clone(),
+                src: self.modules.source_for(ctx.module_id).clone(),
                 span,
                 value: value.to_string(),
                 type_name: self.types.name_of(type_id),

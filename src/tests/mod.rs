@@ -23,10 +23,10 @@ fn runtime() {
         let main_package = main_package.parse().unwrap();
 
         let mut checker = Checker::new();
-        let checked_std_package = checker.add_package(&std_package, &[]).unwrap();
+        let checked_std_package = checker.add_package(std_package.clone(), &[]).unwrap();
 
         let checked_main_package = checker
-            .add_package(&main_package, &[(
+            .add_package(main_package, &[(
                 "std".into(),
                 checked_std_package.package_id,
             )])
@@ -100,10 +100,10 @@ fn typecheck_errors() {
         let main_package = main_package.parse().unwrap();
 
         let mut checker = Checker::new();
-        let checked_std_package = checker.add_package(&std_package, &[]).unwrap();
+        let checked_std_package = checker.add_package(std_package.clone(), &[]).unwrap();
 
         let err = checker
-            .add_package(&main_package, &[(
+            .add_package(main_package, &[(
                 "std".into(),
                 checked_std_package.package_id,
             )])

@@ -29,23 +29,17 @@ impl Parser {
         grammar::StmtParser::new().parse(lexer).unwrap()
     }
 
-    pub fn parse_translation_unit(path: &Path) -> Result<TranslationUnit> {
-        let source = fs::read_to_string(path).unwrap();
-
-        let lexer = Lexer::new(&source);
-        let namned_source = NamedSource::new(helpers::relative_path(path), source.to_string());
+    pub fn parse_translation_unit(source: &NamedSource<String>) -> Result<TranslationUnit> {
+        let lexer = Lexer::new(source.inner());
 
         match grammar::TranslationUnitParser::new().parse(lexer) {
-            Ok(mut unit) => {
-                unit.source = namned_source;
-                Ok(unit)
-            }
+            Ok(unit) => Ok(unit),
             Err(error) => Err(match error {
                 lalrpop_util::ParseError::InvalidToken { .. } => todo!(),
                 lalrpop_util::ParseError::UnrecognizedEof { .. } => todo!(),
                 lalrpop_util::ParseError::UnrecognizedToken { token, expected } => {
                     Error::UnexpectedToken {
-                        src: namned_source,
+                        src: source.clone(),
                         span: (token.0..token.2).into(),
                         expected: helpers::string_join_with_or(
                             expected

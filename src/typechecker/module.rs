@@ -47,22 +47,26 @@ impl ModuleCollection {
 
     pub fn force_find_in(
         &self,
-        source: &NamedSource<String>,
-        module_id: ModuleId,
+        current: ModuleId,
+        haystack: ModuleId,
         name: &Ident,
     ) -> Result<ModuleId> {
-        for child in &self.modules[module_id.0].children {
+        for child in &self.modules[haystack.0].children {
             if self.modules[child.0].name == name.name {
                 return Ok(*child);
             }
         }
 
         Err(Error::ModuleNotFound {
-            src: source.clone(),
+            src: self.modules[current.0].source.clone(),
             span: name.span,
             module_name: "TODO".to_string(),
             base_name: name.name.clone(),
         })
+    }
+
+    pub fn source_for(&self, module_id: ModuleId) -> &NamedSource<String> {
+        &self.modules[module_id.0].source
     }
 }
 
@@ -71,4 +75,5 @@ pub struct Module {
     pub name: String,
     pub path: PathBuf,
     pub children: Vec<ModuleId>,
+    pub source: NamedSource<String>,
 }

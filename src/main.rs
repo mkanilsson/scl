@@ -38,8 +38,8 @@ fn run() -> Result<()> {
     let main_package = main_package.parse()?;
 
     let mut checker = Checker::new();
-    let checked_std_package = checker.add_package(&std_package, &[])?;
-    let checked_main_package = checker.add_package(&main_package, &[(
+    let checked_std_package = checker.add_package(std_package, &[])?;
+    let checked_main_package = checker.add_package(main_package, &[(
         "std".into(),
         checked_std_package.package_id,
     )])?;
