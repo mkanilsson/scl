@@ -33,8 +33,19 @@ impl Parser {
         match grammar::TranslationUnitParser::new().parse(lexer) {
             Ok(unit) => Ok(unit),
             Err(error) => Err(match error {
-                lalrpop_util::ParseError::InvalidToken { .. } => todo!(),
-                lalrpop_util::ParseError::UnrecognizedEof { .. } => todo!(),
+                lalrpop_util::ParseError::InvalidToken { location } => Error::InvalidToken {
+                    src: source.clone(),
+                    span: (location..location).into(),
+                },
+                lalrpop_util::ParseError::UnrecognizedEof { location, expected } => {
+                    Error::ExpectedOneOf {
+                        src: source.clone(),
+                        span: (location..location).into(),
+                        expected: helpers::string_join_with_or(
+                            &expected.iter().map(|s| s.as_str()).collect::<Vec<_>>(),
+                        ),
+                    }
+                }
                 lalrpop_util::ParseError::UnrecognizedToken { token, expected } => {
                     Error::UnexpectedToken {
                         src: source.clone(),
@@ -48,7 +59,10 @@ impl Parser {
                         ),
                     }
                 }
-                lalrpop_util::ParseError::ExtraToken { .. } => todo!(),
+                lalrpop_util::ParseError::ExtraToken { token } => Error::ExtraToken {
+                    src: source.clone(),
+                    span: (token.0..token.2).into(),
+                },
                 lalrpop_util::ParseError::User { .. } => todo!(),
             }),
         }

@@ -7,6 +7,22 @@ pub type Result<T, E = Error> = miette::Result<T, E>;
 #[derive(thiserror::Error, Debug, Diagnostic)]
 #[error("Scl compiler error")]
 pub enum Error {
+    #[error("Extra token")]
+    ExtraToken {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
+    #[error("Invalid token")]
+    InvalidToken {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
     #[error("Unexpected token")]
     UnexpectedToken {
         #[source_code]
@@ -17,8 +33,8 @@ pub enum Error {
 
         expected: String,
     },
-    #[error("Expected one of {expected} but got {got}")]
-    ExpectedOneOfButGot {
+    #[error("Expected one of {expected}")]
+    ExpectedOneOf {
         #[source_code]
         src: NamedSource<String>,
 
@@ -26,7 +42,6 @@ pub enum Error {
         span: SourceSpan,
 
         expected: String,
-        got: &'static str,
     },
     #[error("Expected '{expected}' but got '{got}'")]
     ExpectedButGot {
