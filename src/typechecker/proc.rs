@@ -129,7 +129,7 @@ impl ProcCollection {
 
             let base = proc.name.name.clone();
 
-            if proc.generic_instances.len() > 0 {
+            if !proc.generic_instances.is_empty() {
                 let types = proc
                     .generic_instances
                     .iter()

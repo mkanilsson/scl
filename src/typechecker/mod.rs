@@ -9,7 +9,7 @@ use module::{Module, ModuleCollection, ModuleId};
 use package::PackageCollection;
 use proc::{Proc, ProcCollection, ProcId};
 use scope::Scope;
-use stack::{StackSlotId, StackSlots};
+use stack::StackSlots;
 use tajp::{
     BOOL_TYPE_ID, GenericId, I32_TYPE_ID, IdentTypeId, NEVER_TYPE_ID, ProcStructure,
     STRING_TYPE_ID, Spanned, StructStructure, Type, TypeCollection, TypeId, U32_TYPE_ID,
@@ -197,7 +197,7 @@ impl Checker {
         //        the same
         for proc in &unit.procs {
             let proc_id = self.add_proc_name(proc, &ctx)?;
-            if proc.type_params.len() > 0 {
+            if !proc.type_params.is_empty() {
                 generic_procs.insert(proc_id, proc);
             }
         }
@@ -350,7 +350,7 @@ impl Checker {
 
         let mut checked_procs = vec![];
         for proc in &unit.procs {
-            if proc.type_params.len() > 0 {
+            if !proc.type_params.is_empty() {
                 continue;
             }
 
@@ -453,7 +453,7 @@ impl Checker {
     }
 
     fn add_proc_name(&mut self, proc: &ProcDefinition, ctx: &CheckerContext) -> Result<ProcId> {
-        self.add_proc(proc.ident.clone(), true, proc.type_params.len() > 0, ctx)
+        self.add_proc(proc.ident.clone(), true, !proc.type_params.is_empty(), ctx)
     }
 
     fn define_struct(
@@ -578,8 +578,8 @@ impl Checker {
         self.scope.exit();
 
         Ok(CheckedProc {
-            proc_id: proc_id,
-            type_id: type_id,
+            proc_id,
+            type_id,
             body: body.value,
             name: proc.ident.name.clone(),
             params,
@@ -888,7 +888,7 @@ impl Checker {
                     block.never,
                 ))
             }
-            ExprKind::Deref(expr) => self.typecheck_deref_expr(&expr, return_type, ctx, ss),
+            ExprKind::Deref(expr) => self.typecheck_deref_expr(expr, return_type, ctx, ss),
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -1094,7 +1094,7 @@ impl Checker {
 
         if self.procs.is_generic(proc_id) {
             let mut generic_types = resolved_generics.iter().collect::<Vec<_>>();
-            generic_types.sort_by(|a, b| a.0.cmp(&b.0));
+            generic_types.sort_by(|a, b| a.0.cmp(b.0));
             let generic_types: Vec<TypeId> = generic_types.into_iter().map(|t| t.1.value).collect();
 
             if let Some((nongeneric_proc_id, _)) = self
@@ -1125,7 +1125,7 @@ impl Checker {
             CheckedExpr {
                 type_id: return_type_id,
                 kind: CheckedExprKind::DirectCall {
-                    proc_id: proc_id,
+                    proc_id,
                     params: checked_params,
                     variadic_after: if proc_type.variadic {
                         Some(proc_type.params.len() as u64)

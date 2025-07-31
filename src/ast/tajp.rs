@@ -28,7 +28,7 @@ impl Display for TypeKind {
         let text = match self {
             TypeKind::Named(ident) => &ident.name,
             TypeKind::Never => "!",
-            TypeKind::Ptr(inner) => &format!("*{}", inner.kind.to_string()),
+            TypeKind::Ptr(inner) => &format!("*{}", inner.kind),
         };
 
         write!(f, "{text}")

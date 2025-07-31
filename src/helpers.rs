@@ -41,7 +41,7 @@ pub fn relative_path(path: &Path) -> String {
     let current_dir = env::current_dir().unwrap();
     if path.starts_with(&current_dir) {
         path.strip_prefix(current_dir)
-            .unwrap_or(&path)
+            .unwrap_or(path)
             .to_string_lossy()
             .to_string()
     } else {

@@ -20,17 +20,17 @@ pub struct Parser;
 
 impl Parser {
     pub fn parse_expr(expr: &str) -> Box<Expr> {
-        let lexer = Lexer::new(&expr);
+        let lexer = Lexer::new(expr);
         grammar::ExprParser::new().parse(lexer).unwrap()
     }
 
     pub fn parse_stmt(stmt: &str) -> Stmt {
-        let lexer = Lexer::new(&stmt);
+        let lexer = Lexer::new(stmt);
         grammar::StmtParser::new().parse(lexer).unwrap()
     }
 
     pub fn parse_translation_unit(path: &Path) -> Result<TranslationUnit> {
-        let source = fs::read_to_string(&path).unwrap();
+        let source = fs::read_to_string(path).unwrap();
 
         let lexer = Lexer::new(&source);
         let namned_source = NamedSource::new(helpers::relative_path(path), source.to_string());
@@ -41,8 +41,8 @@ impl Parser {
                 Ok(unit)
             }
             Err(error) => Err(match error {
-                lalrpop_util::ParseError::InvalidToken { location } => todo!(),
-                lalrpop_util::ParseError::UnrecognizedEof { location, expected } => todo!(),
+                lalrpop_util::ParseError::InvalidToken { .. } => todo!(),
+                lalrpop_util::ParseError::UnrecognizedEof { .. } => todo!(),
                 lalrpop_util::ParseError::UnrecognizedToken { token, expected } => {
                     Error::UnexpectedToken {
                         src: namned_source,
@@ -56,8 +56,8 @@ impl Parser {
                         ),
                     }
                 }
-                lalrpop_util::ParseError::ExtraToken { token } => todo!(),
-                lalrpop_util::ParseError::User { error } => todo!(),
+                lalrpop_util::ParseError::ExtraToken { .. } => todo!(),
+                lalrpop_util::ParseError::User { .. } => todo!(),
             }),
         }
     }

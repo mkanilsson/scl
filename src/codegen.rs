@@ -691,7 +691,7 @@ impl Codegen {
                 Value::Temporary(stack_slot.qbe_name())
             }
             CheckedExprKind::MemberAccess { lhs, name } => {
-                self.codegen_member_access_expr_for_read(lhs, &name, function, module)
+                self.codegen_member_access_expr_for_read(lhs, name, function, module)
             }
             CheckedExprKind::Deref { expr, .. } => self.codegen_expr(expr, function, module).1,
             CheckedExprKind::Assignment { .. } => panic!("Assignment for read???"),
