@@ -327,13 +327,16 @@ impl Checker {
             )?);
         }
 
-        Ok(self.modules.write(module_id, Module {
-            children: Rc::new(children),
-            name,
-            source,
-            unit: Rc::new(unit),
-            parent,
-        }))
+        Ok(self.modules.write(
+            module_id,
+            Module {
+                children: Rc::new(children),
+                name,
+                source,
+                unit: Rc::new(unit),
+                parent,
+            },
+        ))
     }
 
     fn check_unit(&mut self, ctx: &CheckerContext) -> Result<CheckedTranslationUnit> {
@@ -429,15 +432,18 @@ impl Checker {
         }
 
         let type_id = self.types.register_undefined_proc();
-        Ok(self.procs.add(ctx.module_id, Proc {
-            type_id,
-            name: ident,
-            module_id: ctx.module_id,
-            external,
-            generic,
-            generic_instances: Vec::new(),
-            link_name,
-        }))
+        Ok(self.procs.add(
+            ctx.module_id,
+            Proc {
+                type_id,
+                name: ident,
+                module_id: ctx.module_id,
+                external,
+                generic,
+                generic_instances: Vec::new(),
+                link_name,
+            },
+        ))
     }
 
     fn add_extern_proc_name(
@@ -1145,10 +1151,14 @@ impl Checker {
                     .procs
                     .add_generic(proc_id, type_id, generic_types.clone());
 
-                let checked =
-                    self.typecheck_proc_with_type_id(&proc, type_id, proc_id, &CheckerContext {
+                let checked = self.typecheck_proc_with_type_id(
+                    &proc,
+                    type_id,
+                    proc_id,
+                    &CheckerContext {
                         module_id: self.procs.module_for(nongeneric_proc_id),
-                    })?;
+                    },
+                )?;
 
                 self.instantiated_generic_procs
                     .insert((nongeneric_proc_id, generic_types), (proc_id, checked));

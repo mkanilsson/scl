@@ -36,11 +36,14 @@ impl Scope {
         proc_id: Option<ProcId>,
     ) {
         let len = self.scope.len();
-        self.scope[len - 1].insert(ident.clone(), ScopeData {
-            type_id,
-            stack_slot,
-            proc_id,
-        });
+        self.scope[len - 1].insert(
+            ident.clone(),
+            ScopeData {
+                type_id,
+                stack_slot,
+                proc_id,
+            },
+        );
     }
 
     pub fn enter(&mut self) {
