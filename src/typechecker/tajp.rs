@@ -589,7 +589,7 @@ impl TypeCollection {
                 self.is_generic(definition.return_type)
                     || definition.params.iter().any(|p| self.is_generic(*p))
             }
-            Type::Struct(_) => todo!(),
+            Type::Struct(structure) => structure.fields.iter().any(|p| self.is_generic(p.type_id)),
             _ => false,
         }
     }
