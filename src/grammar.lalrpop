@@ -356,11 +356,16 @@ pub TranslationUnit: parsed::TranslationUnit = {
 }
 
 Builtin: parsed::Builtin = {
-    <s:@L> <builtin:"builtin"> "(" <params:ProcCallParams> ")" <e:@R> => {
+    <s:@L> <builtin:"builtin"> <generic_params:CallTypeParams?> "(" <params:ProcCallParams> ")" <e:@R> => {
         parsed::Builtin {
             name: builtin.to_string(), 
             params,
-            span: (s..e).into()
+            span: (s..e).into(),
+            generic_params: if let Some(generic_params) = generic_params {
+                generic_params
+            } else {
+                vec![]
+            }
         }
     },
 }

@@ -1173,7 +1173,12 @@ impl Checker {
     fn typecheck_builtin_expr(
         &mut self,
         expr: &Expr,
-        Builtin { name, params, .. }: &Builtin,
+        Builtin {
+            name,
+            params,
+            generic_params,
+            span: _,
+        }: &Builtin,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
         ss: &mut StackSlots,
@@ -1202,6 +1207,32 @@ impl Checker {
                     lvalue: false,
                 })
             }
+            "size_of" => {
+                if generic_params.len() != 1 {
+                    return Err(Error::BuiltinParamCountMismatch {
+                        src: self.modules.source_for(ctx.module_id).clone(),
+                        span: expr.span,
+                        name: name.to_string(),
+                        expected: 1,
+                        got: generic_params.len(),
+                        variadic: false,
+                    });
+                }
+
+                let t = self.types.force_find(
+                    self.modules.source_for(ctx.module_id),
+                    ctx.module_id,
+                    &generic_params[0],
+                )?;
+
+                let size = self.types.memory_layout_of(t, self).size;
+
+                Ok(CheckedExpr {
+                    type_id: U32_TYPE_ID,
+                    kind: CheckedExprKind::Number(size as u64),
+                    lvalue: false,
+                })
+            }
             name => Err(Error::UnknownBuiltin {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: expr.span,
@@ -1212,7 +1243,12 @@ impl Checker {
 
     fn typecheck_builtin_as_proc_attribute(
         &self,
-        Builtin { name, params, span }: &Builtin,
+        Builtin {
+            name,
+            params,
+            span,
+            generic_params: _,
+        }: &Builtin,
         ctx: &CheckerContext,
     ) -> Result<CheckedBuiltin> {
         match name.as_str() {

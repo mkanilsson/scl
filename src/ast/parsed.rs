@@ -93,6 +93,7 @@ pub enum ExprKind {
 pub struct Builtin {
     pub name: String,
     pub params: Vec<Expr>,
+    pub generic_params: Vec<Type>,
     pub span: SourceSpan,
 }
 
