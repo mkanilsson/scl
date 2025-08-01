@@ -1,0 +1,8 @@
+@link_name("malloc")
+extern proc libc_malloc<T>(u32) *T
+
+proc malloc<T>() *T {
+    libc_malloc::<T>(@size_of::<T>())
+}
+
+extern proc free<T>(*T) void
