@@ -52,8 +52,8 @@ impl ModuleCollection {
         Err(Error::ModuleNotFound {
             src: self.modules[current.0].as_ref().unwrap().source.clone(),
             span: name.span,
-            module_name: "TODO".to_string(),
-            base_name: name.name.clone(),
+            module_name: name.name.clone(),
+            base_name: self.mangled_name_of(haystack),
         })
     }
 
