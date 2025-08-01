@@ -20,8 +20,10 @@ pub const I32_TYPE_ID: TypeId = TypeId(6);
 pub const U32_TYPE_ID: TypeId = TypeId(7);
 pub const I64_TYPE_ID: TypeId = TypeId(8);
 pub const U64_TYPE_ID: TypeId = TypeId(9);
-pub const STRING_TYPE_ID: TypeId = TypeId(10);
-pub const NEVER_TYPE_ID: TypeId = TypeId(11);
+pub const ISIZE_TYPE_ID: TypeId = TypeId(10);
+pub const USIZE_TYPE_ID: TypeId = TypeId(11);
+pub const STRING_TYPE_ID: TypeId = TypeId(12);
+pub const NEVER_TYPE_ID: TypeId = TypeId(14);
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum Type {
@@ -37,6 +39,8 @@ pub enum Type {
     U32,
     I64,
     U64,
+    ISIZE,
+    USIZE,
     String,
     Never,
     Proc(ProcStructure),
@@ -103,6 +107,8 @@ impl Type {
             Type::U32 => "u32".into(),
             Type::I64 => "i64".into(),
             Type::U64 => "u64".into(),
+            Type::ISIZE => "isize".into(),
+            Type::USIZE => "usize".into(),
             Type::String => "string".into(),
             Type::Never => "!".into(),
             Type::Proc(structure) => {
@@ -151,6 +157,8 @@ impl Type {
             | Type::U32
             | Type::I64
             | Type::U64
+            | Type::ISIZE
+            | Type::USIZE
             | Type::String
             | Type::Never
             | Type::Struct(_) => self.to_string(collection, checker),
@@ -207,6 +215,8 @@ impl TypeCollection {
                 Type::U32,
                 Type::I64,
                 Type::U64,
+                Type::ISIZE,
+                Type::USIZE,
                 Type::String,
                 Type::Never,
             ],
@@ -364,6 +374,8 @@ impl TypeCollection {
                 "u32" => U32_TYPE_ID,
                 "i64" => I64_TYPE_ID,
                 "u64" => U64_TYPE_ID,
+                "isize" => ISIZE_TYPE_ID,
+                "usize" => USIZE_TYPE_ID,
                 "string" => STRING_TYPE_ID,
                 _ => return None,
             }),
@@ -460,6 +472,7 @@ impl TypeCollection {
             Type::U16 => qbe::Type::UnsignedHalfword,
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::I64 | Type::U64 => qbe::Type::Long,
+            Type::ISIZE | Type::USIZE => qbe::Type::Long,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
             Type::Struct { .. } => {
@@ -505,6 +518,8 @@ impl TypeCollection {
             | Type::U32
             | Type::I64
             | Type::U64
+            | Type::ISIZE
+            | Type::USIZE
             | Type::String
             | Type::Proc { .. }
             | Type::Never
