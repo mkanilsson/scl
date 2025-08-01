@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: rustup default nightly
       - uses: actions-rs/cargo@v1
         with:
           command: check
@@ -33,6 +34,7 @@ jobs:
           make && sudo make install
           cd -
       - uses: actions/checkout@v4
+      - run: rustup default nightly
       - uses: actions-rs/cargo@v1
         with:
           command: test
@@ -42,11 +44,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
+      - run: rustup default nightly
       - run: rustup component add rustfmt
+      - run: cargo fmt --version
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -58,11 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
       - run: rustup component add clippy
+      - run: rustup default nightly
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
