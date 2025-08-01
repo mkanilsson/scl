@@ -178,6 +178,12 @@ pub Stmt: parsed::Stmt = {
             value,
         })
     },
+    <s:@L> "while" "(" <condition:UnboxedExpr> ")" <body:Block> <e:@R> => {
+        stmt!(s, e, StmtKind::While {
+            condition,
+            body: *body
+        })
+    },
     <s:@L> <expr:UnboxedExpr> ";" <e:@R> => {
         stmt!(s, e, StmtKind::Expr(expr))
     }
@@ -424,5 +430,6 @@ extern {
         "struct" => Token::Struct,
         "use" => Token::Use,
         "as" => Token::As,
+        "while" => Token::While,
     }
 }

@@ -32,6 +32,10 @@ pub enum CheckedStmt {
         value: CheckedExpr,
     },
     Expr(CheckedExpr),
+    While {
+        condition: CheckedExpr,
+        body: CheckedBlock,
+    },
 }
 
 #[derive(Debug, Clone)]

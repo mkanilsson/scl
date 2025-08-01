@@ -113,6 +113,7 @@ impl Stmt {
 pub enum StmtKind {
     VariableDeclaration { name: Ident, value: Expr },
     Return { value: Option<Expr> },
+    While { condition: Expr, body: Block },
     Expr(Expr),
 }
 

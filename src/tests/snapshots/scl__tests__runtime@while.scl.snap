@@ -1,0 +1,38 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/while.scl
+---
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+@body
+	storew 0, %.ss.0
+@.while.condition.4
+	%.sv.7 =w loadw %.ss.0
+	%.binop.8 =w csltw %.sv.7, 10
+	jnz %.binop.8, @.while.body.5, @.while.end.6
+@.while.body.5
+	%.sv.9 =w loadw %.ss.0
+	%.binop.10 =w add %.sv.9, 1
+	storew %.binop.10, %.ss.0
+	jmp @.while.condition.4
+@.while.end.6
+	%.sv.13 =w loadw %.ss.0
+	%.printf.return_value.11 =w call $printf(l $.str.12, ..., w %.sv.13)
+	ret 0
+}
+data $.str.12 = { b "%d\n", b 0 }

@@ -714,6 +714,9 @@ impl Checker {
                 let expr = self.typecheck_expr(expr, None, false, proc_ctx, ctx)?;
                 Ok(HasNever::new(CheckedStmt::Expr(expr.value), expr.never))
             }
+            StmtKind::While { condition, body } => {
+                self.typecheck_while_stmt(condition, body, proc_ctx, ctx)
+            }
             stmt => todo!("typecheck_stmt: {}", stmt),
         }
     }
@@ -785,6 +788,41 @@ impl Checker {
                 value: expr.value,
             },
             expr.never,
+        ))
+    }
+
+    fn typecheck_while_stmt(
+        &mut self,
+        condition: &Expr,
+        body: &Block,
+        proc_ctx: &mut ProcContext,
+        ctx: &CheckerContext,
+    ) -> Result<HasNever<CheckedStmt>> {
+        let checked_condition = self.typecheck_expr(
+            condition,
+            Some((BOOL_TYPE_ID, (0..0).into())),
+            false,
+            proc_ctx,
+            ctx,
+        )?;
+
+        if checked_condition.value.type_id != BOOL_TYPE_ID && !checked_condition.never {
+            return Err(Error::ExpectedButGot {
+                src: self.modules.source_for(ctx.module_id).clone(),
+                span: condition.span,
+                expected: "bool".to_string(),
+                got: self.types.name_of(checked_condition.value.type_id, self),
+            });
+        }
+
+        let checked_body = self.typecheck_block(body, None, false, proc_ctx, ctx)?;
+
+        Ok(HasNever::new(
+            CheckedStmt::While {
+                condition: checked_condition.value,
+                body: checked_body.value,
+            },
+            checked_condition.never || checked_body.never,
         ))
     }
 

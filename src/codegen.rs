@@ -162,6 +162,9 @@ impl Codegen {
             CheckedStmt::Expr(expr) => {
                 self.codegen_expr(expr, function, module);
             }
+            CheckedStmt::While { condition, body } => {
+                self.codegen_while_stmt(condition, body, function, module);
+            }
             stmt => todo!("codegen_stmt: {}", stmt),
         }
     }
@@ -190,6 +193,31 @@ impl Codegen {
 
         let dest = Value::Temporary(stack_slot.qbe_name());
         self.store(expr.0, expr.1, dest, function);
+    }
+
+    fn codegen_while_stmt<'a>(
+        &'a self,
+        condition: &CheckedExpr,
+        body: &CheckedBlock,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) {
+        let condition_block_tag = format!(".while.condition.{}", self.unique_tag());
+        let body_block_tag = format!(".while.body.{}", self.unique_tag());
+        let end_block_tag = format!(".while.end.{}", self.unique_tag());
+
+        function.add_block(condition_block_tag.clone());
+        let generated_condition = self.codegen_expr(condition, function, module);
+
+        function.add_instr(Instr::Jnz(
+            generated_condition.1,
+            body_block_tag.clone(),
+            end_block_tag.clone(),
+        ));
+
+        self.codegen_block(&body_block_tag, body, function, module);
+        function.add_instr(Instr::Jmp(condition_block_tag));
+        function.add_block(end_block_tag);
     }
 
     fn codegen_expr<'a>(
