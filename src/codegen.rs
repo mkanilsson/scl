@@ -37,7 +37,7 @@ impl Codegen {
         // TODO: Sort order after usage since qbe requires
         //       it to be specified in the order of usage
         for type_id in &self.checker.types.structs {
-            let s = self.checker.types.qbe_type_def_of(*type_id);
+            let s = self.checker.types.qbe_type_def_of(*type_id, &self.checker);
 
             module.add_type(s.clone());
         }
@@ -63,7 +63,7 @@ impl Codegen {
                 (
                     self.checker
                         .types
-                        .qbe_type_of(proc.stack_slots.type_of(p.1)),
+                        .qbe_type_of(proc.stack_slots.type_of(p.1), &self.checker),
                     Value::Temporary(p.0.clone()),
                 )
             })
@@ -72,7 +72,11 @@ impl Codegen {
         let return_type = if proc.return_type == VOID_TYPE_ID {
             None
         } else {
-            Some(self.checker.types.qbe_type_of(proc.return_type))
+            Some(
+                self.checker
+                    .types
+                    .qbe_type_of(proc.return_type, &self.checker),
+            )
         };
 
         let mut func = Function::new(
@@ -95,7 +99,10 @@ impl Codegen {
 
             match definition {
                 crate::typechecker::tajp::Type::Struct { .. } => {
-                    let memory_layout = self.checker.types.memory_layout_of_definition(&definition);
+                    let memory_layout = self
+                        .checker
+                        .types
+                        .memory_layout_of_definition(&definition, &self.checker);
 
                     func.add_instr(Instr::Blit(
                         Value::Temporary(param.0.clone()),
@@ -104,7 +111,7 @@ impl Codegen {
                     ));
                 }
                 _ => func.add_instr(Instr::Store(
-                    self.checker.types.qbe_type_of(type_id),
+                    self.checker.types.qbe_type_of(type_id, &self.checker),
                     Value::Temporary(param.1.qbe_name()),
                     Value::Temporary(param.0.clone()),
                 )),
@@ -125,7 +132,10 @@ impl Codegen {
         function: &mut Function<'a>,
     ) {
         let definition = self.checker.types.get_definition(type_id);
-        let memory_layout = self.checker.types.memory_layout_of_definition(&definition);
+        let memory_layout = self
+            .checker
+            .types
+            .memory_layout_of_definition(&definition, &self.checker);
 
         let instr = match memory_layout.alignment {
             1 | 2 | 4 => Instr::Alloc4(memory_layout.size as u32),
@@ -270,14 +280,14 @@ impl Codegen {
 
     fn codegen_identifier_expr(&self, expr: &CheckedExpr, name: &str) -> (Type, Value) {
         (
-            self.checker.types.qbe_type_of(expr.type_id),
+            self.checker.types.qbe_type_of(expr.type_id, &self.checker),
             Value::Temporary(name.to_string()),
         )
     }
 
     fn codegen_number_expr(&self, expr: &CheckedExpr, value: u64) -> (Type, Value) {
         (
-            self.checker.types.qbe_type_of(expr.type_id),
+            self.checker.types.qbe_type_of(expr.type_id, &self.checker),
             Value::Const(value),
         )
     }
@@ -298,7 +308,7 @@ impl Codegen {
         module.add_data(DataDef::new(Linkage::private(), name.clone(), None, items));
 
         (
-            self.checker.types.qbe_type_of(expr.type_id),
+            self.checker.types.qbe_type_of(expr.type_id, &self.checker),
             Value::Global(name),
         )
     }
@@ -316,7 +326,7 @@ impl Codegen {
         let name = self.checker.procs.mangled_name_of(proc_id, &self.checker);
 
         let result_value = Value::Temporary(format!(".{name}.return_value.{}", self.unique_tag()));
-        let result_type = self.checker.types.qbe_type_of(expr.type_id);
+        let result_type = self.checker.types.qbe_type_of(expr.type_id, &self.checker);
 
         let mut generated_params = vec![];
 
@@ -348,7 +358,10 @@ impl Codegen {
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let memory_layout = self.checker.types.memory_layout_of(expr.type_id);
+        let memory_layout = self
+            .checker
+            .types
+            .memory_layout_of(expr.type_id, &self.checker);
 
         let fields_offsets = memory_layout.fields.expect("Struct to have fields");
 
@@ -374,7 +387,10 @@ impl Codegen {
             self.store(expr.0, expr.1, offset_value, function);
         }
 
-        (self.checker.types.qbe_type_of(expr.type_id), dest)
+        (
+            self.checker.types.qbe_type_of(expr.type_id, &self.checker),
+            dest,
+        )
     }
 
     fn codegen_member_access_expr<'a>(
@@ -385,7 +401,10 @@ impl Codegen {
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let memory_layout = self.checker.types.memory_layout_of(lhs.type_id);
+        let memory_layout = self
+            .checker
+            .types
+            .memory_layout_of(lhs.type_id, &self.checker);
         let fields = memory_layout.fields.unwrap();
         let field_layout = fields.get(name).unwrap();
 
@@ -402,7 +421,7 @@ impl Codegen {
             ),
         );
 
-        let result_type = self.checker.types.qbe_type_of(expr.type_id);
+        let result_type = self.checker.types.qbe_type_of(expr.type_id, &self.checker);
 
         match result_type {
             Type::Aggregate(_) => (Type::Long, offset_value),
@@ -427,7 +446,7 @@ impl Codegen {
         stack_slot: StackSlotId,
         function: &mut Function<'a>,
     ) -> (Type<'a>, Value) {
-        let tajp = self.checker.types.qbe_type_of(type_id);
+        let tajp = self.checker.types.qbe_type_of(type_id, &self.checker);
 
         let value = Value::Temporary(stack_slot.qbe_name());
         match tajp {
@@ -471,7 +490,7 @@ impl Codegen {
         );
 
         let dest = Value::Temporary(stack_slot.qbe_name());
-        let t = self.checker.types.qbe_type_of(type_id);
+        let t = self.checker.types.qbe_type_of(type_id, &self.checker);
 
         // Load the data from the ptr and store it in the new slot
         self.load(t.clone(), ptr, dest.clone(), function);
@@ -675,7 +694,10 @@ impl Codegen {
     ) -> Value {
         let generated_lhs = self.codegen_expr_for_read(lhs, function, module);
 
-        let memory_layout = self.checker.types.memory_layout_of(lhs.type_id);
+        let memory_layout = self
+            .checker
+            .types
+            .memory_layout_of(lhs.type_id, &self.checker);
         let fields = memory_layout.fields.unwrap();
         let field_layout = fields.get(name).unwrap();
 

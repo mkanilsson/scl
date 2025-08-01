@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, rc::Rc, str::FromStr};
+use std::{collections::HashMap, rc::Rc, str::FromStr};
 
 use ast::{
     CheckedBlock, CheckedBuiltin, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt,
@@ -70,10 +70,10 @@ impl Checker {
     ) -> Result<CheckedPackage> {
         let package_id = self.create_module_ids(
             package.name,
-            package.path,
             package.source,
             package.unit,
             package.modules,
+            None,
         )?;
 
         // TODO: Find a way to limit struct and proc lookups in these functions
@@ -309,28 +309,30 @@ impl Checker {
     fn create_module_ids(
         &mut self,
         name: String,
-        path: PathBuf,
         source: NamedSource<String>,
         unit: TranslationUnit,
         modules: Vec<ParsedModule>,
+        parent: Option<ModuleId>,
     ) -> Result<ModuleId> {
+        let module_id = self.modules.allocate();
+
         let mut children = vec![];
         for child in modules {
             children.push(self.create_module_ids(
                 child.name,
-                child.path,
                 child.source,
                 child.unit,
                 child.children,
+                Some(module_id),
             )?);
         }
 
-        Ok(self.modules.add(Module {
+        Ok(self.modules.write(module_id, Module {
             children: Rc::new(children),
-            path,
             name,
             source,
             unit: Rc::new(unit),
+            parent,
         }))
     }
 
@@ -467,7 +469,7 @@ impl Checker {
     fn add_proc_name(&mut self, proc: &ProcDefinition, ctx: &CheckerContext) -> Result<ProcId> {
         self.add_proc(
             proc.ident.clone(),
-            true,
+            false,
             !proc.type_params.is_empty(),
             None,
             ctx,
@@ -590,8 +592,8 @@ impl Checker {
                 } else {
                     proc.body.span
                 },
-                return_type: self.types.name_of(return_type.0),
-                actual_type: self.types.name_of(body.value.type_id),
+                return_type: self.types.name_of(return_type.0, self),
+                actual_type: self.types.name_of(body.value.type_id, self),
             });
         }
 
@@ -715,8 +717,8 @@ impl Checker {
                         src: self.modules.source_for(ctx.module_id).clone(),
                         return_type_span: return_type.1,
                         expr_span: value.span,
-                        return_type: self.types.name_of(return_type.0),
-                        actual_type: self.types.name_of(expr.value.type_id),
+                        return_type: self.types.name_of(return_type.0, self),
+                        actual_type: self.types.name_of(expr.value.type_id, self),
                     });
                 }
                 Ok(HasNever::new(
@@ -731,7 +733,7 @@ impl Checker {
                     return Err(Error::ReturnShouldHaveValue {
                         src: self.modules.source_for(ctx.module_id).clone(),
                         span,
-                        name: self.types.name_of(return_type.0),
+                        name: self.types.name_of(return_type.0, self),
                     });
                 }
 
@@ -933,8 +935,8 @@ impl Checker {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 lhs_span: lhs.span,
                 rhs_span: rhs.span,
-                lhs_type_name: self.types.name_of(checked_lhs.value.type_id),
-                rhs_type_name: self.types.name_of(checked_rhs.value.type_id),
+                lhs_type_name: self.types.name_of(checked_lhs.value.type_id, self),
+                rhs_type_name: self.types.name_of(checked_rhs.value.type_id, self),
             });
         }
 
@@ -1084,6 +1086,7 @@ impl Checker {
                 *expected_type,
                 checked_expr.value.type_id,
                 &mut resolved_generics,
+                self,
             )?;
 
             has_encountered_never |= checked_expr.never;
@@ -1097,8 +1100,8 @@ impl Checker {
                 return Err(Error::ProcCallParamTypeMismatch {
                     src: self.modules.source_for(ctx.module_id).clone(),
                     span: param.span,
-                    expected: self.types.name_of(*expected_type),
-                    got: self.types.name_of(checked_expr.value.type_id),
+                    expected: self.types.name_of(*expected_type, self),
+                    got: self.types.name_of(checked_expr.value.type_id, self),
                 });
             }
 
@@ -1193,7 +1196,9 @@ impl Checker {
 
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
-                    kind: CheckedExprKind::String(self.types.name_of(checked_param.value.type_id)),
+                    kind: CheckedExprKind::String(
+                        self.types.name_of(checked_param.value.type_id, self),
+                    ),
                     lvalue: false,
                 })
             }
@@ -1310,8 +1315,8 @@ impl Checker {
                     span: field.1.span,
                     struct_name: name.name.clone(),
                     field_name: field.0.name.clone(),
-                    expected: self.types.name_of(defined_field.type_id),
-                    got: self.types.name_of(checked_expr.value.type_id),
+                    expected: self.types.name_of(defined_field.type_id, self),
+                    got: self.types.name_of(checked_expr.value.type_id, self),
                 });
             }
 
@@ -1374,7 +1379,7 @@ impl Checker {
             return Err(Error::MemberAccessNotAStruct {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: lhs.span,
-                got: self.types.name_of(checked_lhs.value.type_id),
+                got: self.types.name_of(checked_lhs.value.type_id, self),
             });
         }
 
@@ -1384,7 +1389,7 @@ impl Checker {
             return Err(Error::MemberAccessUnknownField {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: member.span,
-                struct_name: self.types.name_of(checked_lhs.value.type_id),
+                struct_name: self.types.name_of(checked_lhs.value.type_id, self),
                 field_name: member.name.clone(),
             });
         };
@@ -1439,7 +1444,7 @@ impl Checker {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: condition.span,
                 expected: "bool".to_string(),
-                got: self.types.name_of(checked_condition.value.type_id),
+                got: self.types.name_of(checked_condition.value.type_id, self),
             });
         }
 
@@ -1450,9 +1455,9 @@ impl Checker {
             return Err(Error::IfTypeMismatch {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 true_block_span: true_block.span,
-                true_block_type: self.types.name_of(checked_true_block.value.type_id),
+                true_block_type: self.types.name_of(checked_true_block.value.type_id, self),
                 false_block_span: false_block.span,
-                false_block_type: self.types.name_of(checked_false_block.value.type_id),
+                false_block_type: self.types.name_of(checked_false_block.value.type_id, self),
             });
         }
 
@@ -1515,8 +1520,8 @@ impl Checker {
                 return Err(Error::InvalidCast {
                     src: self.modules.source_for(ctx.module_id).clone(),
                     span,
-                    got: self.types.name_of(checked_lhs.value.type_id),
-                    wanted: self.types.name_of(wanted),
+                    got: self.types.name_of(checked_lhs.value.type_id, self),
+                    wanted: self.types.name_of(wanted, self),
                 });
             }
         };
@@ -1585,7 +1590,7 @@ impl Checker {
             return Err(Error::DerefNonPtr {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: expr.span,
-                type_name: self.types.name_of(checked_expr.value.type_id),
+                type_name: self.types.name_of(checked_expr.value.type_id, self),
             });
         }
 
@@ -1651,8 +1656,8 @@ impl Checker {
             return Err(Error::ExpectedButGot {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: rhs.span,
-                expected: self.types.name_of(checked_lhs.value.type_id),
-                got: self.types.name_of(checked_rhs.value.type_id),
+                expected: self.types.name_of(checked_lhs.value.type_id, self),
+                got: self.types.name_of(checked_rhs.value.type_id, self),
             });
         }
 
@@ -1680,7 +1685,7 @@ impl Checker {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span,
                 expected: "number".to_string(),
-                got: self.types.name_of(expr.type_id),
+                got: self.types.name_of(expr.type_id, self),
             })
         } else {
             Ok(())
@@ -1701,7 +1706,7 @@ impl Checker {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span,
                 value: value.to_string(),
-                type_name: self.types.name_of(type_id),
+                type_name: self.types.name_of(type_id, self),
             })
         }
     }

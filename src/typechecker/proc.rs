@@ -130,19 +130,25 @@ impl ProcCollection {
         if proc.external {
             proc.name.name.clone()
         } else {
-            // TODO: Add module prefix
+            if proc.name.name == "main" {
+                return "main".to_string();
+            }
 
-            let base = proc.name.name.clone();
+            let base = format!(
+                "{}.{}",
+                checker.modules.mangled_name_of(proc.module_id),
+                proc.name.name
+            );
 
             if !proc.generic_instances.is_empty() {
                 let types = proc
                     .generic_instances
                     .iter()
-                    .map(|t| checker.types.mangled_name_of(*t))
+                    .map(|t| checker.types.mangled_name_of(*t, checker))
                     .collect::<Vec<_>>()
-                    .join(".");
+                    .join("..");
 
-                format!("{base}.{}.{types}", proc.generic_instances.len())
+                format!("{base}..{}..{types}", proc.generic_instances.len())
             } else {
                 base
             }

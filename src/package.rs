@@ -12,7 +12,6 @@ use std::{fs, path::PathBuf};
 #[derive(Debug)]
 pub struct Module {
     name: String,
-    path: PathBuf,
     children: Vec<Module>,
     source: NamedSource<String>,
 }
@@ -20,7 +19,6 @@ pub struct Module {
 #[derive(Debug)]
 pub struct Package {
     name: String,
-    path: PathBuf,
     modules: Vec<Module>,
     source: NamedSource<String>,
 }
@@ -38,7 +36,6 @@ impl Package {
             name: name.into(),
             modules,
             source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
-            path,
         })
     }
 
@@ -51,7 +48,6 @@ impl Package {
             name: "main".to_string(),
             modules: vec![],
             source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
-            path,
         })
     }
 
@@ -85,7 +81,6 @@ impl Package {
                     children: vec![],
                     name: file_name.to_string(),
                     source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
-                    path,
                 });
             }
         }
@@ -117,7 +112,6 @@ impl Package {
             name: name.into(),
             children,
             source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
-            path,
         })
     }
 
@@ -133,14 +127,12 @@ impl Package {
     pub fn parse(self) -> Result<ParsedPackage> {
         let module = Self::parse_module(Module {
             children: self.modules,
-            path: self.path,
             name: self.name,
             source: self.source,
         })?;
 
         Ok(ParsedPackage {
             name: module.name,
-            path: module.path,
             modules: module.children,
             unit: module.unit,
             source: module.source,
@@ -158,7 +150,6 @@ impl Package {
 
         Ok(ParsedModule {
             name: module.name,
-            path: module.path,
             unit,
             children,
             source: module.source,
@@ -170,7 +161,6 @@ impl Package {
 pub struct ParsedPackage {
     pub name: String,
     pub unit: TranslationUnit,
-    pub path: PathBuf,
     pub modules: Vec<ParsedModule>,
     pub source: NamedSource<String>,
 }
@@ -179,7 +169,6 @@ pub struct ParsedPackage {
 pub struct ParsedModule {
     pub name: String,
     pub unit: TranslationUnit,
-    pub path: PathBuf,
     pub children: Vec<ParsedModule>,
     pub source: NamedSource<String>,
 }

@@ -8,7 +8,7 @@ use crate::{
     error::{Error, Result},
 };
 
-use super::module::ModuleId;
+use super::{Checker, module::ModuleId};
 
 pub const VOID_TYPE_ID: TypeId = TypeId(0);
 pub const BOOL_TYPE_ID: TypeId = TypeId(1);
@@ -79,7 +79,7 @@ impl Type {
         matches!(self, Type::U32)
     }
 
-    pub fn to_string(&self, collection: &TypeCollection) -> String {
+    pub fn to_string(&self, collection: &TypeCollection, checker: &Checker) -> String {
         match self {
             Type::Void => "void".into(),
             Type::Bool => "bool".into(),
@@ -91,7 +91,7 @@ impl Type {
                 let mut params = structure
                     .params
                     .iter()
-                    .map(|param| collection.name_of(*param))
+                    .map(|param| collection.name_of(*param, checker))
                     .collect::<Vec<_>>();
 
                 if structure.variadic {
@@ -100,12 +100,18 @@ impl Type {
 
                 let params = params.join(", ");
 
-                let return_type = collection.name_of(structure.return_type);
+                let return_type = collection.name_of(structure.return_type, checker);
 
                 format!("proc ({params}) {return_type}")
             }
-            Type::Struct(structure) => structure.ident.name.clone(),
-            Type::Ptr(inner) => format!("*{}", collection.name_of(*inner)),
+            Type::Struct(structure) => {
+                format!(
+                    "{}.{}",
+                    checker.modules.mangled_name_of(structure.module_id),
+                    structure.ident.name
+                )
+            }
+            Type::Ptr(inner) => format!("*{}", collection.name_of(*inner, checker)),
             Type::Generic(_) => {
                 format!("(TODO: Generic args in {}:{})", file!(), line!())
             }
@@ -115,16 +121,19 @@ impl Type {
         }
     }
 
-    pub fn to_mangled_string(&self, collection: &TypeCollection) -> String {
+    pub fn to_mangled_string(&self, collection: &TypeCollection, checker: &Checker) -> String {
         match self {
-            Type::Void | Type::Bool | Type::I32 | Type::U32 | Type::String | Type::Never => {
-                self.to_string(collection)
-            }
+            Type::Void
+            | Type::Bool
+            | Type::I32
+            | Type::U32
+            | Type::String
+            | Type::Never
+            | Type::Struct(_) => self.to_string(collection, checker),
             Type::Proc(_) => {
                 todo!()
             }
-            Type::Struct(_) => todo!(),
-            Type::Ptr(inner) => format!("P{}", collection.mangled_name_of(*inner)),
+            Type::Ptr(inner) => format!("P{}", collection.mangled_name_of(*inner, checker)),
             Type::Generic(_) => {
                 unreachable!()
             }
@@ -309,12 +318,15 @@ impl TypeCollection {
         self.types.get(type_id.0).unwrap().clone()
     }
 
-    pub fn name_of(&self, type_id: TypeId) -> String {
-        self.types.get(type_id.0).unwrap().to_string(self)
+    pub fn name_of(&self, type_id: TypeId, checker: &Checker) -> String {
+        self.types.get(type_id.0).unwrap().to_string(self, checker)
     }
 
-    pub fn mangled_name_of(&self, type_id: TypeId) -> String {
-        self.types.get(type_id.0).unwrap().to_mangled_string(self)
+    pub fn mangled_name_of(&self, type_id: TypeId, checker: &Checker) -> String {
+        self.types
+            .get(type_id.0)
+            .unwrap()
+            .to_mangled_string(self, checker)
     }
 
     pub fn inner_of(&self, type_id: TypeId) -> TypeId {
@@ -347,11 +359,19 @@ impl TypeCollection {
         self.types[type_id.0] = proc;
     }
 
-    pub fn qbe_type_def_of<'a>(&self, type_id: TypeId) -> &'static qbe::TypeDef<'a> {
+    pub fn qbe_type_def_of<'a>(
+        &self,
+        type_id: TypeId,
+        checker: &Checker,
+    ) -> &'static qbe::TypeDef<'a> {
         let definition = self.get_definition(type_id);
-        self.qbe_type_def_of_definition(&definition)
+        self.qbe_type_def_of_definition(&definition, checker)
     }
-    pub fn qbe_type_def_of_definition<'a>(&self, definition: &Type) -> &'static qbe::TypeDef<'a> {
+    pub fn qbe_type_def_of_definition<'a>(
+        &self,
+        definition: &Type,
+        checker: &Checker,
+    ) -> &'static qbe::TypeDef<'a> {
         // What am i suppose to do here when the reference needs to point into the module
         // but then module gets locked becuase it's borrowed as mutable
         Box::leak(Box::new(match definition {
@@ -360,27 +380,27 @@ impl TypeCollection {
                 items: structure
                     .fields
                     .iter()
-                    .map(|f| (self.qbe_type_of(f.type_id), 1))
+                    .map(|f| (self.qbe_type_of(f.type_id, checker), 1))
                     .collect(),
-                name: structure.ident.name.clone(),
+                name: definition.to_mangled_string(self, checker),
             },
             _ => unreachable!(),
         }))
     }
 
-    pub fn qbe_type_of<'a>(&self, type_id: TypeId) -> qbe::Type<'a> {
+    pub fn qbe_type_of<'a>(&self, type_id: TypeId, checker: &Checker) -> qbe::Type<'a> {
         let definition = self.get_definition(type_id);
-        self.qbe_type_of_definition(&definition)
+        self.qbe_type_of_definition(&definition, checker)
     }
 
-    fn qbe_type_of_definition<'a>(&self, definition: &Type) -> qbe::Type<'a> {
+    fn qbe_type_of_definition<'a>(&self, definition: &Type, checker: &Checker) -> qbe::Type<'a> {
         match definition {
             Type::Bool => qbe::Type::Word,
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
             Type::Struct { .. } => {
-                qbe::Type::Aggregate(self.qbe_type_def_of_definition(definition))
+                qbe::Type::Aggregate(self.qbe_type_def_of_definition(definition, checker))
             }
             Type::Never => qbe::Type::Word,
             Type::Ptr(_) => qbe::Type::Long,
@@ -394,20 +414,24 @@ impl TypeCollection {
         }
     }
 
-    fn alignment_of_definition(&self, definition: &Type) -> usize {
-        self.qbe_type_of_definition(definition).align() as usize
+    fn alignment_of_definition(&self, definition: &Type, checker: &Checker) -> usize {
+        self.qbe_type_of_definition(definition, checker).align() as usize
     }
 
-    fn size_of_definition(&self, definition: &Type) -> usize {
-        self.qbe_type_of_definition(definition).size() as usize
+    fn size_of_definition(&self, definition: &Type, checker: &Checker) -> usize {
+        self.qbe_type_of_definition(definition, checker).size() as usize
     }
 
-    pub fn memory_layout_of(&self, type_id: TypeId) -> MemoryLayout {
+    pub fn memory_layout_of(&self, type_id: TypeId, checker: &Checker) -> MemoryLayout {
         let definition = self.get_definition(type_id);
-        self.memory_layout_of_definition(&definition)
+        self.memory_layout_of_definition(&definition, checker)
     }
 
-    pub fn memory_layout_of_definition(&self, definition: &Type) -> MemoryLayout {
+    pub fn memory_layout_of_definition(
+        &self,
+        definition: &Type,
+        checker: &Checker,
+    ) -> MemoryLayout {
         match definition {
             Type::I32
             | Type::Bool
@@ -417,11 +441,11 @@ impl TypeCollection {
             | Type::Never
             | Type::Void
             | Type::Ptr(_) => MemoryLayout::new(
-                self.size_of_definition(definition),
-                self.alignment_of_definition(definition),
+                self.size_of_definition(definition, checker),
+                self.alignment_of_definition(definition, checker),
                 None,
             ),
-            Type::Struct(structure) => self.memory_layout_of_struct(&structure.fields),
+            Type::Struct(structure) => self.memory_layout_of_struct(&structure.fields, checker),
             Type::UndefinedStruct | Type::UndefinedProc => {
                 unreachable!()
             }
@@ -431,7 +455,11 @@ impl TypeCollection {
         }
     }
 
-    fn memory_layout_of_struct(&self, fields: &Vec<IdentTypeId>) -> MemoryLayout {
+    fn memory_layout_of_struct(
+        &self,
+        fields: &Vec<IdentTypeId>,
+        checker: &Checker,
+    ) -> MemoryLayout {
         let mut offset = 0;
 
         let mut largest_alignment = 0;
@@ -439,7 +467,7 @@ impl TypeCollection {
         let mut layout_fields = HashMap::new();
 
         for field in fields {
-            let layout = self.memory_layout_of(field.type_id);
+            let layout = self.memory_layout_of(field.type_id, checker);
 
             offset = self.round_up_to_alignment(offset, layout.alignment);
 
@@ -519,12 +547,13 @@ impl TypeCollection {
     }
 
     pub fn infer_generic_types(
-        &mut self,
+        &self,
         src: &NamedSource<String>,
         expr_span: SourceSpan,
         generic_type_id: TypeId,
         real_type_id: TypeId,
         resolved_generics: &mut HashMap<GenericId, Spanned<TypeId>>,
+        checker: &Checker,
     ) -> Result<()> {
         if generic_type_id == real_type_id {
             return Ok(());
@@ -552,6 +581,7 @@ impl TypeCollection {
                     generic_inner_type_id,
                     real_inner_type_id,
                     resolved_generics,
+                    checker,
                 )?,
             (Type::Generic(generic_id), _) => {
                 if let Some(resolved_type) = resolved_generics.get(&generic_id) {
@@ -559,9 +589,9 @@ impl TypeCollection {
                         return Err(Error::GenericAlreadyDefinedWithAnotherType {
                             src: src.clone(),
                             infered_span: expr_span,
-                            infered_name: self.name_of(real_type_id),
+                            infered_name: self.name_of(real_type_id, checker),
                             defined_span: resolved_type.span,
-                            defined_name: self.name_of(resolved_type.value),
+                            defined_name: self.name_of(resolved_type.value, checker),
                         });
                     }
                 } else {
