@@ -12,10 +12,12 @@ use super::{Checker, module::ModuleId};
 
 pub const VOID_TYPE_ID: TypeId = TypeId(0);
 pub const BOOL_TYPE_ID: TypeId = TypeId(1);
-pub const I32_TYPE_ID: TypeId = TypeId(2);
-pub const U32_TYPE_ID: TypeId = TypeId(3);
-pub const STRING_TYPE_ID: TypeId = TypeId(4);
-pub const NEVER_TYPE_ID: TypeId = TypeId(5);
+pub const I8_TYPE_ID: TypeId = TypeId(2);
+pub const U8_TYPE_ID: TypeId = TypeId(3);
+pub const I32_TYPE_ID: TypeId = TypeId(4);
+pub const U32_TYPE_ID: TypeId = TypeId(5);
+pub const STRING_TYPE_ID: TypeId = TypeId(6);
+pub const NEVER_TYPE_ID: TypeId = TypeId(7);
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum Type {
@@ -23,6 +25,8 @@ pub enum Type {
     UndefinedProc,
     Void,
     Bool,
+    I8,
+    U8,
     I32,
     U32,
     String,
@@ -83,6 +87,8 @@ impl Type {
         match self {
             Type::Void => "void".into(),
             Type::Bool => "bool".into(),
+            Type::I8 => "i8".into(),
+            Type::U8 => "u8".into(),
             Type::I32 => "i32".into(),
             Type::U32 => "u32".into(),
             Type::String => "string".into(),
@@ -125,6 +131,8 @@ impl Type {
         match self {
             Type::Void
             | Type::Bool
+            | Type::I8
+            | Type::U8
             | Type::I32
             | Type::U32
             | Type::String
@@ -175,6 +183,8 @@ impl TypeCollection {
             types: vec![
                 Type::Void,
                 Type::Bool,
+                Type::I8,
+                Type::U8,
                 Type::I32,
                 Type::U32,
                 Type::String,
@@ -328,6 +338,8 @@ impl TypeCollection {
                 "bool" => BOOL_TYPE_ID,
                 "i32" => I32_TYPE_ID,
                 "u32" => U32_TYPE_ID,
+                "i8" => I8_TYPE_ID,
+                "u8" => U8_TYPE_ID,
                 "string" => STRING_TYPE_ID,
                 _ => return None,
             }),
@@ -418,6 +430,8 @@ impl TypeCollection {
     fn qbe_type_of_definition<'a>(&self, definition: &Type, checker: &Checker) -> qbe::Type<'a> {
         match definition {
             Type::Bool => qbe::Type::Word,
+            Type::I8 => qbe::Type::SignedByte,
+            Type::U8 => qbe::Type::UnsignedByte,
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
@@ -455,8 +469,10 @@ impl TypeCollection {
         checker: &Checker,
     ) -> MemoryLayout {
         match definition {
-            Type::I32
-            | Type::Bool
+            Type::Bool
+            | Type::I8
+            | Type::U8
+            | Type::I32
             | Type::U32
             | Type::String
             | Type::Proc { .. }
