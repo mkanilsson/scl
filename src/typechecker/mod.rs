@@ -12,8 +12,9 @@ use proc::{Proc, ProcCollection, ProcId};
 use scope::Scope;
 use stack::StackSlots;
 use tajp::{
-    BOOL_TYPE_ID, GenericId, I32_TYPE_ID, IdentTypeId, NEVER_TYPE_ID, ProcStructure,
-    STRING_TYPE_ID, Spanned, StructStructure, Type, TypeCollection, TypeId, U32_TYPE_ID,
+    BOOL_TYPE_ID, GenericId, I8_TYPE_ID, I16_TYPE_ID, I32_TYPE_ID, I64_TYPE_ID, ISIZE_TYPE_ID,
+    IdentTypeId, NEVER_TYPE_ID, ProcStructure, STRING_TYPE_ID, Spanned, StructStructure, Type,
+    TypeCollection, TypeId, U8_TYPE_ID, U16_TYPE_ID, U32_TYPE_ID, U64_TYPE_ID, USIZE_TYPE_ID,
     VOID_TYPE_ID,
 };
 
@@ -860,6 +861,70 @@ impl Checker {
             ExprKind::Number(value) => {
                 if let Some(wanted) = wanted {
                     match wanted.0 {
+                        I8_TYPE_ID => {
+                            let value = self.verify_number::<i8>(
+                                value.as_str(),
+                                expr.span,
+                                I8_TYPE_ID,
+                                ctx,
+                            )?;
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: I8_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
+                                },
+                                false,
+                            ))
+                        }
+                        U8_TYPE_ID => {
+                            let value = self.verify_number::<u8>(
+                                value.as_str(),
+                                expr.span,
+                                U8_TYPE_ID,
+                                ctx,
+                            )?;
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: U8_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
+                                },
+                                false,
+                            ))
+                        }
+                        I16_TYPE_ID => {
+                            let value = self.verify_number::<i16>(
+                                value.as_str(),
+                                expr.span,
+                                I16_TYPE_ID,
+                                ctx,
+                            )?;
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: I16_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
+                                },
+                                false,
+                            ))
+                        }
+                        U16_TYPE_ID => {
+                            let value = self.verify_number::<u16>(
+                                value.as_str(),
+                                expr.span,
+                                U16_TYPE_ID,
+                                ctx,
+                            )?;
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: U16_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
+                                },
+                                false,
+                            ))
+                        }
                         U32_TYPE_ID => {
                             let value = self.verify_number::<u32>(
                                 value.as_str(),
@@ -870,6 +935,38 @@ impl Checker {
                             Ok(HasNever::new(
                                 CheckedExpr {
                                     type_id: U32_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
+                                },
+                                false,
+                            ))
+                        }
+                        I64_TYPE_ID | ISIZE_TYPE_ID => {
+                            let value = self.verify_number::<i64>(
+                                value.as_str(),
+                                expr.span,
+                                I64_TYPE_ID,
+                                ctx,
+                            )?;
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: I64_TYPE_ID,
+                                    kind: ast::CheckedExprKind::Number(value as u64),
+                                    lvalue: false,
+                                },
+                                false,
+                            ))
+                        }
+                        U64_TYPE_ID | USIZE_TYPE_ID => {
+                            let value = self.verify_number::<u64>(
+                                value.as_str(),
+                                expr.span,
+                                U64_TYPE_ID,
+                                ctx,
+                            )?;
+                            Ok(HasNever::new(
+                                CheckedExpr {
+                                    type_id: U64_TYPE_ID,
                                     kind: ast::CheckedExprKind::Number(value as u64),
                                     lvalue: false,
                                 },

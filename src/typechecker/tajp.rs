@@ -466,10 +466,8 @@ impl TypeCollection {
     fn qbe_type_of_definition<'a>(&self, definition: &Type, checker: &Checker) -> qbe::Type<'a> {
         match definition {
             Type::Bool => qbe::Type::Word,
-            Type::I8 => qbe::Type::SignedByte,
-            Type::U8 => qbe::Type::UnsignedByte,
-            Type::I16 => qbe::Type::SignedHalfword,
-            Type::U16 => qbe::Type::UnsignedHalfword,
+            Type::I8 | Type::U8 => qbe::Type::Byte,
+            Type::I16 | Type::U16 => qbe::Type::Halfword,
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::I64 | Type::U64 => qbe::Type::Long,
             Type::ISIZE | Type::USIZE => qbe::Type::Long,
