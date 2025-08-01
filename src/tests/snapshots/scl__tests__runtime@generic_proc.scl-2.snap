@@ -3,7 +3,7 @@ source: src/tests/mod.rs
 expression: code
 input_file: src/tests/sources/runtime/generic_proc.scl
 ---
-export function w $add(w %a, w %b) {
+export function w $std.math.add(w %a, w %b) {
 @start
 	%.ss.0 =l alloc4 4
 	%.ss.1 =l alloc4 4
@@ -34,19 +34,19 @@ export function w $main() {
 	%.sv.7 =w loadw %.ss.1
 	%.sv.9 =w loadw %.ss.2
 	%.sv.10 =w loadw %.ss.1
-	%.max.1.i32.return_value.8 =w call $max.1.i32(w %.sv.9, w %.sv.10)
-	%.printf.return_value.4 =w call $printf(l $.str.5, ..., w %.sv.6, w %.sv.7, w %.max.1.i32.return_value.8)
+	%.main.max..1..i32.return_value.8 =w call $main.max..1..i32(w %.sv.9, w %.sv.10)
+	%.printf.return_value.4 =w call $printf(l $.str.5, ..., w %.sv.6, w %.sv.7, w %.main.max..1..i32.return_value.8)
 	storew 12, %.ss.5
 	storew 11, %.ss.6
 	%.sv.13 =w loadw %.ss.5
 	%.sv.14 =w loadw %.ss.6
 	%.sv.16 =w loadw %.ss.5
 	%.sv.17 =w loadw %.ss.6
-	%.max.1.u32.return_value.15 =w call $max.1.u32(w %.sv.16, w %.sv.17)
-	%.printf.return_value.11 =w call $printf(l $.str.12, ..., w %.sv.13, w %.sv.14, w %.max.1.u32.return_value.15)
+	%.main.max..1..u32.return_value.15 =w call $main.max..1..u32(w %.sv.16, w %.sv.17)
+	%.printf.return_value.11 =w call $printf(l $.str.12, ..., w %.sv.13, w %.sv.14, w %.main.max..1..u32.return_value.15)
 	ret 0
 }
-export function w $max.1.i32(w %a, w %b) {
+export function w $main.max..1..i32(w %a, w %b) {
 @start
 	%.ss.0 =l alloc4 4
 	%.ss.1 =l alloc4 4
@@ -70,7 +70,7 @@ export function w $max.1.i32(w %a, w %b) {
 	%.sv.24 =w loadw %.ss.2
 	ret %.sv.24
 }
-export function w $max.1.u32(w %a, w %b) {
+export function w $main.max..1..u32(w %a, w %b) {
 @start
 	%.ss.0 =l alloc4 4
 	%.ss.1 =l alloc4 4

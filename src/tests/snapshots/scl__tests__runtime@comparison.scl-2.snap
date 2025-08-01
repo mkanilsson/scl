@@ -3,7 +3,7 @@ source: src/tests/mod.rs
 expression: code
 input_file: src/tests/sources/runtime/comparison.scl
 ---
-export function w $add(w %a, w %b) {
+export function w $std.math.add(w %a, w %b) {
 @start
 	%.ss.0 =l alloc4 4
 	%.ss.1 =l alloc4 4

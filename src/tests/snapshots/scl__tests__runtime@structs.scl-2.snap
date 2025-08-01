@@ -3,9 +3,9 @@ source: src/tests/mod.rs
 expression: code
 input_file: src/tests/sources/runtime/structs.scl
 ---
-type :Nested = { w, w }
-type :Thing = { :Nested }
-export function w $add(w %a, w %b) {
+type :main.Nested = { w, w }
+type :main.Thing = { :main.Nested }
+export function w $std.math.add(w %a, w %b) {
 @start
 	%.ss.0 =l alloc4 4
 	%.ss.1 =l alloc4 4

@@ -1,0 +1,13 @@
+use std::io::printf
+
+struct S {
+    a: u32,
+    b: *u32,
+}
+
+proc main() i32 {
+    printf("@size_of::<u32>() = %d\n", @size_of::<u32>());
+    printf("@size_of::<S>() = %d\n", @size_of::<S>());
+
+    0
+}
