@@ -7,7 +7,7 @@ use crate::{
     error::{Error, Result},
 };
 
-use super::{proc::ProcId, stack::StackSlotId, tajp::TypeId};
+use super::{Checker, module::ModuleId, proc::ProcId, stack::StackSlotId, tajp::TypeId};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ScopeData {
@@ -51,12 +51,19 @@ impl Scope {
         self.scope.pop().unwrap();
     }
 
-    pub fn find(&self, ident: &Ident) -> Option<ScopeData> {
-        self.find_with_original_span(ident).map(|v| v.0)
+    pub fn find(&self, ident: &Ident, module_id: ModuleId, checker: &Checker) -> Option<ScopeData> {
+        self.find_with_original_span(ident, module_id, checker)
+            .map(|v| v.0)
     }
 
-    pub fn force_find(&self, source: &NamedSource<String>, ident: &Ident) -> Result<ScopeData> {
-        self.find_with_original_span(ident)
+    pub fn force_find(
+        &self,
+        source: &NamedSource<String>,
+        ident: &Ident,
+        module_id: ModuleId,
+        checker: &Checker,
+    ) -> Result<ScopeData> {
+        self.find_with_original_span(ident, module_id, checker)
             .map(|v| v.0)
             .ok_or(Error::UnknownIdent {
                 src: source.clone(),
@@ -69,15 +76,40 @@ impl Scope {
         &self,
         source: &NamedSource<String>,
         ident: &str,
+        module_id: ModuleId,
+        checker: &Checker,
     ) -> Result<ScopeData> {
-        self.force_find(source, &Ident::new(ident.to_string(), (0..0).into()))
+        self.force_find(
+            source,
+            &Ident::new(ident.to_string(), (0..0).into()),
+            module_id,
+            checker,
+        )
     }
 
-    pub fn find_with_original_span(&self, ident: &Ident) -> Option<(ScopeData, SourceSpan)> {
+    pub fn find_with_original_span(
+        &self,
+        ident: &Ident,
+        module_id: ModuleId,
+        checker: &Checker,
+    ) -> Option<(ScopeData, SourceSpan)> {
         for scope in self.scope.iter().rev() {
             if scope.contains_key(ident) {
                 let kv = scope.get_key_value(ident).unwrap();
                 return Some((*kv.1, kv.0.span));
+            }
+        }
+
+        for proc in checker.procs.for_scope(module_id) {
+            if proc.0 == *ident {
+                return Some((
+                    ScopeData {
+                        proc_id: Some(proc.2),
+                        stack_slot: None,
+                        type_id: proc.1,
+                    },
+                    proc.0.span,
+                ));
             }
         }
 

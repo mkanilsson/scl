@@ -339,10 +339,6 @@ impl Checker {
     fn check_unit(&mut self, ctx: &CheckerContext) -> Result<CheckedTranslationUnit> {
         self.scope.enter();
 
-        for proc in self.procs.for_scope(ctx.module_id) {
-            self.scope.add_to_scope(&proc.0, proc.1, None, Some(proc.2));
-        }
-
         let mut checked_procs = vec![];
         for proc in &self.modules.unit_for(ctx.module_id).procs {
             if !proc.type_params.is_empty() {
@@ -615,7 +611,7 @@ impl Checker {
     ) -> Result<CheckedProc> {
         let scope_data = self
             .scope
-            .find(&proc.ident)
+            .find(&proc.ident, ctx.module_id, self)
             .expect("Proc to have been added to scope");
 
         self.typecheck_proc_with_type_id(proc, scope_data.type_id, scope_data.proc_id.unwrap(), ctx)
@@ -776,9 +772,12 @@ impl Checker {
         #[allow(unreachable_patterns)]
         match &expr.kind {
             ExprKind::Identifier(ident) => {
-                let scope_data = self
-                    .scope
-                    .force_find(self.modules.source_for(ctx.module_id), ident)?;
+                let scope_data = self.scope.force_find(
+                    self.modules.source_for(ctx.module_id),
+                    ident,
+                    ctx.module_id,
+                    self,
+                )?;
 
                 Ok(HasNever::new(
                     CheckedExpr {
@@ -1023,7 +1022,12 @@ impl Checker {
 
         let mut type_id = self
             .scope
-            .force_find_from_string(self.modules.source_for(ctx.module_id), &ident)?
+            .force_find_from_string(
+                self.modules.source_for(ctx.module_id),
+                &ident,
+                ctx.module_id,
+                self,
+            )?
             .type_id;
 
         let proc_type = self.types.get_definition(type_id).as_proc();
