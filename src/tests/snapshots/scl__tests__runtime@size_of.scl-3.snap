@@ -1,7 +1,6 @@
 ---
 source: src/tests/mod.rs
-expression: stdout
+expression: stderr
 input_file: src/tests/sources/runtime/size_of.scl
 ---
-@size_of::<u32>() = 4
-@size_of::<S>() = 16
+

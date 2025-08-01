@@ -1,6 +1,6 @@
 ---
 source: src/tests/mod.rs
-expression: stdout
+expression: stderr
 input_file: src/tests/sources/runtime/assignment.scl
 ---
 

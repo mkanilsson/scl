@@ -1,45 +1,23 @@
 ---
 source: src/tests/mod.rs
-expression: checked_main_package
+expression: code
 input_file: src/tests/sources/runtime/proc_return_implicit.scl
 ---
-CheckedPackage {
-    package_id: ModuleId(
-        3,
-    ),
-    units: [
-        CheckedTranslationUnit {
-            procs: [
-                CheckedProc {
-                    proc_id: ProcId(
-                        3,
-                    ),
-                    body: CheckedBlock {
-                        stmts: [],
-                        last: Some(
-                            CheckedExpr {
-                                type_id: TypeId(
-                                    2,
-                                ),
-                                lvalue: false,
-                                kind: Number(
-                                    123,
-                                ),
-                            },
-                        ),
-                        type_id: TypeId(
-                            2,
-                        ),
-                    },
-                    params: [],
-                    return_type: TypeId(
-                        2,
-                    ),
-                    stack_slots: StackSlots {
-                        slots: [],
-                    },
-                },
-            ],
-        },
-    ],
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
+}
+export function w $main() {
+@start
+
+@body
+	ret 123
 }

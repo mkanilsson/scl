@@ -1,341 +1,49 @@
 ---
 source: src/tests/mod.rs
-expression: checked_main_package
+expression: code
 input_file: src/tests/sources/runtime/address_of.scl
 ---
-CheckedPackage {
-    package_id: ModuleId(
-        3,
-    ),
-    units: [
-        CheckedTranslationUnit {
-            procs: [
-                CheckedProc {
-                    proc_id: ProcId(
-                        3,
-                    ),
-                    body: CheckedBlock {
-                        stmts: [
-                            VariableDeclaration {
-                                stack_slot: StackSlotId(
-                                    0,
-                                ),
-                                value: CheckedExpr {
-                                    type_id: TypeId(
-                                        2,
-                                    ),
-                                    lvalue: false,
-                                    kind: Number(
-                                        10,
-                                    ),
-                                },
-                            },
-                            VariableDeclaration {
-                                stack_slot: StackSlotId(
-                                    1,
-                                ),
-                                value: CheckedExpr {
-                                    type_id: TypeId(
-                                        10,
-                                    ),
-                                    lvalue: false,
-                                    kind: AddressOf {
-                                        expr: CheckedExpr {
-                                            type_id: TypeId(
-                                                2,
-                                            ),
-                                            lvalue: true,
-                                            kind: StackValue(
-                                                StackSlotId(
-                                                    0,
-                                                ),
-                                            ),
-                                        },
-                                    },
-                                },
-                            },
-                            Expr(
-                                CheckedExpr {
-                                    type_id: TypeId(
-                                        3,
-                                    ),
-                                    lvalue: true,
-                                    kind: DirectCall {
-                                        proc_id: ProcId(
-                                            1,
-                                        ),
-                                        params: [
-                                            CheckedExpr {
-                                                type_id: TypeId(
-                                                    4,
-                                                ),
-                                                lvalue: false,
-                                                kind: String(
-                                                    "%d\\n",
-                                                ),
-                                            },
-                                            CheckedExpr {
-                                                type_id: TypeId(
-                                                    1,
-                                                ),
-                                                lvalue: false,
-                                                kind: BinOp {
-                                                    lhs: CheckedExpr {
-                                                        type_id: TypeId(
-                                                            10,
-                                                        ),
-                                                        lvalue: false,
-                                                        kind: AddressOf {
-                                                            expr: CheckedExpr {
-                                                                type_id: TypeId(
-                                                                    2,
-                                                                ),
-                                                                lvalue: true,
-                                                                kind: StackValue(
-                                                                    StackSlotId(
-                                                                        0,
-                                                                    ),
-                                                                ),
-                                                            },
-                                                        },
-                                                    },
-                                                    op: Equal,
-                                                    rhs: CheckedExpr {
-                                                        type_id: TypeId(
-                                                            10,
-                                                        ),
-                                                        lvalue: true,
-                                                        kind: StackValue(
-                                                            StackSlotId(
-                                                                1,
-                                                            ),
-                                                        ),
-                                                    },
-                                                },
-                                            },
-                                        ],
-                                        variadic_after: Some(
-                                            1,
-                                        ),
-                                        stack_slot: StackSlotId(
-                                            2,
-                                        ),
-                                    },
-                                },
-                            ),
-                            Expr(
-                                CheckedExpr {
-                                    type_id: TypeId(
-                                        3,
-                                    ),
-                                    lvalue: true,
-                                    kind: DirectCall {
-                                        proc_id: ProcId(
-                                            1,
-                                        ),
-                                        params: [
-                                            CheckedExpr {
-                                                type_id: TypeId(
-                                                    4,
-                                                ),
-                                                lvalue: false,
-                                                kind: String(
-                                                    "%d\\n",
-                                                ),
-                                            },
-                                            CheckedExpr {
-                                                type_id: TypeId(
-                                                    2,
-                                                ),
-                                                lvalue: true,
-                                                kind: Deref {
-                                                    type_id: TypeId(
-                                                        10,
-                                                    ),
-                                                    expr: CheckedExpr {
-                                                        type_id: TypeId(
-                                                            10,
-                                                        ),
-                                                        lvalue: true,
-                                                        kind: Store {
-                                                            expr: CheckedExpr {
-                                                                type_id: TypeId(
-                                                                    10,
-                                                                ),
-                                                                lvalue: false,
-                                                                kind: AddressOf {
-                                                                    expr: CheckedExpr {
-                                                                        type_id: TypeId(
-                                                                            2,
-                                                                        ),
-                                                                        lvalue: true,
-                                                                        kind: StackValue(
-                                                                            StackSlotId(
-                                                                                0,
-                                                                            ),
-                                                                        ),
-                                                                    },
-                                                                },
-                                                            },
-                                                            stack_slot: StackSlotId(
-                                                                4,
-                                                            ),
-                                                        },
-                                                    },
-                                                    stack_slot: StackSlotId(
-                                                        3,
-                                                    ),
-                                                },
-                                            },
-                                        ],
-                                        variadic_after: Some(
-                                            1,
-                                        ),
-                                        stack_slot: StackSlotId(
-                                            5,
-                                        ),
-                                    },
-                                },
-                            ),
-                            Expr(
-                                CheckedExpr {
-                                    type_id: TypeId(
-                                        3,
-                                    ),
-                                    lvalue: true,
-                                    kind: DirectCall {
-                                        proc_id: ProcId(
-                                            1,
-                                        ),
-                                        params: [
-                                            CheckedExpr {
-                                                type_id: TypeId(
-                                                    4,
-                                                ),
-                                                lvalue: false,
-                                                kind: String(
-                                                    "%d\\n",
-                                                ),
-                                            },
-                                            CheckedExpr {
-                                                type_id: TypeId(
-                                                    2,
-                                                ),
-                                                lvalue: true,
-                                                kind: Deref {
-                                                    type_id: TypeId(
-                                                        10,
-                                                    ),
-                                                    expr: CheckedExpr {
-                                                        type_id: TypeId(
-                                                            10,
-                                                        ),
-                                                        lvalue: true,
-                                                        kind: Store {
-                                                            expr: CheckedExpr {
-                                                                type_id: TypeId(
-                                                                    10,
-                                                                ),
-                                                                lvalue: false,
-                                                                kind: AddressOf {
-                                                                    expr: CheckedExpr {
-                                                                        type_id: TypeId(
-                                                                            2,
-                                                                        ),
-                                                                        lvalue: true,
-                                                                        kind: Store {
-                                                                            expr: CheckedExpr {
-                                                                                type_id: TypeId(
-                                                                                    2,
-                                                                                ),
-                                                                                lvalue: false,
-                                                                                kind: Number(
-                                                                                    25,
-                                                                                ),
-                                                                            },
-                                                                            stack_slot: StackSlotId(
-                                                                                6,
-                                                                            ),
-                                                                        },
-                                                                    },
-                                                                },
-                                                            },
-                                                            stack_slot: StackSlotId(
-                                                                8,
-                                                            ),
-                                                        },
-                                                    },
-                                                    stack_slot: StackSlotId(
-                                                        7,
-                                                    ),
-                                                },
-                                            },
-                                        ],
-                                        variadic_after: Some(
-                                            1,
-                                        ),
-                                        stack_slot: StackSlotId(
-                                            9,
-                                        ),
-                                    },
-                                },
-                            ),
-                        ],
-                        last: Some(
-                            CheckedExpr {
-                                type_id: TypeId(
-                                    2,
-                                ),
-                                lvalue: false,
-                                kind: Number(
-                                    0,
-                                ),
-                            },
-                        ),
-                        type_id: TypeId(
-                            2,
-                        ),
-                    },
-                    params: [],
-                    return_type: TypeId(
-                        2,
-                    ),
-                    stack_slots: StackSlots {
-                        slots: [
-                            TypeId(
-                                2,
-                            ),
-                            TypeId(
-                                10,
-                            ),
-                            TypeId(
-                                3,
-                            ),
-                            TypeId(
-                                10,
-                            ),
-                            TypeId(
-                                10,
-                            ),
-                            TypeId(
-                                3,
-                            ),
-                            TypeId(
-                                2,
-                            ),
-                            TypeId(
-                                10,
-                            ),
-                            TypeId(
-                                10,
-                            ),
-                            TypeId(
-                                3,
-                            ),
-                        ],
-                    },
-                },
-            ],
-        },
-    ],
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
 }
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc8 8
+	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc8 8
+	%.ss.4 =l alloc8 8
+	%.ss.5 =l alloc4 4
+	%.ss.6 =l alloc4 4
+	%.ss.7 =l alloc8 8
+	%.ss.8 =l alloc8 8
+	%.ss.9 =l alloc4 4
+@body
+	storew 10, %.ss.0
+	storel %.ss.0, %.ss.1
+	%.sv.6 =l loadl %.ss.1
+	%.binop.7 =l ceql %.ss.0, %.sv.6
+	%.printf.return_value.4 =w call $printf(l $.str.5, ..., l %.binop.7)
+	storel %.ss.0, %.ss.4
+	%.deref.ptr.10 =l loadl %.ss.4
+	%.ss.3 =l loadl %.deref.ptr.10
+	%.printf.return_value.8 =w call $printf(l $.str.9, ..., l %.ss.3)
+	storew 25, %.ss.6
+	storel %.ss.6, %.ss.8
+	%.deref.ptr.13 =l loadl %.ss.8
+	%.ss.7 =l loadl %.deref.ptr.13
+	%.printf.return_value.11 =w call $printf(l $.str.12, ..., l %.ss.7)
+	ret 0
+}
+data $.str.5 = { b "%d\n", b 0 }
+data $.str.9 = { b "%d\n", b 0 }
+data $.str.12 = { b "%d\n", b 0 }

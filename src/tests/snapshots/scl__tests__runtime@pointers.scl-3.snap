@@ -1,9 +1,6 @@
 ---
 source: src/tests/mod.rs
-expression: stdout
+expression: stderr
 input_file: src/tests/sources/runtime/pointers.scl
 ---
-a.value.* = 10
-c.* = 20
-e = 30
-h = 40
+
