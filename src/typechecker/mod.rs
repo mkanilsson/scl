@@ -53,6 +53,8 @@ struct CheckerContext {
 struct ProcContext<'a> {
     return_type: (TypeId, SourceSpan),
     stack_slots: &'a mut StackSlots,
+    generics: &'a [Ident],
+    resolved_generics: &'a HashMap<GenericId, Spanned<TypeId>>,
 }
 
 impl Checker {
@@ -157,10 +159,11 @@ impl Checker {
                     todo!("This should show an error message");
                 }
 
-                if let Ok(type_id) = self.types.force_find_by_name(
+                if let Ok(type_id) = self.types.force_find_by_name_with_generics(
                     self.modules.source_for(ctx.module_id),
                     module_id,
                     ident,
+                    &[],
                 ) {
                     // TODO: Verify that the name is unique
                     self.types.add_to_module(import_to, type_id, ident);
@@ -180,7 +183,7 @@ impl Checker {
                     src: self.modules.source_for(ctx.module_id).clone(),
                     span: ident.span,
                     wanted_name: ident.name.clone(),
-                    module_name: "TODO".to_string(),
+                    module_name: self.modules.mangled_name_of(module_id),
                 })
             }
             Import::Group(imports) => {
@@ -235,10 +238,11 @@ impl Checker {
         }
 
         for s in &self.modules.unit_for(module_id).structs {
-            let struct_type_id = self.types.force_find_by_name(
+            let struct_type_id = self.types.force_find_by_name_with_generics(
                 self.modules.source_for(module_id),
                 module_id,
                 &s.ident,
+                &[],
             )?;
 
             self.define_struct(s, struct_type_id, &ctx)?;
@@ -501,7 +505,9 @@ impl Checker {
                 });
             }
 
-            let type_id = self.types.force_find(source, ctx.module_id, &field.1)?;
+            let type_id =
+                self.types
+                    .force_find_with_generics(source, ctx.module_id, &field.1, &[])?;
             fields.push(IdentTypeId {
                 ident: field.0.clone(),
                 type_id,
@@ -563,6 +569,8 @@ impl Checker {
         proc: &ProcDefinition,
         type_id: TypeId,
         proc_id: ProcId,
+        generics: &[Ident],
+        resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
         ctx: &CheckerContext,
     ) -> Result<CheckedProc> {
         let definition = self.types.get_definition(type_id).as_proc();
@@ -584,6 +592,8 @@ impl Checker {
         let mut proc_ctx = ProcContext {
             return_type: return_type,
             stack_slots: &mut ss,
+            generics,
+            resolved_generics,
         };
 
         let body = self.typecheck_block(
@@ -629,7 +639,14 @@ impl Checker {
             .find(&proc.ident, ctx.module_id, self)
             .expect("Proc to have been added to scope");
 
-        self.typecheck_proc_with_type_id(proc, scope_data.type_id, scope_data.proc_id.unwrap(), ctx)
+        self.typecheck_proc_with_type_id(
+            proc,
+            scope_data.type_id,
+            scope_data.proc_id.unwrap(),
+            &[],
+            &HashMap::new(),
+            ctx,
+        )
     }
 
     fn typecheck_block(
@@ -1049,10 +1066,12 @@ impl Checker {
             resolved_generics.insert(
                 GenericId(id),
                 Spanned::new(
-                    self.types.force_find(
+                    self.types.force_find_with_resolved_generics(
                         self.modules.source_for(ctx.module_id),
                         ctx.module_id,
                         generic_param,
+                        proc_ctx.generics,
+                        proc_ctx.resolved_generics,
                     )?,
                     generic_param.span,
                 ),
@@ -1154,6 +1173,8 @@ impl Checker {
                     &proc,
                     type_id,
                     proc_id,
+                    &proc.type_params,
+                    &resolved_generics,
                     &CheckerContext {
                         module_id: self.procs.module_for(nongeneric_proc_id),
                     },
@@ -1230,10 +1251,12 @@ impl Checker {
                     });
                 }
 
-                let t = self.types.force_find(
+                let t = self.types.force_find_with_resolved_generics(
                     self.modules.source_for(ctx.module_id),
                     ctx.module_id,
                     &generic_params[0],
+                    proc_ctx.generics,
+                    proc_ctx.resolved_generics,
                 )?;
 
                 let size = self.types.memory_layout_of(t, self).size;
@@ -1304,10 +1327,12 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
-        let struct_type_id = self.types.force_find_by_name(
+        let struct_type_id = self.types.force_find_by_name_with_resolved_generics(
             self.modules.source_for(ctx.module_id),
             ctx.module_id,
             name,
+            proc_ctx.generics,
+            proc_ctx.resolved_generics,
         )?;
 
         let definition = self.types.get_definition(struct_type_id);
@@ -1531,9 +1556,13 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
-        let wanted =
-            self.types
-                .force_find(self.modules.source_for(ctx.module_id), ctx.module_id, t)?;
+        let wanted = self.types.force_find_with_resolved_generics(
+            self.modules.source_for(ctx.module_id),
+            ctx.module_id,
+            t,
+            proc_ctx.generics,
+            proc_ctx.resolved_generics,
+        )?;
         let checked_lhs = self.typecheck_expr(lhs, Some((wanted, t.span)), true, proc_ctx, ctx)?;
 
         if checked_lhs.never {

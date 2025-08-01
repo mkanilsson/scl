@@ -228,15 +228,6 @@ impl TypeCollection {
         parsed_for_module.insert(t, type_id);
     }
 
-    pub fn force_find(
-        &mut self,
-        src: &NamedSource<String>,
-        module_id: ModuleId,
-        t: &ast::tajp::Type,
-    ) -> Result<TypeId> {
-        self.force_find_with_generics(src, module_id, t, &[])
-    }
-
     pub fn force_find_with_generics(
         &mut self,
         src: &NamedSource<String>,
@@ -249,6 +240,18 @@ impl TypeCollection {
         } else {
             self.try_add(src, module_id, t, generics)
         }
+    }
+
+    pub fn force_find_with_resolved_generics(
+        &mut self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        t: &ast::tajp::Type,
+        generics: &[Ident],
+        resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
+    ) -> Result<TypeId> {
+        let type_id = self.force_find_with_generics(src, module_id, t, generics)?;
+        self.resolve_generic_type(type_id, resolved_generics)
     }
 
     fn try_add(
@@ -286,17 +289,36 @@ impl TypeCollection {
         self.parsed.get(&module_id)?.get(&t.kind).copied()
     }
 
-    pub fn force_find_by_name(
+    pub fn force_find_by_name_with_generics(
         &mut self,
         src: &NamedSource<String>,
         module_id: ModuleId,
         name: &Ident,
+        generics: &[Ident],
     ) -> Result<TypeId> {
-        self.force_find(
+        self.force_find_with_generics(
             src,
             module_id,
             &ast::tajp::Type::new(name.span, ast::tajp::TypeKind::Named(name.clone())),
+            generics,
         )
+    }
+
+    pub fn force_find_by_name_with_resolved_generics(
+        &mut self,
+        src: &NamedSource<String>,
+        module_id: ModuleId,
+        name: &Ident,
+        generics: &[Ident],
+        resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
+    ) -> Result<TypeId> {
+        let type_id = self.force_find_with_generics(
+            src,
+            module_id,
+            &ast::tajp::Type::new(name.span, ast::tajp::TypeKind::Named(name.clone())),
+            generics,
+        )?;
+        self.resolve_generic_type(type_id, resolved_generics)
     }
 
     fn find_primative(&self, t: &ast::tajp::Type) -> Option<TypeId> {
@@ -533,7 +555,21 @@ impl TypeCollection {
                     variadic: proc.variadic,
                 })
             }
-            Type::Struct(_) => todo!(),
+            Type::Struct(structure) => {
+                let mut fields = vec![];
+
+                for field in structure.fields {
+                    fields.push(IdentTypeId {
+                        ident: field.ident.clone(),
+                        type_id: self.resolve_generic_type(field.type_id, resolved_generics)?,
+                    });
+                }
+                Type::Struct(StructStructure {
+                    ident: structure.ident,
+                    fields,
+                    module_id: structure.module_id,
+                })
+            }
             Type::Generic(generic_id) => {
                 return Ok(resolved_generics
                     .get(&generic_id)
