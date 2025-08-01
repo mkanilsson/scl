@@ -250,6 +250,9 @@ Import: parsed::Import = {
     <ident:Ident> => {
         parsed::Import::Final(ident)
     },
+    "{" <imports:Comma<Import>> "}" => {
+        parsed::Import::Group(imports)
+    },
     <ident:Ident> "::" <import:Import>  => {
         parsed::Import::Part(Box::new(import), ident)
     }

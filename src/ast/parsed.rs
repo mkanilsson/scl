@@ -141,6 +141,7 @@ pub struct TranslationUnit {
 pub enum Import {
     Part(Box<Import>, Ident),
     Final(Ident),
+    Group(Vec<Import>),
 }
 
 #[derive(Debug, Clone)]

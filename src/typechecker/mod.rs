@@ -178,6 +178,17 @@ impl Checker {
                     module_name: "TODO".to_string(),
                 })
             }
+            Import::Group(imports) => {
+                if first {
+                    todo!("This should show an error message");
+                }
+
+                for import in imports {
+                    self.resolve_import_part(import_to, module_id, import, false, ctx)?;
+                }
+
+                Ok(())
+            }
         }
     }
 
