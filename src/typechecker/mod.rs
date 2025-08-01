@@ -1,7 +1,8 @@
 use std::{collections::HashMap, path::PathBuf, rc::Rc, str::FromStr};
 
 use ast::{
-    CheckedBlock, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt, CheckedTranslationUnit,
+    CheckedBlock, CheckedBuiltin, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt,
+    CheckedTranslationUnit,
 };
 use indexmap::IndexMap;
 use miette::{NamedSource, SourceSpan};
@@ -18,8 +19,8 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        BinOp, Block, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition, Stmt,
-        StmtKind, StructDefinition, TranslationUnit,
+        BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition,
+        Stmt, StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
@@ -406,6 +407,7 @@ impl Checker {
         ident: Ident,
         external: bool,
         generic: bool,
+        link_name: Option<String>,
         ctx: &CheckerContext,
     ) -> Result<ProcId> {
         if let Some(span) = self.procs.find_original_span(ctx.module_id, &ident) {
@@ -425,6 +427,7 @@ impl Checker {
             external,
             generic,
             generic_instances: Vec::new(),
+            link_name,
         }))
     }
 
@@ -433,11 +436,31 @@ impl Checker {
         proc: &ExternProcDefinition,
         ctx: &CheckerContext,
     ) -> Result<ProcId> {
-        self.add_proc(proc.ident.clone(), true, false, ctx)
+        let mut link_name = None;
+
+        for attr in &proc.attributes {
+            match self.typecheck_builtin_as_proc_attribute(attr, ctx)? {
+                CheckedBuiltin::LinkName(name) => {
+                    if link_name.is_some() {
+                        todo!("Warn about multiple link_name attributes");
+                    }
+
+                    link_name = Some(name)
+                }
+            }
+        }
+
+        self.add_proc(proc.ident.clone(), true, false, link_name, ctx)
     }
 
     fn add_proc_name(&mut self, proc: &ProcDefinition, ctx: &CheckerContext) -> Result<ProcId> {
-        self.add_proc(proc.ident.clone(), true, !proc.type_params.is_empty(), ctx)
+        self.add_proc(
+            proc.ident.clone(),
+            true,
+            !proc.type_params.is_empty(),
+            None,
+            ctx,
+        )
     }
 
     fn define_struct(
@@ -832,8 +855,8 @@ impl Checker {
                 },
                 false,
             )),
-            ExprKind::Builtin(name, params) => Ok(HasNever::new(
-                self.typecheck_builtin_expr(expr, name, params, return_type, ctx, ss)?,
+            ExprKind::Builtin(builtin) => Ok(HasNever::new(
+                self.typecheck_builtin_expr(expr, builtin, return_type, ctx, ss)?,
                 false,
             )),
             ExprKind::StructInstantiation { name, members } => {
@@ -1136,13 +1159,12 @@ impl Checker {
     fn typecheck_builtin_expr(
         &mut self,
         expr: &Expr,
-        name: &str,
-        params: &[Expr],
+        Builtin { name, params, .. }: &Builtin,
         return_type: (TypeId, SourceSpan),
         ctx: &CheckerContext,
         ss: &mut StackSlots,
     ) -> Result<CheckedExpr> {
-        match name {
+        match name.as_str() {
             "type_name" => {
                 if params.len() != 1 {
                     return Err(Error::BuiltinParamCountMismatch {
@@ -1167,6 +1189,45 @@ impl Checker {
             name => Err(Error::UnknownBuiltin {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: expr.span,
+                name: name.to_string(),
+            }),
+        }
+    }
+
+    fn typecheck_builtin_as_proc_attribute(
+        &self,
+        Builtin { name, params, span }: &Builtin,
+        ctx: &CheckerContext,
+    ) -> Result<CheckedBuiltin> {
+        match name.as_str() {
+            "link_name" => {
+                if params.len() != 1 {
+                    return Err(Error::BuiltinParamCountMismatch {
+                        src: self.modules.source_for(ctx.module_id).clone(),
+                        span: *span,
+                        name: name.to_string(),
+                        expected: 1,
+                        got: params.len(),
+                        variadic: false,
+                    });
+                }
+
+                let param = &params[0];
+
+                match &param.kind {
+                    ExprKind::String(name) => Ok(CheckedBuiltin::LinkName(name.clone())),
+                    _ => Err(Error::BuiltinExpectsArgAtToBe {
+                        src: self.modules.source_for(ctx.module_id).clone(),
+                        span: *span,
+                        name: "link_name",
+                        arg_type: "string",
+                        arg_index: 0,
+                    }),
+                }
+            }
+            name => Err(Error::UnknownBuiltin {
+                src: self.modules.source_for(ctx.module_id).clone(),
+                span: *span,
                 name: name.to_string(),
             }),
         }

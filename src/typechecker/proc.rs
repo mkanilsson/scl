@@ -62,6 +62,7 @@ impl ProcCollection {
             type_id,
             name: generic.name.clone(),
             generic_instances: generics,
+            link_name: None,
         });
 
         id.into()
@@ -122,6 +123,10 @@ impl ProcCollection {
     pub fn mangled_name_of(&self, proc_id: ProcId, checker: &Checker) -> String {
         let proc = &self.procs[proc_id.0];
 
+        if let Some(link_name) = &proc.link_name {
+            return link_name.clone();
+        }
+
         if proc.external {
             proc.name.name.clone()
         } else {
@@ -161,4 +166,5 @@ pub struct Proc {
     pub external: bool,
     pub generic: bool,
     pub generic_instances: Vec<TypeId>,
+    pub link_name: Option<String>,
 }

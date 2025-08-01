@@ -52,7 +52,7 @@ pub enum ExprKind {
     Identifier(Ident),
     String(String),
     Bool(bool),
-    Builtin(String, Vec<Expr>),
+    Builtin(Builtin),
     BinOp {
         lhs: Box<Expr>,
         op: BinOp,
@@ -87,6 +87,13 @@ pub enum ExprKind {
     AddressOf(Box<Expr>),
     Deref(Box<Expr>),
     Block(Box<Block>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Builtin {
+    pub name: String,
+    pub params: Vec<Expr>,
+    pub span: SourceSpan,
 }
 
 #[derive(Debug, Clone)]
@@ -152,6 +159,7 @@ pub struct ExternProcDefinition {
     pub return_type: Type,
     pub variadic: bool,
     pub type_params: Vec<Ident>,
+    pub attributes: Vec<Builtin>,
 }
 
 #[derive(Debug, Clone)]

@@ -98,3 +98,7 @@ pub struct CheckedBlock {
     pub last: Option<CheckedExpr>,
     pub type_id: TypeId,
 }
+
+pub enum CheckedBuiltin {
+    LinkName(String),
+}

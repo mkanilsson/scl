@@ -205,6 +205,18 @@ pub enum Error {
 
         name: String,
     },
+    #[error("Builtin '{name}' expects '{arg_type}' as argument {arg_index}")]
+    BuiltinExpectsArgAtToBe {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        name: &'static str,
+        arg_type: &'static str,
+        arg_index: u32,
+    },
     #[error(
         "Builtin '{name}' expects {}{expected} argument{} but got {got}",
         if *variadic { "at least " } else { "" },

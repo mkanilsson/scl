@@ -136,8 +136,8 @@ pub Term: Box<parsed::Expr> = {
             }
         })
     },
-    <s:@L> <builtin:"builtin"> "(" <params:ProcCallParams> ")" <e:@R> => {
-        expr!(s, e, ExprKind::Builtin(builtin.to_string(), params))
+    <s:@L> <builtin:Builtin> <e:@R> => {
+        expr!(s, e, ExprKind::Builtin(builtin))
     },
     <s:@L> <lhs:Term> "as" <tajp:Type> <e:@R> => {
         expr!(s, e, ExprKind::Cast {
@@ -286,7 +286,7 @@ ExternProcParams: (Vec<tajp::Type>, bool) = {
 }
 
 ExternProcDefinition: parsed::ExternProcDefinition = {
-    "extern" "proc" <ident:Ident> <type_params:GenericParams?> "(" <params:ExternProcParams> ")" <return_type:Type> => {
+    <attributes:Builtin*> "extern" "proc" <ident:Ident> <type_params:GenericParams?> "(" <params:ExternProcParams> ")" <return_type:Type> => {
         parsed::ExternProcDefinition {
             ident,
             params: params.0,
@@ -296,7 +296,8 @@ ExternProcDefinition: parsed::ExternProcDefinition = {
                 type_params
             } else {
                 vec![]
-            }
+            },
+            attributes,
         }
     }
 }
@@ -349,6 +350,16 @@ pub TranslationUnit: parsed::TranslationUnit = {
             imports: vec![],
         }
     }
+}
+
+Builtin: parsed::Builtin = {
+    <s:@L> <builtin:"builtin"> "(" <params:ProcCallParams> ")" <e:@R> => {
+        parsed::Builtin {
+            name: builtin.to_string(), 
+            params,
+            span: (s..e).into()
+        }
+    },
 }
 
 // Utils
