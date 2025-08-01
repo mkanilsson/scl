@@ -14,10 +14,12 @@ pub const VOID_TYPE_ID: TypeId = TypeId(0);
 pub const BOOL_TYPE_ID: TypeId = TypeId(1);
 pub const I8_TYPE_ID: TypeId = TypeId(2);
 pub const U8_TYPE_ID: TypeId = TypeId(3);
-pub const I32_TYPE_ID: TypeId = TypeId(4);
-pub const U32_TYPE_ID: TypeId = TypeId(5);
-pub const STRING_TYPE_ID: TypeId = TypeId(6);
-pub const NEVER_TYPE_ID: TypeId = TypeId(7);
+pub const I16_TYPE_ID: TypeId = TypeId(4);
+pub const U16_TYPE_ID: TypeId = TypeId(5);
+pub const I32_TYPE_ID: TypeId = TypeId(6);
+pub const U32_TYPE_ID: TypeId = TypeId(7);
+pub const STRING_TYPE_ID: TypeId = TypeId(8);
+pub const NEVER_TYPE_ID: TypeId = TypeId(9);
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum Type {
@@ -27,6 +29,8 @@ pub enum Type {
     Bool,
     I8,
     U8,
+    I16,
+    U16,
     I32,
     U32,
     String,
@@ -89,6 +93,8 @@ impl Type {
             Type::Bool => "bool".into(),
             Type::I8 => "i8".into(),
             Type::U8 => "u8".into(),
+            Type::I16 => "i16".into(),
+            Type::U16 => "u16".into(),
             Type::I32 => "i32".into(),
             Type::U32 => "u32".into(),
             Type::String => "string".into(),
@@ -133,6 +139,8 @@ impl Type {
             | Type::Bool
             | Type::I8
             | Type::U8
+            | Type::I16
+            | Type::U16
             | Type::I32
             | Type::U32
             | Type::String
@@ -185,6 +193,8 @@ impl TypeCollection {
                 Type::Bool,
                 Type::I8,
                 Type::U8,
+                Type::I16,
+                Type::U16,
                 Type::I32,
                 Type::U32,
                 Type::String,
@@ -336,6 +346,8 @@ impl TypeCollection {
             ast::tajp::TypeKind::Named(ident) => Some(match ident.name.as_str() {
                 "void" => VOID_TYPE_ID,
                 "bool" => BOOL_TYPE_ID,
+                "i16" => I16_TYPE_ID,
+                "u16" => U16_TYPE_ID,
                 "i32" => I32_TYPE_ID,
                 "u32" => U32_TYPE_ID,
                 "i8" => I8_TYPE_ID,
@@ -432,6 +444,8 @@ impl TypeCollection {
             Type::Bool => qbe::Type::Word,
             Type::I8 => qbe::Type::SignedByte,
             Type::U8 => qbe::Type::UnsignedByte,
+            Type::I16 => qbe::Type::SignedHalfword,
+            Type::U16 => qbe::Type::UnsignedHalfword,
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
@@ -472,6 +486,8 @@ impl TypeCollection {
             Type::Bool
             | Type::I8
             | Type::U8
+            | Type::I16
+            | Type::U16
             | Type::I32
             | Type::U32
             | Type::String
