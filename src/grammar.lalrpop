@@ -178,6 +178,11 @@ pub Stmt: parsed::Stmt = {
             value,
         })
     },
+    <s:@L> "defer" <expr:UnboxedExpr> ";" <e:@R> => {
+        stmt!(s, e, StmtKind::Defer {
+            expr,
+        })
+    },
     <s:@L> "while" "(" <condition:UnboxedExpr> ")" <body:Block> <e:@R> => {
         stmt!(s, e, StmtKind::While {
             condition,
@@ -431,5 +436,6 @@ extern {
         "use" => Token::Use,
         "as" => Token::As,
         "while" => Token::While,
+        "defer" => Token::Defer,
     }
 }

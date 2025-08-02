@@ -81,6 +81,8 @@ pub enum Token<'source> {
     As,
     #[token("while")]
     While,
+    #[token("defer")]
+    Defer,
 }
 
 #[derive(Default, Debug, Clone, PartialEq)]

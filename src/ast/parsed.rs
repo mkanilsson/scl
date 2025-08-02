@@ -115,6 +115,7 @@ pub enum StmtKind {
     Return { value: Option<Expr> },
     While { condition: Expr, body: Block },
     Expr(Expr),
+    Defer { expr: Expr },
 }
 
 #[derive(Debug, Clone, Copy, Display)]
