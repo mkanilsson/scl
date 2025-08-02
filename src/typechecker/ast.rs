@@ -36,6 +36,7 @@ pub enum CheckedStmt {
         condition: CheckedExpr,
         body: CheckedBlock,
     },
+    None,
 }
 
 #[derive(Debug, Clone)]
@@ -101,6 +102,7 @@ pub struct CheckedBlock {
     pub stmts: Vec<CheckedStmt>,
     pub last: Option<CheckedExpr>,
     pub type_id: TypeId,
+    pub deferred: Vec<Vec<CheckedExpr>>,
 }
 
 pub enum CheckedBuiltin {

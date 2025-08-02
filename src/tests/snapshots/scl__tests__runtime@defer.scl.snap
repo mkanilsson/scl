@@ -1,0 +1,41 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/defer.scl
+---
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc4 4
+	%.ss.4 =l alloc4 4
+	%.ss.5 =l alloc4 4
+@body
+	%.printf.return_value.4 =w call $printf(l $.str.5, ...)
+@.block.6
+	%.printf.return_value.7 =w call $printf(l $.str.8, ...)
+	%.printf.return_value.9 =w call $printf(l $.str.10, ...)
+	%.printf.return_value.11 =w call $printf(l $.str.12, ...)
+	%.printf.return_value.13 =w call $printf(l $.str.14, ...)
+	%.printf.return_value.15 =w call $printf(l $.str.16, ...)
+	ret 0
+}
+data $.str.5 = { b "Before\n", b 0 }
+data $.str.8 = { b "Also in block\n", b 0 }
+data $.str.10 = { b "In block\n", b 0 }
+data $.str.12 = { b "After\n", b 0 }
+data $.str.14 = { b "deferred 2\n", b 0 }
+data $.str.16 = { b "deferred 1\n", b 0 }

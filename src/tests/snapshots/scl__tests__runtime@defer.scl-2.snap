@@ -1,0 +1,11 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/defer.scl
+---
+Before
+Also in block
+In block
+After
+deferred 2
+deferred 1

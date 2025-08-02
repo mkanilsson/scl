@@ -1,0 +1,17 @@
+use std::io::printf
+
+proc main() i32 {
+
+    printf("Before\n");
+    defer printf("deferred 1\n");
+
+    {
+        defer printf("In block\n");
+        printf("Also in block\n");
+    };
+
+    printf("After\n");
+    defer printf("deferred 2\n");
+
+    0
+}

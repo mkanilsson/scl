@@ -150,12 +150,15 @@ impl Codegen {
     fn codegen_stmt<'a>(
         &'a self,
         stmt: &CheckedStmt,
+        deferred: &[Vec<CheckedExpr>],
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) {
         #[allow(unreachable_patterns)]
         match stmt {
-            CheckedStmt::Return { value } => self.codegen_return_stmt(value, function, module),
+            CheckedStmt::Return { value } => {
+                self.codegen_return_stmt(value, deferred, function, module)
+            }
             CheckedStmt::VariableDeclaration { stack_slot, value } => {
                 self.codegen_variable_declaration_stmt(*stack_slot, value, function, module)
             }
@@ -165,6 +168,7 @@ impl Codegen {
             CheckedStmt::While { condition, body } => {
                 self.codegen_while_stmt(condition, body, function, module);
             }
+            CheckedStmt::None => {}
             stmt => todo!("codegen_stmt: {}", stmt),
         }
     }
@@ -172,6 +176,7 @@ impl Codegen {
     fn codegen_return_stmt<'a>(
         &'a self,
         value: &Option<CheckedExpr>,
+        deferred: &[Vec<CheckedExpr>],
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) {
@@ -179,7 +184,29 @@ impl Codegen {
             .as_ref()
             .map(|expr| self.codegen_expr(expr, function, module).1);
 
+        self.codegen_deferred(deferred, true, function, module);
+
         function.add_instr(Instr::Ret(qbe_value));
+    }
+
+    fn codegen_deferred<'a>(
+        &'a self,
+        deferred: &[Vec<CheckedExpr>],
+        all: bool,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) {
+        if all {
+            deferred.iter().for_each(|exprs| {
+                exprs.iter().rev().for_each(|expr| {
+                    self.codegen_expr(expr, function, module);
+                });
+            });
+        } else {
+            deferred.last().unwrap().iter().rev().for_each(|expr| {
+                self.codegen_expr(expr, function, module);
+            });
+        }
     }
 
     fn codegen_variable_declaration_stmt<'a>(
@@ -291,14 +318,21 @@ impl Codegen {
                 expr,
                 stack_slot,
             } => self.codegen_deref_expr(*type_id, expr, *stack_slot, function, module),
-            CheckedExprKind::Block(block) => self
-                .codegen_block(
+            CheckedExprKind::Block(block) => {
+                if let Some(value) = self.codegen_block(
                     &format!(".block.{}", self.unique_tag()),
                     block,
                     function,
                     module,
-                )
-                .unwrap(),
+                ) {
+                    value
+                } else {
+                    (
+                        Type::Word,
+                        Value::Temporary(".ERROR.SHOULDNT.BE.USED".to_string()),
+                    )
+                }
+            }
             CheckedExprKind::Store { expr, stack_slot } => {
                 self.codegen_store_expr(expr, *stack_slot, function, module)
             }
@@ -598,14 +632,26 @@ impl Codegen {
     ) -> Option<(Type<'a>, Value)> {
         function.add_block(name);
 
+        let mut already_deferred = false;
         for stmt in &block.stmts {
-            self.codegen_stmt(stmt, function, module);
+            self.codegen_stmt(stmt, &block.deferred, function, module);
+
+            if matches!(stmt, CheckedStmt::Return { .. }) {
+                already_deferred = true;
+                break;
+            }
         }
 
-        block
+        let ret_value = block
             .last
             .as_ref()
-            .map(|expr| self.codegen_expr(expr, function, module))
+            .map(|expr| self.codegen_expr(expr, function, module));
+
+        if !already_deferred {
+            self.codegen_deferred(&block.deferred, false, function, module);
+        }
+
+        ret_value
     }
 
     fn codegen_binop_expr<'a>(
