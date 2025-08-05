@@ -1,0 +1,12 @@
+use std::io::printf
+
+proc main() i32 {
+    let a = [1, 2, 3];
+    let b = a[1];
+    printf("b = %d\n", b);
+    a[1] = 123;
+    printf("a[1] = %d\n", a[1]);
+    printf("b = %d\n", b);
+
+    0
+}
