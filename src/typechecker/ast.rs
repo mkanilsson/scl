@@ -99,6 +99,10 @@ pub enum CheckedExprKind {
         exprs: Vec<CheckedExpr>,
         stack_slot: StackSlotId,
     },
+    ArrayAccess {
+        lhs: Box<CheckedExpr>,
+        index: Box<CheckedExpr>,
+    },
 }
 
 #[derive(Debug, Clone)]

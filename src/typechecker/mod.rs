@@ -1142,6 +1142,9 @@ impl Checker {
             ExprKind::ArrayInstantiation(exprs) => {
                 self.typecheck_array_instantiation_expr(exprs, block_ctx, proc_ctx, ctx)
             }
+            ExprKind::ArrayAccess { lhs, index } => {
+                self.typecheck_array_access_expr(lhs, index, block_ctx, proc_ctx, ctx)
+            }
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -1970,6 +1973,54 @@ impl Checker {
                 },
             },
             has_never,
+        ))
+    }
+
+    fn typecheck_array_access_expr(
+        &mut self,
+        lhs: &Expr,
+        index: &Expr,
+        block_ctx: &mut BlockContext,
+        proc_ctx: &mut ProcContext,
+        ctx: &CheckerContext,
+    ) -> Result<HasNever<CheckedExpr>> {
+        let checked_lhs = self.typecheck_expr(lhs, None, true, block_ctx, proc_ctx, ctx)?;
+        if !self.types.is_array(checked_lhs.value.type_id) && !checked_lhs.never {
+            return Err(Error::ArrayAccessOnNonArray {
+                src: self.modules.source_for(ctx.module_id).clone(),
+                span: lhs.span,
+                type_name: self.types.name_of(checked_lhs.value.type_id, self),
+            });
+        }
+
+        let checked_index = self.typecheck_expr(
+            index,
+            Some((USIZE_TYPE_ID, (0..0).into())),
+            true,
+            block_ctx,
+            proc_ctx,
+            ctx,
+        )?;
+
+        if !self.types.is_number(checked_index.value.type_id) && !checked_lhs.never {
+            return Err(Error::ArrayAccessWithNonIntegerIndex {
+                src: self.modules.source_for(ctx.module_id).clone(),
+                span: index.span,
+                type_name: self.types.name_of(checked_index.value.type_id, self),
+            });
+        }
+
+        let inner_type_id = self.types.inner_of(checked_lhs.value.type_id);
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: inner_type_id,
+                lvalue: true,
+                kind: CheckedExprKind::ArrayAccess {
+                    lhs: Box::new(checked_lhs.value),
+                    index: Box::new(checked_index.value),
+                },
+            },
+            checked_lhs.never || checked_index.never,
         ))
     }
 

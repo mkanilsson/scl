@@ -432,6 +432,10 @@ impl TypeCollection {
         self.get_definition(type_id).is_ptr()
     }
 
+    pub fn is_array(&self, type_id: TypeId) -> bool {
+        self.get_definition(type_id).is_array()
+    }
+
     pub fn is_unsigned(&self, type_id: TypeId) -> bool {
         self.get_definition(type_id).is_unsigned()
     }

@@ -435,4 +435,22 @@ pub enum Error {
         second_span: SourceSpan,
         second_type_name: String,
     },
+    #[error("Array access on non-array")]
+    ArrayAccessOnNonArray {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("this evaluates to '{type_name}'")]
+        span: SourceSpan,
+        type_name: String,
+    },
+    #[error("Array access with non-integer index")]
+    ArrayAccessWithNonIntegerIndex {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("this evaluates to '{type_name}'")]
+        span: SourceSpan,
+        type_name: String,
+    },
 }

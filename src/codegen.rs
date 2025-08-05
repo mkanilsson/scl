@@ -344,6 +344,9 @@ impl Codegen {
                     function,
                     module,
                 ),
+            CheckedExprKind::ArrayAccess { lhs, index } => {
+                self.codegen_array_access_expr(expr.type_id, lhs, index, function, module)
+            }
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -786,6 +789,41 @@ impl Codegen {
         )
     }
 
+    fn codegen_array_access_expr<'a>(
+        &'a self,
+        type_id: TypeId,
+        lhs: &CheckedExpr,
+        index: &CheckedExpr,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let generated_lhs = self.codegen_expr_for_read(lhs, function, module);
+        let generated_index = self.codegen_expr(index, function, module);
+
+        let unique_tag = self.unique_tag();
+
+        let offset = Value::Temporary(format!(".array_access.offset.{unique_tag}"));
+        let addr = Value::Temporary(format!(".array_access.addr.{unique_tag}"));
+
+        let size_of_inner = self
+            .checker
+            .types
+            .memory_layout_of(type_id, &self.checker)
+            .size;
+
+        function.assign_instr(
+            offset.clone(),
+            Type::Long,
+            Instr::Mul(generated_index.1, Value::Const(size_of_inner as u64)),
+        );
+
+        function.assign_instr(addr.clone(), Type::Long, Instr::Add(generated_lhs, offset));
+
+        let qbe_type = self.checker.types.qbe_type_of(type_id, &self.checker);
+
+        self.read(qbe_type.clone(), addr, function)
+    }
+
     fn codegen_expr_for_read<'a>(
         &'a self,
         expr: &CheckedExpr,
@@ -854,6 +892,28 @@ impl Codegen {
         }
 
         dest
+    }
+
+    fn read<'a>(
+        &'a self,
+        qbe_type: Type<'a>,
+        src: Value,
+        function: &mut Function<'a>,
+    ) -> (Type<'a>, Value) {
+        match qbe_type {
+            Type::Aggregate(_) => (Type::Long, src),
+            _ => {
+                let result_value = Value::Temporary(format!(".read.{}", self.unique_tag()));
+
+                function.assign_instr(
+                    result_value.clone(),
+                    qbe_type.clone(),
+                    Instr::Load(qbe_type.clone(), src),
+                );
+
+                (qbe_type, result_value)
+            }
+        }
     }
 
     fn store_if_needed<'a>(
