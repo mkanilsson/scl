@@ -797,31 +797,10 @@ impl Codegen {
         function: &mut Function<'a>,
         module: &mut Module<'a>,
     ) -> (Type<'a>, Value) {
-        let generated_lhs = self.codegen_expr_for_read(lhs, function, module);
-        let generated_index = self.codegen_expr(index, function, module);
-
-        let unique_tag = self.unique_tag();
-
-        let offset = Value::Temporary(format!(".array_access.offset.{unique_tag}"));
-        let addr = Value::Temporary(format!(".array_access.addr.{unique_tag}"));
-
-        let size_of_inner = self
-            .checker
-            .types
-            .memory_layout_of(type_id, &self.checker)
-            .size;
-
-        function.assign_instr(
-            offset.clone(),
-            Type::Long,
-            Instr::Mul(generated_index.1, Value::Const(size_of_inner as u64)),
-        );
-
-        function.assign_instr(addr.clone(), Type::Long, Instr::Add(generated_lhs, offset));
-
+        let addr = self.codegen_array_access_expr_for_read(type_id, lhs, index, function, module);
         let qbe_type = self.checker.types.qbe_type_of(type_id, &self.checker);
 
-        self.read(qbe_type.clone(), addr, function)
+        self.read(qbe_type, addr, function)
     }
 
     fn codegen_expr_for_read<'a>(
@@ -838,6 +817,9 @@ impl Codegen {
             }
             CheckedExprKind::MemberAccess { lhs, name } => {
                 self.codegen_member_access_expr_for_read(lhs, name, function, module)
+            }
+            CheckedExprKind::ArrayAccess { lhs, index } => {
+                self.codegen_array_access_expr_for_read(expr.type_id, lhs, index, function, module)
             }
             CheckedExprKind::Deref { expr, .. } => self.codegen_expr(expr, function, module).1,
             CheckedExprKind::Assignment { .. } => panic!("Assignment for read???"),
@@ -869,6 +851,39 @@ impl Codegen {
         );
 
         access
+    }
+
+    fn codegen_array_access_expr_for_read<'a>(
+        &'a self,
+        type_id: TypeId,
+        lhs: &CheckedExpr,
+        index: &CheckedExpr,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> Value {
+        let generated_lhs = self.codegen_expr_for_read(lhs, function, module);
+        let generated_index = self.codegen_expr(index, function, module);
+
+        let unique_tag = self.unique_tag();
+
+        let offset = Value::Temporary(format!(".array_access.offset.{unique_tag}"));
+        let addr = Value::Temporary(format!(".array_access.addr.{unique_tag}"));
+
+        let size_of_inner = self
+            .checker
+            .types
+            .memory_layout_of(type_id, &self.checker)
+            .size;
+
+        function.assign_instr(
+            offset.clone(),
+            Type::Long,
+            Instr::Mul(generated_index.1, Value::Const(size_of_inner as u64)),
+        );
+
+        function.assign_instr(addr.clone(), Type::Long, Instr::Add(generated_lhs, offset));
+
+        addr
     }
 
     fn unique_tag(&self) -> usize {
