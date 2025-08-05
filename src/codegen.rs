@@ -496,21 +496,7 @@ impl Codegen {
 
         let result_type = self.checker.types.qbe_type_of(expr.type_id, &self.checker);
 
-        match result_type {
-            Type::Aggregate(_) => (Type::Long, offset_value),
-            _ => {
-                let result_value =
-                    Value::Temporary(format!(".member_access.{}", self.unique_tag()));
-
-                function.assign_instr(
-                    result_value.clone(),
-                    result_type.clone(),
-                    Instr::Load(result_type.clone(), offset_value),
-                );
-
-                (result_type, result_value)
-            }
-        }
+        self.read(result_type, offset_value, function)
     }
 
     fn codegen_stack_value_expr<'a>(

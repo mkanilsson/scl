@@ -60,8 +60,8 @@ export function w $main() {
 	%.offset.12 =l add %.ss.10, 0
 	storel %.ss.9, %.offset.12
 	%.offset.13 =l add %.ss.10, 0
-	%.member_access.14 =l loadl %.offset.13
-	storel %.member_access.14, %.ss.12
+	%.read.14 =l loadl %.offset.13
+	storel %.read.14, %.ss.12
 	%.deref.ptr.15 =l loadl %.ss.12
 	%.ss.11 =l loadl %.deref.ptr.15
 	storel %.ss.11, %.ss.13

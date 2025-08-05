@@ -46,8 +46,8 @@ export function w $main() {
 	storew 40, %.offset.10
 	blit %.ss.8, %.sv.9, 4
 	%.offset.13 =l add %.ss.5, 0
-	%.member_access.14 =w loadw %.offset.13
-	%.printf.return_value.11 =w call $printf(l $.str.12, ..., w %.member_access.14)
+	%.read.14 =w loadw %.offset.13
+	%.printf.return_value.11 =w call $printf(l $.str.12, ..., w %.read.14)
 	ret 0
 }
 data $.str.6 = { b "a = %d\n", b 0 }
