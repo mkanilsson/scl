@@ -53,6 +53,11 @@ pub enum ExprKind {
     String(String),
     Bool(bool),
     Builtin(Builtin),
+    ArrayInstantiation(Vec<Expr>),
+    ArrayAccess {
+        lhs: Box<Expr>,
+        index: Box<Expr>,
+    },
     BinOp {
         lhs: Box<Expr>,
         op: BinOp,

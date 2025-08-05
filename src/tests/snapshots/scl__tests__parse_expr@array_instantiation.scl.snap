@@ -1,0 +1,50 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/array_instantiation.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 19,
+    },
+    kind: ArrayInstantiation(
+        [
+            Expr {
+                span: SourceSpan {
+                    offset: SourceOffset(
+                        1,
+                    ),
+                    length: 1,
+                },
+                kind: Number(
+                    "1",
+                ),
+            },
+            Expr {
+                span: SourceSpan {
+                    offset: SourceOffset(
+                        4,
+                    ),
+                    length: 7,
+                },
+                kind: String(
+                    "hello",
+                ),
+            },
+            Expr {
+                span: SourceSpan {
+                    offset: SourceOffset(
+                        13,
+                    ),
+                    length: 5,
+                },
+                kind: Bool(
+                    false,
+                ),
+            },
+        ],
+    ),
+}

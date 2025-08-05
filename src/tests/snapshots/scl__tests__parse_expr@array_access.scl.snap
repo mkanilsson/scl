@@ -1,0 +1,45 @@
+---
+source: src/tests/mod.rs
+expression: expr
+input_file: src/tests/sources/parse_expr/array_access.scl
+---
+Expr {
+    span: SourceSpan {
+        offset: SourceOffset(
+            0,
+        ),
+        length: 11,
+    },
+    kind: ArrayAccess {
+        lhs: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    0,
+                ),
+                length: 8,
+            },
+            kind: Identifier(
+                Ident {
+                    name: "my_array",
+                    span: SourceSpan {
+                        offset: SourceOffset(
+                            0,
+                        ),
+                        length: 8,
+                    },
+                },
+            ),
+        },
+        index: Expr {
+            span: SourceSpan {
+                offset: SourceOffset(
+                    9,
+                ),
+                length: 1,
+            },
+            kind: Number(
+                "2",
+            ),
+        },
+    },
+}

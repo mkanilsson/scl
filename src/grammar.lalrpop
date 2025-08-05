@@ -148,6 +148,16 @@ pub Term: Box<parsed::Expr> = {
     <s:@L> <block:Block> <e:@R> => {
         expr!(s, e, ExprKind::Block(block))
     },
+    
+    <s:@L> <lhs:Term> "[" <index:Expr> "]" <e:@R> => {
+        expr!(s, e, ExprKind::ArrayAccess {
+            lhs,
+            index,
+        })
+    },
+    <s:@L> "[" <exprs:Comma<UnboxedExpr>> "]" <e:@R> => {
+        expr!(s, e, ExprKind::ArrayInstantiation(exprs))
+    },
 
     <s:@L> "(" <expr:Expr> ")" <e:@R> => {
         expr!(s, e, expr.kind)
@@ -429,6 +439,8 @@ extern {
         ">" => Token::GreaterThan,
         ">=" => Token::GreaterThanOrEqual,
         "..." => Token::DotDotDot,
+        "[" => Token::OpenSquare,
+        "]" => Token::CloseSquare,
         "ret" => Token::Ret,
         "proc" => Token::Proc,
         "extern" => Token::Extern,

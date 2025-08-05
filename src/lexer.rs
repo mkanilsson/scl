@@ -19,6 +19,10 @@ pub enum Token<'source> {
     OpenParen,
     #[token("(")]
     CloseParen,
+    #[token("[")]
+    OpenSquare,
+    #[token("]")]
+    CloseSquare,
     #[token("if")]
     If,
     #[token("else")]
