@@ -89,7 +89,19 @@ impl Type {
     }
 
     pub fn is_number(&self) -> bool {
-        matches!(self, Type::I32 | Type::U32)
+        matches!(
+            self,
+            Type::I8
+                | Type::U8
+                | Type::I16
+                | Type::U16
+                | Type::I32
+                | Type::U32
+                | Type::I64
+                | Type::U64
+                | Type::ISIZE
+                | Type::USIZE
+        )
     }
 
     pub fn is_unsigned(&self) -> bool {
