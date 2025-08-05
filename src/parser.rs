@@ -1,9 +1,12 @@
 use crate::{
-    ast::parsed::{Expr, Stmt, TranslationUnit},
+    ast::parsed::TranslationUnit,
     error::{Error, Result},
     helpers,
     lexer::Lexer,
 };
+
+#[cfg(test)]
+use crate::ast::parsed::{Expr, Stmt};
 
 use lalrpop_util::lalrpop_mod;
 use miette::NamedSource;
@@ -17,11 +20,13 @@ lalrpop_mod! {
 pub struct Parser;
 
 impl Parser {
+    #[cfg(test)]
     pub fn parse_expr<'input>(expr: &'input str) -> Box<Expr> {
         let lexer = Lexer::new(expr);
         grammar::ExprParser::new().parse(lexer).unwrap()
     }
 
+    #[cfg(test)]
     pub fn parse_stmt(stmt: &str) -> Stmt {
         let lexer = Lexer::new(stmt);
         grammar::StmtParser::new().parse(lexer).unwrap()
