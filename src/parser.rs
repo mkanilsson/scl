@@ -68,7 +68,12 @@ impl Parser {
                     src: source.clone(),
                     span: (token.0..token.2).into(),
                 },
-                lalrpop_util::ParseError::User { .. } => todo!(),
+                lalrpop_util::ParseError::User { error } => match error {
+                    crate::lexer::LexicalError::InvalidToken(start, end) => Error::InvalidToken {
+                        src: source.clone(),
+                        span: (start..end).into(),
+                    },
+                },
             }),
         }
     }

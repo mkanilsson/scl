@@ -85,16 +85,9 @@ pub enum Token<'source> {
     Defer,
 }
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum LexicalError {
-    #[default]
-    InvalidToken,
-}
-
-impl From<()> for LexicalError {
-    fn from(_: ()) -> Self {
-        Self::InvalidToken
-    }
+    InvalidToken(usize, usize),
 }
 
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
@@ -115,8 +108,12 @@ impl<'input> Iterator for Lexer<'input> {
     type Item = Spanned<Token<'input>, usize, LexicalError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.token_stream
-            .next()
-            .map(|(token, span)| Ok((span.start, token?, span.end)))
+        self.token_stream.next().map(|(token, span)| {
+            let Ok(token) = token else {
+                return Err(LexicalError::InvalidToken(span.start, span.end));
+            };
+
+            Ok((span.start, token, span.end))
+        })
     }
 }
