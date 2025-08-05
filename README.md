@@ -4,6 +4,10 @@ A simple c like language that is pretty shit. Compiles to QBE.
 
 > This is a for-fun project for me to learn some compile stuff
 
+## Examples
+
+Checkout [src/tests/sources/runtime](src/tests/sources/runtime) for how to use the language.
+
 ## Syntax
 
 Both existing and planned
