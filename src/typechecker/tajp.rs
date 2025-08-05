@@ -46,6 +46,7 @@ pub enum Type {
     Proc(ProcStructure),
     Struct(StructStructure),
     Ptr(TypeId),
+    Array(TypeId, usize),
 
     Generic(GenericId),
 }
@@ -136,6 +137,7 @@ impl Type {
                 )
             }
             Type::Ptr(inner) => format!("*{}", collection.name_of(*inner, checker)),
+            Type::Array(inner, size) => format!("[{size}]{}", collection.name_of(*inner, checker)),
             Type::Generic(_) => {
                 format!("(TODO: Generic args in {}:{})", file!(), line!())
             }
@@ -166,6 +168,9 @@ impl Type {
                 todo!()
             }
             Type::Ptr(inner) => format!("P{}", collection.mangled_name_of(*inner, checker)),
+            Type::Array(inner, size) => {
+                format!("A..{size}..{}", collection.mangled_name_of(*inner, checker))
+            }
             Type::Generic(_) => {
                 unreachable!()
             }
@@ -402,6 +407,7 @@ impl TypeCollection {
     pub fn inner_of(&self, type_id: TypeId) -> TypeId {
         match self.types.get(type_id.0).unwrap() {
             Type::Ptr(type_id) => *type_id,
+            Type::Array(type_id, _) => *type_id,
             _ => panic!("inner_of on non-ptr"),
         }
     }
@@ -454,6 +460,11 @@ impl TypeCollection {
                     .collect(),
                 name: definition.to_mangled_string(self, checker),
             },
+            Type::Array(inner, size) => qbe::TypeDef {
+                align: None,
+                items: vec![(self.qbe_type_of(*inner, checker), *size)],
+                name: definition.to_mangled_string(self, checker),
+            },
             _ => unreachable!(),
         }))
     }
@@ -473,7 +484,7 @@ impl TypeCollection {
             Type::ISIZE | Type::USIZE => qbe::Type::Long,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
-            Type::Struct { .. } => {
+            Type::Struct { .. } | Type::Array(_, _) => {
                 qbe::Type::Aggregate(self.qbe_type_def_of_definition(definition, checker))
             }
             Type::Never => qbe::Type::Word,
@@ -528,6 +539,7 @@ impl TypeCollection {
                 None,
             ),
             Type::Struct(structure) => self.memory_layout_of_struct(&structure.fields, checker),
+            Type::Array(inner, size) => self.memory_layout_of_array(*inner, *size, checker),
             Type::UndefinedStruct | Type::UndefinedProc => {
                 unreachable!()
             }
@@ -569,6 +581,21 @@ impl TypeCollection {
             self.round_up_to_alignment(offset, largest_alignment),
             largest_alignment,
             Some(layout_fields),
+        )
+    }
+
+    fn memory_layout_of_array(
+        &self,
+        inner: TypeId,
+        size: usize,
+        checker: &Checker,
+    ) -> MemoryLayout {
+        let inner = self.memory_layout_of(inner, checker);
+
+        MemoryLayout::new(
+            self.round_up_to_alignment(inner.size * size, inner.alignment),
+            inner.alignment,
+            None,
         )
     }
 

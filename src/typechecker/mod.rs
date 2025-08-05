@@ -1139,6 +1139,9 @@ impl Checker {
                 ))
             }
             ExprKind::Deref(expr) => self.typecheck_deref_expr(expr, block_ctx, proc_ctx, ctx),
+            ExprKind::ArrayInstantiation(exprs) => {
+                self.typecheck_array_instantiation_expr(exprs, block_ctx, proc_ctx, ctx)
+            }
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -1910,6 +1913,63 @@ impl Checker {
                 lvalue: true,
             },
             checked_expr.never,
+        ))
+    }
+
+    fn typecheck_array_instantiation_expr(
+        &mut self,
+        exprs: &[Expr],
+        block_ctx: &mut BlockContext,
+        proc_ctx: &mut ProcContext,
+        ctx: &CheckerContext,
+    ) -> Result<HasNever<CheckedExpr>> {
+        // TODO: Wanted, unwrap inner
+        let mut inferred_type_id = None;
+
+        let mut checked_exprs = vec![];
+        let mut has_never = false;
+
+        for expr in exprs {
+            let checked_expr =
+                self.typecheck_expr(expr, inferred_type_id, true, block_ctx, proc_ctx, ctx)?;
+
+            if !checked_expr.never {
+                if let Some(inferred_type_id) = inferred_type_id {
+                    if checked_expr.value.type_id != inferred_type_id.0 {
+                        return Err(Error::ArrayInstantiationDifferentTypes {
+                            src: self.modules.source_for(ctx.module_id).clone(),
+                            first_span: inferred_type_id.1,
+                            first_type_name: self.types.name_of(inferred_type_id.0, self),
+                            second_span: expr.span,
+                            second_type_name: self.types.name_of(checked_expr.value.type_id, self),
+                        });
+                    }
+                } else {
+                    inferred_type_id = Some((checked_expr.value.type_id, expr.span));
+                }
+            }
+
+            has_never |= checked_expr.never;
+
+            checked_exprs.push(checked_expr);
+        }
+
+        // TODO: Handle the case where it's an empty array
+        let type_id = self.types.register_type(Type::Array(
+            inferred_type_id.unwrap().0,
+            checked_exprs.len(),
+        ));
+
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: type_id,
+                lvalue: false,
+                kind: CheckedExprKind::ArrayInstantiation {
+                    exprs: checked_exprs.into_iter().map(|expr| expr.value).collect(),
+                    stack_slot: proc_ctx.stack_slots.allocate(type_id),
+                },
+            },
+            has_never,
         ))
     }
 

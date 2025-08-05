@@ -422,4 +422,17 @@ pub enum Error {
         infered_span: SourceSpan,
         infered_name: String,
     },
+    #[error("Array instantiation has different types")]
+    ArrayInstantiationDifferentTypes {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("this evaluates to '{first_type_name}'")]
+        first_span: SourceSpan,
+        first_type_name: String,
+
+        #[label("this evaluates to '{second_type_name}'")]
+        second_span: SourceSpan,
+        second_type_name: String,
+    },
 }

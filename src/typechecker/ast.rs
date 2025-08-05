@@ -95,6 +95,10 @@ pub enum CheckedExprKind {
         expr: Box<CheckedExpr>,
         stack_slot: StackSlotId,
     },
+    ArrayInstantiation {
+        exprs: Vec<CheckedExpr>,
+        stack_slot: StackSlotId,
+    },
 }
 
 #[derive(Debug, Clone)]

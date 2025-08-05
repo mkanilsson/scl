@@ -336,6 +336,14 @@ impl Codegen {
             CheckedExprKind::Store { expr, stack_slot } => {
                 self.codegen_store_expr(expr, *stack_slot, function, module)
             }
+            CheckedExprKind::ArrayInstantiation { exprs, stack_slot } => self
+                .codegen_array_instantiation_expr(
+                    expr.type_id,
+                    exprs,
+                    *stack_slot,
+                    function,
+                    module,
+                ),
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -735,6 +743,46 @@ impl Codegen {
         (
             Type::Long,
             self.store(generated_expr.0, generated_expr.1, dest, function),
+        )
+    }
+
+    fn codegen_array_instantiation_expr<'a>(
+        &'a self,
+        type_id: TypeId,
+        exprs: &[CheckedExpr],
+        stack_slot: StackSlotId,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let unique_tag = self.unique_tag();
+        let stack_slot_value = Value::Temporary(stack_slot.qbe_name());
+
+        let inner_type_id = self.checker.types.inner_of(type_id);
+        let size_of_inner = self
+            .checker
+            .types
+            .memory_layout_of(inner_type_id, &self.checker)
+            .size;
+
+        for (i, expr) in exprs.iter().enumerate() {
+            let generated_expr = self.codegen_expr(expr, function, module);
+            let addr_tag = format!(".array_instantiation.{}.{}", i, unique_tag);
+            let dest = Value::Temporary(addr_tag);
+            function.assign_instr(
+                dest.clone(),
+                Type::Long,
+                Instr::Add(
+                    stack_slot_value.clone(),
+                    Value::Const((i * size_of_inner) as u64),
+                ),
+            );
+
+            self.store(generated_expr.0, generated_expr.1, dest, function);
+        }
+
+        (
+            self.checker.types.qbe_type_of(type_id, &self.checker),
+            stack_slot_value,
         )
     }
 
