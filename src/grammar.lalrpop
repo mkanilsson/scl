@@ -110,6 +110,9 @@ pub Term: Box<parsed::Expr> = {
     <s:@L> "false" <e:@R> => {
         expr!(s, e, ExprKind::Bool(false))
     },
+    <s:@L> "this" <e:@R> => {
+        expr!(s, e, ExprKind::This)
+    },
     <s:@L> <lhs:Term> "." <ident:Ident> <e:@R> => {
         expr!(s, e, ExprKind::MemberAccess {
             lhs,
@@ -288,6 +291,15 @@ StructDefinition: parsed::StructDefinition = {
     }
 }
 
+Impl: parsed::Impl = {
+    "impl" <ident:Ident> "{" <procs:ProcDefinition*> "}" => {
+        parsed::Impl {
+            ident,
+            procs,
+        }
+    }
+}
+
 StructDefinitionFields = Comma<StructDefinitionField>;
 StructDefinitionField: (parsed::Ident, tajp::Type) = {
     <ident:Ident> ":" <tajp:Type> => {
@@ -327,10 +339,16 @@ ExternProcDefinition: parsed::ExternProcDefinition = {
 }
 
 ProcParams = Comma<ProcParam>;
-ProcParam: (parsed::Ident, tajp::Type) = {
+ProcParam: parsed::ProcParam = {
+    <s:@L> "this" <e:@R> => {
+        parsed::ProcParam::This((s..e).into())
+    },
     <ident:Ident> ":" <tajp:Type> => {
-        (ident, tajp)
-    }
+        parsed::ProcParam::Normal {
+            ident, 
+            tajp
+        }
+    },
 }
 
 ProcDefinition: parsed::ProcDefinition = {
@@ -366,12 +384,17 @@ pub TranslationUnit: parsed::TranslationUnit = {
         tu.structs.push(struct_definition);
         tu
     },
+    <mut tu:TranslationUnit> <impl_block:Impl> => {
+        tu.impls.push(impl_block);
+        tu
+    },
     => {
         parsed::TranslationUnit {
             procs: vec![],
             extern_procs: vec![],
             structs: vec![],
             imports: vec![],
+            impls: vec![],
         }
     }
 }
@@ -449,5 +472,7 @@ extern {
         "as" => Token::As,
         "while" => Token::While,
         "defer" => Token::Defer,
+        "impl" => Token::Impl,
+        "this" => Token::This,
     }
 }

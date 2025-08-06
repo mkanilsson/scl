@@ -453,4 +453,12 @@ pub enum Error {
         span: SourceSpan,
         type_name: String,
     },
+    #[error("'this' is only allowed in impl procs")]
+    ThisOnImplBlock {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
 }

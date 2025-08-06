@@ -402,22 +402,32 @@ impl Checker {
         let source = self.modules.source_for(ctx.module_id);
 
         for param in &definition.params {
-            if let Some(original) = params.iter().find(|p| p.0.name == param.0.name) {
+            let (ident, tajp) = match param {
+                crate::ast::parsed::ProcParam::This(span) => {
+                    return Err(Error::ThisOnImplBlock {
+                        src: self.modules.source_for(ctx.module_id).clone(),
+                        span: *span,
+                    });
+                }
+                crate::ast::parsed::ProcParam::Normal { ident, tajp } => (ident, tajp),
+            };
+
+            if let Some(original) = params.iter().find(|p| p.0.name == ident.name) {
                 return Err(Error::ProcParmNameCollision {
                     src: source.clone(),
                     original_span: original.0.span,
-                    redefined_span: param.0.span,
-                    name: param.0.name.clone(),
+                    redefined_span: ident.span,
+                    name: ident.name.clone(),
                 });
             }
 
             let type_id = self.types.force_find_with_generics(
                 source,
                 ctx.module_id,
-                &param.1,
+                &tajp,
                 &definition.type_params,
             )?;
-            params.push((param.0.clone(), type_id));
+            params.push((ident.clone(), type_id));
         }
 
         let return_type = self.types.force_find_with_generics(
@@ -604,7 +614,13 @@ impl Checker {
         let mut ss = StackSlots::new();
 
         let mut params = vec![];
-        for param in proc.params.iter().map(|p| &p.0).zip(definition.params) {
+        for param in proc
+            .params
+            .iter()
+            .filter(|p| p.is_normal())
+            .map(|p| p.as_normal().0)
+            .zip(definition.params)
+        {
             let stack_slot = ss.allocate(param.1);
             self.scope
                 .add_to_scope(param.0, param.1, Some(stack_slot), None);

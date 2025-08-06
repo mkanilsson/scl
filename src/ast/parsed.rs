@@ -1,7 +1,7 @@
 use std::{hash::Hash, rc::Rc};
 
 use miette::SourceSpan;
-use strum::Display;
+use strum::{Display, EnumIs};
 
 use super::tajp::Type;
 
@@ -53,6 +53,7 @@ pub enum ExprKind {
     String(String),
     Bool(bool),
     Builtin(Builtin),
+    This,
     ArrayInstantiation(Vec<Expr>),
     ArrayAccess {
         lhs: Box<Expr>,
@@ -143,6 +144,7 @@ pub struct TranslationUnit {
     pub extern_procs: Vec<ExternProcDefinition>,
     pub structs: Vec<StructDefinition>,
     pub imports: Vec<Import>,
+    pub impls: Vec<Impl>,
 }
 
 #[derive(Debug, Clone)]
@@ -153,12 +155,33 @@ pub enum Import {
 }
 
 #[derive(Debug, Clone)]
+pub struct Impl {
+    pub ident: Ident,
+    pub procs: Vec<ProcDefinition>,
+}
+
+#[derive(Debug, Clone)]
 pub struct ProcDefinition {
     pub ident: Ident,
-    pub params: Vec<(Ident, Type)>,
+    pub params: Vec<ProcParam>,
     pub return_type: Type,
     pub body: Block,
     pub type_params: Vec<Ident>,
+}
+
+#[derive(Debug, Clone, EnumIs)]
+pub enum ProcParam {
+    This(SourceSpan),
+    Normal { ident: Ident, tajp: Type },
+}
+
+impl ProcParam {
+    pub fn as_normal(&self) -> (&Ident, &Type) {
+        match self {
+            ProcParam::Normal { ident, tajp } => (ident, tajp),
+            ProcParam::This(_) => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
