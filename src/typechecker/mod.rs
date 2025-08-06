@@ -1362,9 +1362,14 @@ impl Checker {
                 | BinOp::LessThan
                 | BinOp::LessThanOrEqual
                 | BinOp::GreaterThan
-                | BinOp::GreaterThanOrEqual => {
-                    self.typecheck_boolable_binop_expr(checked_lhs.value, op, checked_rhs.value)?
-                }
+                | BinOp::GreaterThanOrEqual => self.typecheck_boolable_binop_expr(
+                    lhs,
+                    checked_lhs.value,
+                    op,
+                    rhs,
+                    checked_rhs.value,
+                    ctx,
+                )?,
             },
             has_encountered_never,
         ))
@@ -1379,8 +1384,8 @@ impl Checker {
         checked_rhs: CheckedExpr,
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        self.expect_number(&checked_lhs, lhs.span, ctx)?;
-        self.expect_number(&checked_rhs, rhs.span, ctx)?;
+        self.expect_number_or_ptr(&checked_lhs, lhs.span, ctx)?;
+        self.expect_number_or_ptr(&checked_rhs, rhs.span, ctx)?;
 
         Ok(CheckedExpr {
             type_id: checked_lhs.type_id,
@@ -1395,10 +1400,16 @@ impl Checker {
 
     fn typecheck_boolable_binop_expr(
         &mut self,
+        lhs: &Expr,
         checked_lhs: CheckedExpr,
         op: BinOp,
+        rhs: &Expr,
         checked_rhs: CheckedExpr,
+        ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
+        self.expect_number_or_ptr(&checked_lhs, lhs.span, ctx)?;
+        self.expect_number_or_ptr(&checked_rhs, rhs.span, ctx)?;
+
         Ok(CheckedExpr {
             type_id: BOOL_TYPE_ID,
             kind: ast::CheckedExprKind::BinOp {
@@ -2360,17 +2371,17 @@ impl Checker {
         ))
     }
 
-    fn expect_number(
+    fn expect_number_or_ptr(
         &self,
         expr: &CheckedExpr,
         span: SourceSpan,
         ctx: &CheckerContext,
     ) -> Result<()> {
-        if !self.types.is_number(expr.type_id) {
+        if !(self.types.is_number(expr.type_id) || self.types.is_ptr(expr.type_id)) {
             Err(Error::ExpectedButGot {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span,
-                expected: "number".to_string(),
+                expected: "number or ptr".to_string(),
                 got: self.types.name_of(expr.type_id, self),
             })
         } else {
