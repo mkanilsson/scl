@@ -132,10 +132,7 @@ impl Package {
         })?;
 
         Ok(ParsedPackage {
-            name: module.name,
-            modules: module.children,
-            unit: module.unit,
-            source: module.source,
+            base_module: module,
         })
     }
 
@@ -159,10 +156,7 @@ impl Package {
 
 #[derive(Debug, Clone)]
 pub struct ParsedPackage {
-    pub name: String,
-    pub unit: TranslationUnit,
-    pub modules: Vec<ParsedModule>,
-    pub source: NamedSource<String>,
+    pub base_module: ParsedModule,
 }
 
 #[derive(Debug, Clone)]

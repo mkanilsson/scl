@@ -5,7 +5,7 @@ use ast::{
     CheckedTranslationUnit,
 };
 use indexmap::IndexMap;
-use miette::{NamedSource, SourceSpan};
+use miette::SourceSpan;
 use module::{Module, ModuleCollection, ModuleId};
 use package::PackageCollection;
 use proc::{Proc, ProcCollection, ProcId};
@@ -21,7 +21,7 @@ use tajp::{
 use crate::{
     ast::parsed::{
         BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, Ident, Impl, Import,
-        ProcDefinition, Stmt, StmtKind, StructDefinition, TranslationUnit,
+        ProcDefinition, Stmt, StmtKind, StructDefinition,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
@@ -101,13 +101,7 @@ impl Checker {
         package: ParsedPackage,
         dependencies: &[(String, ModuleId)],
     ) -> Result<CheckedPackage> {
-        let package_id = self.create_module_ids(
-            package.name,
-            package.source,
-            package.unit,
-            package.modules,
-            None,
-        )?;
+        let package_id = self.create_module_ids(package.base_module, None)?;
 
         // TODO: Find a way to limit struct and proc lookups in these functions
         self.declare_structs(package_id)?;
@@ -416,32 +410,23 @@ impl Checker {
 
     fn create_module_ids(
         &mut self,
-        name: String,
-        source: NamedSource<String>,
-        unit: TranslationUnit,
-        modules: Vec<ParsedModule>,
+        module: ParsedModule,
         parent: Option<ModuleId>,
     ) -> Result<ModuleId> {
         let module_id = self.modules.allocate();
 
         let mut children = vec![];
-        for child in modules {
-            children.push(self.create_module_ids(
-                child.name,
-                child.source,
-                child.unit,
-                child.children,
-                Some(module_id),
-            )?);
+        for child in module.children {
+            children.push(self.create_module_ids(child, Some(module_id))?);
         }
 
         Ok(self.modules.write(
             module_id,
             Module {
                 children: Rc::new(children),
-                name,
-                source,
-                unit: Rc::new(unit),
+                name: module.name,
+                source: module.source,
+                unit: Rc::new(module.unit),
                 parent,
             },
         ))
