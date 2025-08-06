@@ -256,6 +256,7 @@ impl Checker {
 
         for proc in &impl_block.procs {
             let type_id = self.types.register_undefined_proc();
+            let has_this = proc.params.len() > 0 && proc.params[0].is_this();
 
             self.procs.add_impl(
                 for_type_id,
@@ -267,7 +268,7 @@ impl Checker {
                     generic: false,
                     generic_instances: Vec::new(),
                     link_name: None,
-                    impl_for: Some(ImplData::new(for_type_id)),
+                    impl_for: Some(ImplData::new(for_type_id, has_this)),
                 },
             );
         }
@@ -829,8 +830,15 @@ impl Checker {
         }
 
         let last = if let Some(expr) = &block.last {
-            let expr =
-                self.typecheck_expr(expr, wanted, requires_value, &mut block_ctx, proc_ctx, ctx)?;
+            let expr = self.typecheck_expr(
+                expr,
+                wanted,
+                requires_value,
+                false,
+                &mut block_ctx,
+                proc_ctx,
+                ctx,
+            )?;
             has_encountered_never |= expr.never;
             Some(expr.value)
         } else {
@@ -880,7 +888,8 @@ impl Checker {
                 self.typecheck_variable_declaration_stmt(name, value, block_ctx, proc_ctx, ctx)
             }
             StmtKind::Expr(expr) => {
-                let expr = self.typecheck_expr(expr, None, false, block_ctx, proc_ctx, ctx)?;
+                let expr =
+                    self.typecheck_expr(expr, None, false, false, block_ctx, proc_ctx, ctx)?;
                 Ok(HasNever::new(CheckedStmt::Expr(expr.value), expr.never))
             }
             StmtKind::While { condition, body } => {
@@ -912,6 +921,7 @@ impl Checker {
                     value,
                     Some(proc_ctx.return_type),
                     true,
+                    false,
                     block_ctx,
                     proc_ctx,
                     ctx,
@@ -955,7 +965,7 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedStmt>> {
-        let expr = self.typecheck_expr(expr, None, true, block_ctx, proc_ctx, ctx)?;
+        let expr = self.typecheck_expr(expr, None, true, false, block_ctx, proc_ctx, ctx)?;
         let stack_slot = proc_ctx.stack_slots.allocate(expr.value.type_id);
         self.scope
             .add_to_scope(ident, expr.value.type_id, Some(stack_slot), None);
@@ -980,6 +990,7 @@ impl Checker {
         let checked_condition = self.typecheck_expr(
             condition,
             Some((BOOL_TYPE_ID, (0..0).into())),
+            false,
             false,
             block_ctx,
             proc_ctx,
@@ -1013,7 +1024,8 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedStmt>> {
-        let checked_expr = self.typecheck_expr(expr, None, false, block_ctx, proc_ctx, ctx)?;
+        let checked_expr =
+            self.typecheck_expr(expr, None, false, false, block_ctx, proc_ctx, ctx)?;
 
         block_ctx.push(checked_expr.value);
 
@@ -1025,6 +1037,7 @@ impl Checker {
         expr: &Expr,
         wanted: Option<(TypeId, SourceSpan)>,
         requires_value: bool,
+        for_call: bool,
         block_ctx: &mut BlockContext,
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
@@ -1045,7 +1058,11 @@ impl Checker {
                         kind: if let Some(stack_slot) = scope_data.stack_slot {
                             ast::CheckedExprKind::StackValue(stack_slot)
                         } else {
-                            ast::CheckedExprKind::Identifier(ident.name.clone())
+                            if let Some(proc_id) = scope_data.proc_id {
+                                ast::CheckedExprKind::Proc { lhs: None, proc_id }
+                            } else {
+                                ast::CheckedExprKind::Identifier(ident.name.clone())
+                            }
                         },
                         lvalue: true,
                     },
@@ -1236,7 +1253,7 @@ impl Checker {
             ExprKind::StructInstantiation { name, members } => self
                 .typecheck_struct_instantiation_expr(expr, name, members, block_ctx, proc_ctx, ctx),
             ExprKind::MemberAccess { lhs, member } => Ok(HasNever::new(
-                self.typecheck_member_access_expr(lhs, member, block_ctx, proc_ctx, ctx)?,
+                self.typecheck_member_access_expr(lhs, member, for_call, block_ctx, proc_ctx, ctx)?,
                 false,
             )),
             ExprKind::If {
@@ -1312,8 +1329,10 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
-        let checked_lhs = self.typecheck_expr(lhs, wanted, true, block_ctx, proc_ctx, ctx)?;
-        let checked_rhs = self.typecheck_expr(rhs, wanted, true, block_ctx, proc_ctx, ctx)?;
+        let checked_lhs =
+            self.typecheck_expr(lhs, wanted, true, false, block_ctx, proc_ctx, ctx)?;
+        let checked_rhs =
+            self.typecheck_expr(rhs, wanted, true, false, block_ctx, proc_ctx, ctx)?;
 
         let has_encountered_never = checked_lhs.never || checked_rhs.never;
 
@@ -1401,30 +1420,18 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
-        let checked_expr = self.typecheck_expr(expr, wanted, true, block_ctx, proc_ctx, ctx)?;
+        let checked_expr =
+            self.typecheck_expr(expr, wanted, true, true, block_ctx, proc_ctx, ctx)?;
 
-        let ident = match checked_expr.value.kind {
-            CheckedExprKind::Identifier(name) => name,
+        let (mut proc_id, lhs) = match checked_expr.value.kind {
+            CheckedExprKind::Proc { proc_id, lhs } => (proc_id, lhs),
             _ => todo!("Indirect calls"),
         };
 
-        let mut type_id = self
-            .scope
-            .force_find_from_string(
-                self.modules.source_for(ctx.module_id),
-                &ident,
-                ctx.module_id,
-                self,
-            )?
-            .type_id;
+        let mut type_id = self.procs.type_id_for(proc_id);
+        let impl_data = self.procs.impl_data_for(proc_id);
 
         let proc_type = self.types.get_definition(type_id).as_proc();
-
-        let mut proc_id = self.procs.force_find_for_module(
-            self.modules.source_for(ctx.module_id),
-            ctx.module_id,
-            &Ident::new(ident, expr.span),
-        )?;
 
         let mut resolved_generics = HashMap::new();
 
@@ -1473,7 +1480,7 @@ impl Checker {
 
             // TODO: Get the location of the suspected span or allow the span to be optional
             let checked_expr =
-                self.typecheck_expr(&param, wanted, true, block_ctx, proc_ctx, ctx)?;
+                self.typecheck_expr(&param, wanted, true, false, block_ctx, proc_ctx, ctx)?;
 
             self.types.infer_generic_types(
                 self.modules.source_for(ctx.module_id),
@@ -1504,7 +1511,8 @@ impl Checker {
         }
 
         for param in &params {
-            let checked_expr = self.typecheck_expr(param, None, true, block_ctx, proc_ctx, ctx)?;
+            let checked_expr =
+                self.typecheck_expr(param, None, true, false, block_ctx, proc_ctx, ctx)?;
 
             has_encountered_never |= checked_expr.never;
 
@@ -1553,6 +1561,22 @@ impl Checker {
             }
         }
 
+        if let Some(impl_data) = impl_data
+            && impl_data.has_this
+        {
+            let lhs = *lhs.unwrap();
+            let inner_type_id = lhs.type_id;
+
+            checked_params.insert(
+                0,
+                CheckedExpr {
+                    type_id: self.types.register_type(Type::Ptr(inner_type_id)),
+                    lvalue: false,
+                    kind: self.get_ptr_to_checked_expr(lhs, proc_ctx),
+                },
+            );
+        }
+
         Ok(HasNever::new(
             CheckedExpr {
                 type_id: return_type_id,
@@ -1599,7 +1623,7 @@ impl Checker {
                 }
 
                 let checked_param =
-                    self.typecheck_expr(&params[0], None, false, block_ctx, proc_ctx, ctx)?;
+                    self.typecheck_expr(&params[0], None, false, false, block_ctx, proc_ctx, ctx)?;
 
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
@@ -1622,7 +1646,7 @@ impl Checker {
                 }
 
                 let checked_param =
-                    self.typecheck_expr(&params[0], None, false, block_ctx, proc_ctx, ctx)?;
+                    self.typecheck_expr(&params[0], None, false, false, block_ctx, proc_ctx, ctx)?;
 
                 let size = match self.types.get_definition(checked_param.value.type_id) {
                     Type::Array(_, size) => size,
@@ -1777,6 +1801,7 @@ impl Checker {
                 &field.1,
                 Some((defined_field.type_id, defined_field.ident.span)),
                 true,
+                false,
                 block_ctx,
                 proc_ctx,
                 ctx,
@@ -1843,40 +1868,88 @@ impl Checker {
         &mut self,
         lhs: &Expr,
         member: &Ident,
+        for_call: bool,
         block_ctx: &mut BlockContext,
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<CheckedExpr> {
-        let checked_lhs = self.typecheck_expr(lhs, None, true, block_ctx, proc_ctx, ctx)?;
+        let checked_lhs = self.typecheck_expr(lhs, None, true, false, block_ctx, proc_ctx, ctx)?;
 
+        if for_call {
+            // Prioritise impl procs over members
+            if let Some(expr) = self.typecheck_member_access_expr_for_procs(&checked_lhs, member) {
+                return Ok(expr);
+            }
+
+            if let Some(expr) =
+                self.typecheck_member_access_expr_for_struct_members(&checked_lhs, member)
+            {
+                return Ok(expr);
+            }
+        } else {
+            // Prioritise memebers over impl procs
+            if let Some(expr) =
+                self.typecheck_member_access_expr_for_struct_members(&checked_lhs, member)
+            {
+                return Ok(expr);
+            }
+
+            if let Some(expr) = self.typecheck_member_access_expr_for_procs(&checked_lhs, member) {
+                return Ok(expr);
+            }
+        }
+
+        Err(Error::NoImplProcOrMemberForType {
+            src: self.modules.source_for(ctx.module_id).clone(),
+            span: member.span,
+            name: member.name.clone(),
+            type_name: self.types.name_of(checked_lhs.value.type_id, self),
+        })
+    }
+
+    fn typecheck_member_access_expr_for_procs(
+        &mut self,
+        checked_lhs: &HasNever<CheckedExpr>,
+        member: &Ident,
+    ) -> Option<CheckedExpr> {
+        if let Some(proc_id) = self.procs.find_for_impl(checked_lhs.value.type_id, member) {
+            Some(CheckedExpr {
+                type_id: self.procs.type_id_for(proc_id),
+                kind: CheckedExprKind::Proc {
+                    lhs: Some(Box::new(checked_lhs.value.clone())),
+                    proc_id: proc_id,
+                },
+                lvalue: false,
+            })
+        } else {
+            None
+        }
+    }
+
+    fn typecheck_member_access_expr_for_struct_members(
+        &mut self,
+        checked_lhs: &HasNever<CheckedExpr>,
+        member: &Ident,
+    ) -> Option<CheckedExpr> {
         let definition = self.types.get_definition(checked_lhs.value.type_id);
         if !definition.is_struct() {
-            return Err(Error::MemberAccessNotAStruct {
-                src: self.modules.source_for(ctx.module_id).clone(),
-                span: lhs.span,
-                got: self.types.name_of(checked_lhs.value.type_id, self),
-            });
+            return None;
         }
 
         let definition = definition.as_struct();
 
         let Some(field) = definition.fields.iter().find(|f| f.ident == *member) else {
-            return Err(Error::MemberAccessUnknownField {
-                src: self.modules.source_for(ctx.module_id).clone(),
-                span: member.span,
-                struct_name: self.types.name_of(checked_lhs.value.type_id, self),
-                field_name: member.name.clone(),
-            });
+            return None;
         };
 
         // A member expression is an lvalue if the lhs is also an lvalue
         // or the lhs is a "this" expr
         let lvalue = checked_lhs.value.lvalue || checked_lhs.value.kind.is_this();
 
-        Ok(CheckedExpr {
+        Some(CheckedExpr {
             type_id: field.type_id,
             kind: CheckedExprKind::MemberAccess {
-                lhs: Box::new(checked_lhs.value),
+                lhs: Box::new(checked_lhs.value.clone()),
                 name: field.ident.name.clone(),
             },
             lvalue,
@@ -1899,6 +1972,7 @@ impl Checker {
             condition,
             Some((BOOL_TYPE_ID, (0..0).into())),
             true,
+            false,
             block_ctx,
             proc_ctx,
             ctx,
@@ -1974,8 +2048,15 @@ impl Checker {
             proc_ctx.generics,
             proc_ctx.resolved_generics,
         )?;
-        let checked_lhs =
-            self.typecheck_expr(lhs, Some((wanted, t.span)), true, block_ctx, proc_ctx, ctx)?;
+        let checked_lhs = self.typecheck_expr(
+            lhs,
+            Some((wanted, t.span)),
+            true,
+            false,
+            block_ctx,
+            proc_ctx,
+            ctx,
+        )?;
 
         if checked_lhs.never {
             return Ok(checked_lhs);
@@ -2024,27 +2105,14 @@ impl Checker {
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
         // TODO: Wanted inner of ptr
-        let checked_expr = self.typecheck_expr(expr, None, true, block_ctx, proc_ctx, ctx)?;
+        let checked_expr =
+            self.typecheck_expr(expr, None, true, false, block_ctx, proc_ctx, ctx)?;
         let type_id = self
             .types
             .register_type(Type::Ptr(checked_expr.value.type_id));
 
-        let kind = if checked_expr.value.lvalue {
-            CheckedExprKind::AddressOf {
-                expr: Box::new(checked_expr.value),
-            }
-        } else {
-            CheckedExprKind::AddressOf {
-                expr: Box::new(CheckedExpr {
-                    type_id: checked_expr.value.type_id,
-                    lvalue: true,
-                    kind: CheckedExprKind::Store {
-                        stack_slot: proc_ctx.stack_slots.allocate(checked_expr.value.type_id),
-                        expr: Box::new(checked_expr.value),
-                    },
-                }),
-            }
-        };
+        let never = checked_expr.never;
+        let kind = self.get_ptr_to_checked_expr(checked_expr.value, proc_ctx);
 
         Ok(HasNever::new(
             CheckedExpr {
@@ -2052,8 +2120,31 @@ impl Checker {
                 kind,
                 lvalue: false,
             },
-            checked_expr.never,
+            never,
         ))
+    }
+
+    fn get_ptr_to_checked_expr(
+        &mut self,
+        checked_expr: CheckedExpr,
+        proc_ctx: &mut ProcContext,
+    ) -> CheckedExprKind {
+        if checked_expr.lvalue {
+            CheckedExprKind::AddressOf {
+                expr: Box::new(checked_expr),
+            }
+        } else {
+            CheckedExprKind::AddressOf {
+                expr: Box::new(CheckedExpr {
+                    type_id: checked_expr.type_id,
+                    lvalue: true,
+                    kind: CheckedExprKind::Store {
+                        stack_slot: proc_ctx.stack_slots.allocate(checked_expr.type_id),
+                        expr: Box::new(checked_expr),
+                    },
+                }),
+            }
+        }
     }
 
     fn typecheck_deref_expr(
@@ -2064,7 +2155,8 @@ impl Checker {
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
         // TODO: Wanted of ptr of whatever is wanted here
-        let checked_expr = self.typecheck_expr(expr, None, true, block_ctx, proc_ctx, ctx)?;
+        let checked_expr =
+            self.typecheck_expr(expr, None, true, false, block_ctx, proc_ctx, ctx)?;
 
         if !self.types.is_ptr(checked_expr.value.type_id) {
             return Err(Error::DerefNonPtr {
@@ -2121,8 +2213,15 @@ impl Checker {
         let mut has_never = false;
 
         for expr in exprs {
-            let checked_expr =
-                self.typecheck_expr(expr, inferred_type_id, true, block_ctx, proc_ctx, ctx)?;
+            let checked_expr = self.typecheck_expr(
+                expr,
+                inferred_type_id,
+                true,
+                false,
+                block_ctx,
+                proc_ctx,
+                ctx,
+            )?;
 
             if !checked_expr.never {
                 if let Some(inferred_type_id) = inferred_type_id {
@@ -2172,7 +2271,7 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
-        let checked_lhs = self.typecheck_expr(lhs, None, true, block_ctx, proc_ctx, ctx)?;
+        let checked_lhs = self.typecheck_expr(lhs, None, true, false, block_ctx, proc_ctx, ctx)?;
         if !self.types.is_array(checked_lhs.value.type_id) && !checked_lhs.never {
             return Err(Error::ArrayAccessOnNonArray {
                 src: self.modules.source_for(ctx.module_id).clone(),
@@ -2185,6 +2284,7 @@ impl Checker {
             index,
             Some((USIZE_TYPE_ID, (0..0).into())),
             true,
+            false,
             block_ctx,
             proc_ctx,
             ctx,
@@ -2220,11 +2320,12 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
-        let checked_lhs = self.typecheck_expr(lhs, None, false, block_ctx, proc_ctx, ctx)?;
+        let checked_lhs = self.typecheck_expr(lhs, None, false, false, block_ctx, proc_ctx, ctx)?;
         let checked_rhs = self.typecheck_expr(
             rhs,
             Some((checked_lhs.value.type_id, lhs.span)),
             true,
+            false,
             block_ctx,
             proc_ctx,
             ctx,

@@ -75,21 +75,6 @@ impl Scope {
             })
     }
 
-    pub fn force_find_from_string(
-        &self,
-        source: &NamedSource<String>,
-        ident: &str,
-        module_id: ModuleId,
-        checker: &Checker,
-    ) -> Result<ScopeData> {
-        self.force_find(
-            source,
-            &Ident::new(ident.to_string(), (0..0).into()),
-            module_id,
-            checker,
-        )
-    }
-
     pub fn find_with_original_span(
         &self,
         ident: &Ident,

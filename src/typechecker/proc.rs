@@ -221,6 +221,10 @@ impl ProcCollection {
     pub fn type_id_for(&self, proc_id: ProcId) -> TypeId {
         self.procs[proc_id.0].type_id
     }
+
+    pub fn impl_data_for(&self, proc_id: ProcId) -> Option<ImplData> {
+        self.procs[proc_id.0].impl_for
+    }
 }
 
 #[derive(Debug)]
@@ -235,13 +239,17 @@ pub struct Proc {
     pub impl_for: Option<ImplData>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct ImplData {
-    for_type_id: TypeId,
+    pub for_type_id: TypeId,
+    pub has_this: bool,
 }
 
 impl ImplData {
-    pub fn new(for_type_id: TypeId) -> Self {
-        Self { for_type_id }
+    pub fn new(for_type_id: TypeId, has_this: bool) -> Self {
+        Self {
+            for_type_id,
+            has_this,
+        }
     }
 }

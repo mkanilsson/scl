@@ -305,27 +305,6 @@ pub enum Error {
         expected: String,
         got: String,
     },
-    #[error("'{got}' is not a struct")]
-    MemberAccessNotAStruct {
-        #[source_code]
-        src: NamedSource<String>,
-
-        #[label("here")]
-        span: SourceSpan,
-
-        got: String,
-    },
-    #[error("'{struct_name}' has no field '{field_name}'")]
-    MemberAccessUnknownField {
-        #[source_code]
-        src: NamedSource<String>,
-
-        #[label("here")]
-        span: SourceSpan,
-
-        struct_name: String,
-        field_name: String,
-    },
     #[error("Expected a '{root_file_name}.scl' in '{path}'")]
     ExpectedRootFile {
         root_file_name: &'static str,
@@ -476,5 +455,16 @@ pub enum Error {
 
         #[label("here")]
         span: SourceSpan,
+    },
+    #[error("No impl proc or member '{name}' for '{type_name}'")]
+    NoImplProcOrMemberForType {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        name: String,
+        type_name: String,
     },
 }

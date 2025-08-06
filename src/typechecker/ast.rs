@@ -49,10 +49,14 @@ pub struct CheckedExpr {
 
 #[derive(Debug, Clone, Display, EnumIs)]
 pub enum CheckedExprKind {
-    Identifier(String),
     StackValue(StackSlotId),
+    Identifier(String),
     Number(u64),
     String(String),
+    Proc {
+        proc_id: ProcId,
+        lhs: Option<Box<CheckedExpr>>,
+    },
     This,
     BinOp {
         lhs: Box<CheckedExpr>,
