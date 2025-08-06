@@ -20,12 +20,13 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, Ident, Import, ProcDefinition,
-        Stmt, StmtKind, StructDefinition, TranslationUnit,
+        BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, Ident, Impl, Import,
+        ProcDefinition, Stmt, StmtKind, StructDefinition, TranslationUnit,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
     package::{CheckedPackage, ParsedModule, ParsedPackage},
+    typechecker::proc::ImplData,
 };
 
 pub mod ast;
@@ -56,6 +57,7 @@ struct ProcContext<'a> {
     stack_slots: &'a mut StackSlots,
     generics: &'a [Ident],
     resolved_generics: &'a HashMap<GenericId, Spanned<TypeId>>,
+    this: Option<TypeId>,
 }
 
 struct BlockContext {
@@ -109,6 +111,7 @@ impl Checker {
 
         // TODO: Find a way to limit struct and proc lookups in these functions
         self.declare_structs(package_id)?;
+        self.declare_impls(package_id)?;
         let generic_procs = self
             .declare_procs(package_id)?
             .iter()
@@ -194,10 +197,11 @@ impl Checker {
                     return Ok(());
                 }
 
-                if let Ok(proc_id) =
-                    self.procs
-                        .force_find(self.modules.source_for(module_id), module_id, ident)
-                {
+                if let Ok(proc_id) = self.procs.force_find_for_module(
+                    self.modules.source_for(module_id),
+                    module_id,
+                    ident,
+                ) {
                     // TODO: Verify that the name is unique
                     self.procs.add_to_module(import_to, proc_id, ident);
                     return Ok(());
@@ -222,6 +226,53 @@ impl Checker {
                 Ok(())
             }
         }
+    }
+
+    fn declare_impls<'a>(&mut self, module_id: ModuleId) -> Result<()> {
+        let ctx = CheckerContext { module_id };
+
+        for child_id in self.modules.children_for(module_id).iter() {
+            self.declare_impls(*child_id)?;
+        }
+
+        let unit = self.modules.unit_for(module_id);
+
+        // FIXME: Procs with the same structure will have different TypeId's when they should have
+        //        the same
+        for impl_block in &unit.impls {
+            self.add_impl(impl_block, &ctx)?;
+        }
+
+        Ok(())
+    }
+
+    fn add_impl(&mut self, impl_block: &Impl, ctx: &CheckerContext) -> Result<()> {
+        let for_type_id = self.types.force_find_by_name_with_generics(
+            self.modules.source_for(ctx.module_id),
+            ctx.module_id,
+            &impl_block.ident,
+            &[],
+        )?;
+
+        for proc in &impl_block.procs {
+            let type_id = self.types.register_undefined_proc();
+
+            self.procs.add_impl(
+                for_type_id,
+                Proc {
+                    type_id,
+                    name: proc.ident.clone(),
+                    module_id: ctx.module_id,
+                    external: false,
+                    generic: false,
+                    generic_instances: Vec::new(),
+                    link_name: None,
+                    impl_for: Some(ImplData::new(for_type_id)),
+                },
+            );
+        }
+
+        Ok(())
     }
 
     fn declare_procs<'a>(
@@ -287,19 +338,42 @@ impl Checker {
         for proc in &unit.procs {
             self.define_proc(
                 proc,
-                self.procs.force_find_type_of(
+                self.procs.force_find_for_module_type_of(
                     self.modules.source_for(ctx.module_id),
                     ctx.module_id,
                     &proc.ident,
                 )?,
+                false,
                 &ctx,
             )?;
+        }
+
+        for impl_block in &unit.impls {
+            let for_type_id = self.types.force_find_by_name_with_generics(
+                self.modules.source_for(ctx.module_id),
+                ctx.module_id,
+                &impl_block.ident,
+                &[],
+            )?;
+
+            for proc in &impl_block.procs {
+                self.define_proc(
+                    proc,
+                    self.procs.force_find_for_impl_type_of(
+                        self.modules.source_for(ctx.module_id),
+                        for_type_id,
+                        &proc.ident,
+                    )?,
+                    true,
+                    &ctx,
+                )?;
+            }
         }
 
         for extern_proc in &unit.extern_procs {
             self.define_extern_proc(
                 extern_proc,
-                self.procs.force_find_type_of(
+                self.procs.force_find_for_module_type_of(
                     self.modules.source_for(ctx.module_id),
                     ctx.module_id,
                     &extern_proc.ident,
@@ -376,12 +450,40 @@ impl Checker {
         self.scope.enter();
 
         let mut checked_procs = vec![];
-        for proc in &self.modules.unit_for(ctx.module_id).procs {
+        let unit = self.modules.unit_for(ctx.module_id);
+        for proc in &unit.procs {
             if !proc.type_params.is_empty() {
                 continue;
             }
 
             checked_procs.push(self.typecheck_proc(proc, ctx)?);
+        }
+
+        for impl_block in &unit.impls {
+            let for_type_id = self.types.force_find_by_name_with_generics(
+                self.modules.source_for(ctx.module_id),
+                ctx.module_id,
+                &impl_block.ident,
+                &[],
+            )?;
+
+            for proc in &impl_block.procs {
+                let proc_id = self.procs.force_find_for_impl(
+                    self.modules.source_for(ctx.module_id),
+                    for_type_id,
+                    &proc.ident,
+                )?;
+
+                checked_procs.push(self.typecheck_proc_with_type_id(
+                    proc,
+                    self.procs.type_id_for(proc_id),
+                    proc_id,
+                    &[],
+                    &HashMap::new(),
+                    Some(for_type_id),
+                    ctx,
+                )?);
+            }
         }
 
         self.scope.exit();
@@ -395,19 +497,31 @@ impl Checker {
         &mut self,
         definition: &ProcDefinition,
         type_id: TypeId,
+        is_impl: bool,
         ctx: &CheckerContext,
     ) -> Result<()> {
         let mut params: Vec<(Ident, TypeId)> = vec![];
 
         let source = self.modules.source_for(ctx.module_id);
 
-        for param in &definition.params {
+        for (i, param) in definition.params.iter().enumerate() {
             let (ident, tajp) = match param {
                 crate::ast::parsed::ProcParam::This(span) => {
-                    return Err(Error::ThisOnImplBlock {
-                        src: self.modules.source_for(ctx.module_id).clone(),
-                        span: *span,
-                    });
+                    if !is_impl {
+                        return Err(Error::ThisOnImplBlock {
+                            src: self.modules.source_for(ctx.module_id).clone(),
+                            span: *span,
+                        });
+                    }
+
+                    if i != 0 {
+                        return Err(Error::ThisNotFirst {
+                            src: self.modules.source_for(ctx.module_id).clone(),
+                            span: *span,
+                        });
+                    }
+
+                    continue;
                 }
                 crate::ast::parsed::ProcParam::Normal { ident, tajp } => (ident, tajp),
             };
@@ -485,6 +599,7 @@ impl Checker {
                 generic,
                 generic_instances: Vec::new(),
                 link_name,
+                impl_for: None,
             },
         ))
     }
@@ -605,6 +720,7 @@ impl Checker {
         proc_id: ProcId,
         generics: &[Ident],
         resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
+        this_type_id: Option<TypeId>,
         ctx: &CheckerContext,
     ) -> Result<CheckedProc> {
         let definition = self.types.get_definition(type_id).as_proc();
@@ -634,6 +750,7 @@ impl Checker {
             stack_slots: &mut ss,
             generics,
             resolved_generics,
+            this: this_type_id,
         };
 
         let body = self.typecheck_block(
@@ -667,6 +784,7 @@ impl Checker {
             params,
             return_type: definition.return_type,
             stack_slots: ss,
+            has_this: this_type_id.is_some(),
         })
     }
 
@@ -686,6 +804,7 @@ impl Checker {
             scope_data.proc_id.unwrap(),
             &[],
             &HashMap::new(),
+            None,
             ctx,
         )
     }
@@ -1161,6 +1280,24 @@ impl Checker {
             ExprKind::ArrayAccess { lhs, index } => {
                 self.typecheck_array_access_expr(lhs, index, block_ctx, proc_ctx, ctx)
             }
+            ExprKind::This => {
+                if proc_ctx.this.is_none() {
+                    return Err(Error::ThisOutsideImplProc {
+                        src: self.modules.source_for(ctx.module_id).clone(),
+                        span: expr.span,
+                    });
+                }
+
+                Ok(HasNever::new(
+                    CheckedExpr {
+                        type_id: proc_ctx.this.unwrap(),
+                        // TODO: Is this lvalue??
+                        lvalue: false,
+                        kind: CheckedExprKind::This,
+                    },
+                    false,
+                ))
+            }
             kind => todo!("typecheck_expr: {}", kind),
         }
     }
@@ -1283,7 +1420,7 @@ impl Checker {
 
         let proc_type = self.types.get_definition(type_id).as_proc();
 
-        let mut proc_id = self.procs.force_find(
+        let mut proc_id = self.procs.force_find_for_module(
             self.modules.source_for(ctx.module_id),
             ctx.module_id,
             &Ident::new(ident, expr.span),
@@ -1405,6 +1542,7 @@ impl Checker {
                     proc_id,
                     &proc.type_params,
                     &resolved_generics,
+                    None,
                     &CheckerContext {
                         module_id: self.procs.module_for(nongeneric_proc_id),
                     },
@@ -1732,7 +1870,8 @@ impl Checker {
         };
 
         // A member expression is an lvalue if the lhs is also an lvalue
-        let lvalue = checked_lhs.value.lvalue;
+        // or the lhs is a "this" expr
+        let lvalue = checked_lhs.value.lvalue || checked_lhs.value.kind.is_this();
 
         Ok(CheckedExpr {
             type_id: field.type_id,

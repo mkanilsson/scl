@@ -461,4 +461,20 @@ pub enum Error {
         #[label("here")]
         span: SourceSpan,
     },
+    #[error("'this' is only allowed as the first argument")]
+    ThisNotFirst {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
+    #[error("'this' is only allowed in impl procs")]
+    ThisOutsideImplProc {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+    },
 }

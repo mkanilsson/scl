@@ -28,6 +28,7 @@ impl Display for ProcId {
 pub struct ProcCollection {
     pub procs: Vec<Proc>,
     pub parsed: HashMap<ModuleId, HashMap<Ident, ProcId>>,
+    pub impls: HashMap<TypeId, HashMap<Ident, ProcId>>,
 }
 
 impl ProcCollection {
@@ -35,15 +36,30 @@ impl ProcCollection {
         Self {
             parsed: HashMap::new(),
             procs: vec![],
+            impls: HashMap::new(),
         }
     }
 
-    pub fn add(&mut self, module_id: ModuleId, proc: Proc) -> ProcId {
+    fn generate_proc_id(&mut self, proc: Proc) -> ProcId {
         let id = self.procs.len();
-        let parsed_for_module = self.parsed.entry(module_id).or_default();
-        parsed_for_module.insert(proc.name.clone(), id.into());
         self.procs.push(proc);
         id.into()
+    }
+
+    pub fn add(&mut self, module_id: ModuleId, proc: Proc) -> ProcId {
+        let name = proc.name.clone();
+        let id = self.generate_proc_id(proc);
+        let parsed_for_module = self.parsed.entry(module_id).or_default();
+        parsed_for_module.insert(name, id);
+        id
+    }
+
+    pub fn add_impl(&mut self, for_type_id: TypeId, proc: Proc) -> ProcId {
+        let name = proc.name.clone();
+        let id = self.generate_proc_id(proc);
+        let impl_for_type_id = self.impls.entry(for_type_id).or_default();
+        impl_for_type_id.insert(name, id);
+        id
     }
 
     pub fn add_generic(
@@ -63,6 +79,7 @@ impl ProcCollection {
             name: generic.name.clone(),
             generic_instances: generics,
             link_name: None,
+            impl_for: None,
         });
 
         id.into()
@@ -73,13 +90,13 @@ impl ProcCollection {
         parsed_for_module.insert(ident.clone(), proc_id);
     }
 
-    pub fn force_find(
+    pub fn force_find_for_module(
         &self,
         src: &NamedSource<String>,
         module_id: ModuleId,
         ident: &Ident,
     ) -> Result<ProcId> {
-        if let Some(found) = self.find(module_id, ident) {
+        if let Some(found) = self.find_for_module(module_id, ident) {
             Ok(found)
         } else {
             Err(Error::UnknownProc {
@@ -90,18 +107,48 @@ impl ProcCollection {
         }
     }
 
-    pub fn force_find_type_of(
+    pub fn force_find_for_impl(
+        &self,
+        src: &NamedSource<String>,
+        for_type_id: TypeId,
+        ident: &Ident,
+    ) -> Result<ProcId> {
+        if let Some(found) = self.find_for_impl(for_type_id, ident) {
+            Ok(found)
+        } else {
+            Err(Error::UnknownProc {
+                src: src.clone(),
+                span: ident.span,
+                proc_name: ident.name.clone(),
+            })
+        }
+    }
+
+    pub fn force_find_for_module_type_of(
         &self,
         src: &NamedSource<String>,
         module_id: ModuleId,
         ident: &Ident,
     ) -> Result<TypeId> {
-        let proc_id = self.force_find(src, module_id, ident)?;
+        let proc_id = self.force_find_for_module(src, module_id, ident)?;
         Ok(self.procs[proc_id.0].type_id)
     }
 
-    pub fn find(&self, module_id: ModuleId, ident: &Ident) -> Option<ProcId> {
+    pub fn force_find_for_impl_type_of(
+        &self,
+        src: &NamedSource<String>,
+        for_type_id: TypeId,
+        ident: &Ident,
+    ) -> Result<TypeId> {
+        let proc_id = self.force_find_for_impl(src, for_type_id, ident)?;
+        Ok(self.procs[proc_id.0].type_id)
+    }
+    pub fn find_for_module(&self, module_id: ModuleId, ident: &Ident) -> Option<ProcId> {
         self.parsed.get(&module_id)?.get(ident).copied()
+    }
+
+    pub fn find_for_impl(&self, for_type_id: TypeId, ident: &Ident) -> Option<ProcId> {
+        self.impls.get(&for_type_id)?.get(ident).copied()
     }
 
     pub fn for_scope(&self, module_id: ModuleId) -> Vec<(Ident, TypeId, ProcId)> {
@@ -133,12 +180,20 @@ impl ProcCollection {
             if proc.name.name == "main" {
                 return "main".to_string();
             }
-
-            let base = format!(
-                "{}.{}",
-                checker.modules.mangled_name_of(proc.module_id),
-                proc.name.name
-            );
+            let module_name = checker.modules.mangled_name_of(proc.module_id);
+            let base = match &proc.impl_for {
+                Some(data) => {
+                    format!(
+                        "{}..{}.{}",
+                        module_name,
+                        checker.types.mangled_name_of(data.for_type_id, checker),
+                        proc.name.name
+                    )
+                }
+                None => {
+                    format!("{}.{}", module_name, proc.name.name)
+                }
+            };
 
             if !proc.generic_instances.is_empty() {
                 let types = proc
@@ -162,6 +217,10 @@ impl ProcCollection {
     pub fn module_for(&self, proc_id: ProcId) -> ModuleId {
         self.procs[proc_id.0].module_id
     }
+
+    pub fn type_id_for(&self, proc_id: ProcId) -> TypeId {
+        self.procs[proc_id.0].type_id
+    }
 }
 
 #[derive(Debug)]
@@ -173,4 +232,16 @@ pub struct Proc {
     pub generic: bool,
     pub generic_instances: Vec<TypeId>,
     pub link_name: Option<String>,
+    pub impl_for: Option<ImplData>,
+}
+
+#[derive(Debug)]
+pub struct ImplData {
+    for_type_id: TypeId,
+}
+
+impl ImplData {
+    pub fn new(for_type_id: TypeId) -> Self {
+        Self { for_type_id }
+    }
 }

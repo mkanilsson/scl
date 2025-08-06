@@ -56,7 +56,7 @@ impl Codegen {
     }
 
     fn codegen_proc<'a>(&'a self, proc: &CheckedProc, module: &mut Module<'a>) {
-        let params = proc
+        let mut params = proc
             .params
             .iter()
             .map(|p| {
@@ -68,6 +68,10 @@ impl Codegen {
                 )
             })
             .collect::<Vec<_>>();
+
+        if proc.has_this {
+            params.insert(0, (Type::Long, Self::this_value()));
+        }
 
         let return_type = if proc.return_type == VOID_TYPE_ID {
             None
@@ -255,6 +259,7 @@ impl Codegen {
     ) -> (Type<'a>, Value) {
         #[allow(unreachable_patterns)]
         match &expr.kind {
+            CheckedExprKind::This => (Type::Long, Self::this_value()),
             CheckedExprKind::Identifier(name) => self.codegen_identifier_expr(expr, name),
             CheckedExprKind::Number(value) => self.codegen_number_expr(expr, *value),
             CheckedExprKind::String(value) => self.codegen_string_expr(expr, value, module),
@@ -949,5 +954,9 @@ impl Codegen {
         }
 
         dest
+    }
+
+    fn this_value() -> Value {
+        Value::Temporary(".this".to_string())
     }
 }

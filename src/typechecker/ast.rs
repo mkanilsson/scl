@@ -1,4 +1,4 @@
-use strum::Display;
+use strum::{Display, EnumIs};
 
 use crate::ast::parsed::BinOp;
 
@@ -20,6 +20,7 @@ pub struct CheckedProc {
     pub params: Vec<(String, StackSlotId)>,
     pub return_type: TypeId,
     pub stack_slots: StackSlots,
+    pub has_this: bool,
 }
 
 #[derive(Debug, Clone, Display)]
@@ -46,12 +47,13 @@ pub struct CheckedExpr {
     pub kind: CheckedExprKind,
 }
 
-#[derive(Debug, Clone, Display)]
+#[derive(Debug, Clone, Display, EnumIs)]
 pub enum CheckedExprKind {
     Identifier(String),
     StackValue(StackSlotId),
     Number(u64),
     String(String),
+    This,
     BinOp {
         lhs: Box<CheckedExpr>,
         op: BinOp,
