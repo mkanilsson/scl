@@ -738,7 +738,7 @@ impl TypeCollection {
                 }
             }
 
-            (a, b) if a != b => todo!("Not same structure"),
+            (a, b) if a != b => return Ok(()),
             (generic, real) => panic!("Generic: {:#?}\nReal: {:#?}", generic, real),
         }
 
