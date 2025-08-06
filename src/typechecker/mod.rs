@@ -1455,6 +1455,39 @@ impl Checker {
                     lvalue: false,
                 })
             }
+            "len" => {
+                if params.len() != 1 {
+                    return Err(Error::BuiltinParamCountMismatch {
+                        src: self.modules.source_for(ctx.module_id).clone(),
+                        span: expr.span,
+                        name: name.to_string(),
+                        expected: 1,
+                        got: params.len(),
+                        variadic: false,
+                    });
+                }
+
+                let checked_param =
+                    self.typecheck_expr(&params[0], None, false, block_ctx, proc_ctx, ctx)?;
+
+                let size = match self.types.get_definition(checked_param.value.type_id) {
+                    Type::Array(_, size) => size,
+                    _ => {
+                        return Err(Error::ExpectedButGot {
+                            src: self.modules.source_for(ctx.module_id).clone(),
+                            span: params[0].span,
+                            expected: "[_]any".to_string(),
+                            got: self.types.name_of(checked_param.value.type_id, self),
+                        });
+                    }
+                };
+
+                Ok(CheckedExpr {
+                    type_id: USIZE_TYPE_ID,
+                    kind: CheckedExprKind::Number(size as u64),
+                    lvalue: false,
+                })
+            }
             "size_of" => {
                 if generic_params.len() != 1 {
                     return Err(Error::BuiltinParamCountMismatch {

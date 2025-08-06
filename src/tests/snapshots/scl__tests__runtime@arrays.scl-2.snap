@@ -6,3 +6,4 @@ input_file: src/tests/sources/runtime/arrays.scl
 b = 2
 a[1] = 123
 b = 2
+@len(a) = 3

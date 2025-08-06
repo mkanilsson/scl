@@ -23,6 +23,7 @@ export function w $main() {
 	%.ss.3 =l alloc4 4
 	%.ss.4 =l alloc4 4
 	%.ss.5 =l alloc4 4
+	%.ss.6 =l alloc4 4
 @body
 	%.array_instantiation.0.4 =l add %.ss.0, 0
 	storew 1, %.array_instantiation.0.4
@@ -46,8 +47,10 @@ export function w $main() {
 	%.printf.return_value.11 =w call $printf(l $.str.12, ..., w %.read.14)
 	%.sv.17 =w loadw %.ss.2
 	%.printf.return_value.15 =w call $printf(l $.str.16, ..., w %.sv.17)
+	%.printf.return_value.18 =w call $printf(l $.str.19, ..., l 3)
 	ret 0
 }
 data $.str.8 = { b "b = %d\n", b 0 }
 data $.str.12 = { b "a[1] = %d\n", b 0 }
 data $.str.16 = { b "b = %d\n", b 0 }
+data $.str.19 = { b "@len(a) = %d\n", b 0 }
