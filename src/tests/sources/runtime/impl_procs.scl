@@ -1,0 +1,28 @@
+use std::io::printf
+
+struct Vector {
+    x: i32,
+    y: i32
+}
+
+impl Vector {
+    proc print(this) void {
+        printf("Before: {x: %d, y: %d}\n", this.x, this.y); 
+        this.x = 50;
+        printf("After: {x: %d, y: %d}\n", this.x, this.y); 
+        ret;
+    }
+}
+
+proc main() i32 {
+    let v = Vector {
+        x: 5,
+        y: 10
+    };
+
+    v.print();
+
+    Vector { x: 7, y: 8 }.print();
+
+    0
+}

@@ -1,0 +1,9 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/impl_procs.scl
+---
+Before: {x: 5, y: 10}
+After: {x: 50, y: 10}
+Before: {x: 7, y: 8}
+After: {x: 50, y: 8}

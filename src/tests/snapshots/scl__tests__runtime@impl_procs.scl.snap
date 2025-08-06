@@ -1,0 +1,66 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/impl_procs.scl
+---
+type :main.Vector = { w, w }
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 8
+	%.ss.1 =l alloc4 8
+	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc4 8
+	%.ss.4 =l alloc4 8
+	%.ss.5 =l alloc4 4
+@body
+	# Store value into Vector.x (offset: 0)
+	%.offset.4 =l add %.ss.0, 0
+	storew 5, %.offset.4
+	# Store value into Vector.y (offset: 4)
+	%.offset.5 =l add %.ss.0, 4
+	storew 10, %.offset.5
+	blit %.ss.0, %.ss.1, 8
+	%.main..main.Vector.print.return_value.6 =w call $main..main.Vector.print(l %.ss.1)
+	# Store value into Vector.x (offset: 0)
+	%.offset.8 =l add %.ss.3, 0
+	storew 7, %.offset.8
+	# Store value into Vector.y (offset: 4)
+	%.offset.9 =l add %.ss.3, 4
+	storew 8, %.offset.9
+	blit %.ss.3, %.ss.4, 8
+	%.main..main.Vector.print.return_value.7 =w call $main..main.Vector.print(l %.ss.4)
+	ret 0
+}
+export function $main..main.Vector.print(l %.this) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+@body
+	%.offset.12 =l add %.this, 0
+	%.read.13 =w loadw %.offset.12
+	%.offset.14 =l add %.this, 4
+	%.read.15 =w loadw %.offset.14
+	%.printf.return_value.10 =w call $printf(l $.str.11, ..., w %.read.13, w %.read.15)
+	%.member_access.x.16 =l add %.this, 0
+	storew 50, %.member_access.x.16
+	%.offset.19 =l add %.this, 0
+	%.read.20 =w loadw %.offset.19
+	%.offset.21 =l add %.this, 4
+	%.read.22 =w loadw %.offset.21
+	%.printf.return_value.17 =w call $printf(l $.str.18, ..., w %.read.20, w %.read.22)
+	ret
+}
+data $.str.11 = { b "Before: {x: %d, y: %d}\n", b 0 }
+data $.str.18 = { b "After: {x: %d, y: %d}\n", b 0 }
