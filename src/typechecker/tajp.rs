@@ -721,7 +721,6 @@ impl TypeCollection {
                 })
             }
             Type::Generic(generic_id) => {
-                println!("Found genric {type_id:#?} definition");
                 return Ok(resolved_generics
                     .get(&generic_id)
                     .expect("TODO: nice error about unresolved type_id")
