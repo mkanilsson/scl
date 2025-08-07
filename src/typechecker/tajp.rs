@@ -496,25 +496,29 @@ impl TypeCollection {
                 items: structure
                     .fields
                     .iter()
-                    .map(|f| (self.qbe_type_of(f.type_id, checker), 1))
+                    .map(|f| (self.qbe_type_of_for_typedef(f.type_id, checker), 1))
                     .collect(),
                 name: definition.to_mangled_string(self, checker),
             },
             Type::Array(inner, size) => qbe::TypeDef {
                 align: None,
-                items: vec![(self.qbe_type_of(*inner, checker), *size)],
+                items: vec![(self.qbe_type_of_for_typedef(*inner, checker), *size)],
                 name: definition.to_mangled_string(self, checker),
             },
             _ => unreachable!(),
         }))
     }
 
-    pub fn qbe_type_of<'a>(&self, type_id: TypeId, checker: &Checker) -> qbe::Type<'a> {
+    pub fn qbe_type_of_for_typedef<'a>(&self, type_id: TypeId, checker: &Checker) -> qbe::Type<'a> {
         let definition = self.get_definition(type_id);
-        self.qbe_type_of_definition(&definition, checker)
+        self.qbe_type_of_definition_for_typedef(&definition, checker)
     }
 
-    fn qbe_type_of_definition<'a>(&self, definition: &Type, checker: &Checker) -> qbe::Type<'a> {
+    fn qbe_type_of_definition_for_typedef<'a>(
+        &self,
+        definition: &Type,
+        checker: &Checker,
+    ) -> qbe::Type<'a> {
         match definition {
             Type::Bool => qbe::Type::Word,
             Type::I8 | Type::U8 => qbe::Type::Byte,
@@ -538,6 +542,21 @@ impl TypeCollection {
             Type::Generic(_) => {
                 unreachable!("Should've been resolved to a real type")
             }
+        }
+    }
+
+    pub fn qbe_type_of<'a>(&self, type_id: TypeId, checker: &Checker) -> qbe::Type<'a> {
+        let definition = self.get_definition(type_id);
+        self.qbe_type_of_definition(&definition, checker)
+    }
+
+    fn qbe_type_of_definition<'a>(&self, definition: &Type, checker: &Checker) -> qbe::Type<'a> {
+        match definition {
+            Type::I8 => qbe::Type::SignedByte,
+            Type::U8 => qbe::Type::UnsignedByte,
+            Type::I16 => qbe::Type::SignedHalfword,
+            Type::U16 => qbe::Type::UnsignedHalfword,
+            _ => self.qbe_type_of_definition_for_typedef(definition, checker),
         }
     }
 

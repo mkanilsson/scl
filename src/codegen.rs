@@ -12,7 +12,7 @@ use crate::{
         },
         proc::ProcId,
         stack::StackSlotId,
-        tajp::{F32_TYPE_ID, F64_TYPE_ID, TypeId, VOID_TYPE_ID},
+        tajp::{TypeId, VOID_TYPE_ID},
     },
 };
 
@@ -115,7 +115,9 @@ impl Codegen {
                     ));
                 }
                 _ => func.add_instr(Instr::Store(
-                    self.checker.types.qbe_type_of(type_id, &self.checker),
+                    self.checker
+                        .types
+                        .qbe_type_of_for_typedef(type_id, &self.checker),
                     Value::Temporary(param.1.qbe_name()),
                     Value::Temporary(param.0.clone()),
                 )),
@@ -352,22 +354,71 @@ impl Codegen {
             CheckedExprKind::ArrayAccess { lhs, index } => {
                 self.codegen_array_access_expr(expr.type_id, lhs, index, function, module)
             }
-            CheckedExprKind::F32ToF64(lhs) => {
-                let generated_lhs = self.codegen_expr(lhs, function, module);
-                let dest = Value::Temporary(format!(".cast.{}", self.unique_tag()));
-                let t = self.checker.types.qbe_type_of(F64_TYPE_ID, &self.checker);
-                function.assign_instr(dest.clone(), t.clone(), Instr::Exts(generated_lhs.1));
-                (t, dest)
-            }
             CheckedExprKind::F64ToF32(lhs) => {
-                let generated_lhs = self.codegen_expr(lhs, function, module);
-                let dest = Value::Temporary(format!(".cast.{}", self.unique_tag()));
-                let t = self.checker.types.qbe_type_of(F32_TYPE_ID, &self.checker);
-                function.assign_instr(dest.clone(), t.clone(), Instr::Truncd(generated_lhs.1));
-                (t, dest)
+                self.codegen_cast(Instr::Truncd, expr, lhs, function, module)
+            }
+            CheckedExprKind::F32ToF64(lhs) => {
+                self.codegen_cast(Instr::Exts, expr, lhs, function, module)
+            }
+            CheckedExprKind::F32ToSigned(lhs) => {
+                self.codegen_cast(Instr::Stosi, expr, lhs, function, module)
+            }
+            CheckedExprKind::F32ToUnsigned(lhs) => {
+                self.codegen_cast(Instr::Stoui, expr, lhs, function, module)
+            }
+            CheckedExprKind::F64ToSigned(lhs) => {
+                self.codegen_cast(Instr::Dtosi, expr, lhs, function, module)
+            }
+            CheckedExprKind::F64ToUnsigned(lhs) => {
+                self.codegen_cast(Instr::Dtoui, expr, lhs, function, module)
+            }
+            CheckedExprKind::I32ToF32(lhs) => {
+                self.codegen_cast(Instr::Swtof, expr, lhs, function, module)
+            }
+            CheckedExprKind::U32ToF32(lhs) => {
+                self.codegen_cast(Instr::Uwtof, expr, lhs, function, module)
+            }
+            CheckedExprKind::I64ToF32(lhs) => {
+                self.codegen_cast(Instr::Sltof, expr, lhs, function, module)
+            }
+            CheckedExprKind::U64ToF32(lhs) => {
+                self.codegen_cast(Instr::Ultof, expr, lhs, function, module)
+            }
+            CheckedExprKind::SignExtend8(lhs) => {
+                self.codegen_cast(Instr::Extsb, expr, lhs, function, module)
+            }
+            CheckedExprKind::ZeroExtend8(lhs) => {
+                self.codegen_cast(Instr::Extub, expr, lhs, function, module)
+            }
+            CheckedExprKind::SignExtend16(lhs) => {
+                self.codegen_cast(Instr::Extsh, expr, lhs, function, module)
+            }
+            CheckedExprKind::ZeroExtend16(lhs) => {
+                self.codegen_cast(Instr::Extuh, expr, lhs, function, module)
+            }
+            CheckedExprKind::SignExtend32(lhs) => {
+                self.codegen_cast(Instr::Extsw, expr, lhs, function, module)
+            }
+            CheckedExprKind::ZeroExtend32(lhs) => {
+                self.codegen_cast(Instr::Extuw, expr, lhs, function, module)
             }
             kind => todo!("codegen_expr: {}", kind),
         }
+    }
+
+    fn codegen_cast<'a>(
+        &'a self,
+        instr: fn(Value) -> Instr<'a>,
+        expr: &CheckedExpr,
+        lhs: &CheckedExpr,
+        function: &mut Function<'a>,
+        module: &mut Module<'a>,
+    ) -> (Type<'a>, Value) {
+        let generated_lhs = self.codegen_expr(lhs, function, module);
+        let dest = Value::Temporary(format!(".cast.{}", self.unique_tag()));
+        let t = self.checker.types.qbe_type_of(expr.type_id, &self.checker);
+        function.assign_instr(dest.clone(), t.clone(), instr(generated_lhs.1));
+        (t, dest)
     }
 
     fn codegen_identifier_expr(&self, expr: &CheckedExpr, name: &str) -> (Type, Value) {
@@ -571,9 +622,7 @@ impl Codegen {
         let t = self.checker.types.qbe_type_of(type_id, &self.checker);
 
         // Load the data from the ptr and store it in the new slot
-        self.load(t.clone(), ptr, dest.clone(), function);
-
-        (t, dest)
+        (t.clone(), self.load(t, ptr, dest, function))
     }
 
     fn codegen_assignment_expr<'a>(
@@ -904,6 +953,12 @@ impl Codegen {
         dest: Value,
         function: &mut Function<'a>,
     ) -> Value {
+        let qbe_type = match qbe_type {
+            Type::SignedByte | Type::UnsignedByte => Type::Byte,
+            Type::SignedHalfword | Type::UnsignedHalfword => Type::Halfword,
+            current => current,
+        };
+
         match qbe_type {
             Type::Aggregate(_) => {
                 function.add_instr(Instr::Blit(src_or_value, dest.clone(), qbe_type.size()));

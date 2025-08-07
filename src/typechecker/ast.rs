@@ -111,6 +111,22 @@ pub enum CheckedExprKind {
     },
     F64ToF32(Box<CheckedExpr>),
     F32ToF64(Box<CheckedExpr>),
+
+    F32ToSigned(Box<CheckedExpr>),
+    F32ToUnsigned(Box<CheckedExpr>),
+    F64ToSigned(Box<CheckedExpr>),
+    F64ToUnsigned(Box<CheckedExpr>),
+
+    I32ToF32(Box<CheckedExpr>),
+    U32ToF32(Box<CheckedExpr>),
+    I64ToF32(Box<CheckedExpr>),
+    U64ToF32(Box<CheckedExpr>),
+    SignExtend8(Box<CheckedExpr>),
+    ZeroExtend8(Box<CheckedExpr>),
+    SignExtend16(Box<CheckedExpr>),
+    ZeroExtend16(Box<CheckedExpr>),
+    SignExtend32(Box<CheckedExpr>),
+    ZeroExtend32(Box<CheckedExpr>),
 }
 
 #[derive(Debug, Clone)]

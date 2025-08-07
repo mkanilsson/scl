@@ -2008,11 +2008,30 @@ impl Checker {
         }
 
         let kind = match (checked_lhs.value.type_id, wanted) {
-            (U32_TYPE_ID, I32_TYPE_ID)
+            // Change sign, or bool to i32
+            (U8_TYPE_ID, I8_TYPE_ID)
+            | (I8_TYPE_ID, U8_TYPE_ID)
+            | (U16_TYPE_ID, I16_TYPE_ID)
+            | (I16_TYPE_ID, U16_TYPE_ID)
+            | (U32_TYPE_ID, I32_TYPE_ID)
             | (I32_TYPE_ID, U32_TYPE_ID)
+            | (U64_TYPE_ID, I64_TYPE_ID)
+            | (I64_TYPE_ID, U64_TYPE_ID)
+            | (USIZE_TYPE_ID, ISIZE_TYPE_ID)
+            | (ISIZE_TYPE_ID, USIZE_TYPE_ID)
             | (BOOL_TYPE_ID, I32_TYPE_ID)
             | (BOOL_TYPE_ID, U32_TYPE_ID) => checked_lhs.value.kind,
-            (U32_TYPE_ID, BOOL_TYPE_ID) | (I32_TYPE_ID, BOOL_TYPE_ID) => CheckedExprKind::BinOp {
+            // Integers to bool
+            (U8_TYPE_ID, BOOL_TYPE_ID)
+            | (I8_TYPE_ID, BOOL_TYPE_ID)
+            | (U16_TYPE_ID, BOOL_TYPE_ID)
+            | (I16_TYPE_ID, BOOL_TYPE_ID)
+            | (U32_TYPE_ID, BOOL_TYPE_ID)
+            | (I32_TYPE_ID, BOOL_TYPE_ID)
+            | (U64_TYPE_ID, BOOL_TYPE_ID)
+            | (I64_TYPE_ID, BOOL_TYPE_ID)
+            | (USIZE_TYPE_ID, BOOL_TYPE_ID)
+            | (ISIZE_TYPE_ID, BOOL_TYPE_ID) => CheckedExprKind::BinOp {
                 lhs: Box::new(checked_lhs.value),
                 op: BinOp::NotEqual,
                 rhs: Box::new(CheckedExpr {
@@ -2021,8 +2040,68 @@ impl Checker {
                     lvalue: false,
                 }),
             },
+            // Float and Doubles
             (F64_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::F64ToF32(Box::new(checked_lhs.value)),
             (F32_TYPE_ID, F64_TYPE_ID) => CheckedExprKind::F32ToF64(Box::new(checked_lhs.value)),
+            (F32_TYPE_ID, I8_TYPE_ID)
+            | (F32_TYPE_ID, I16_TYPE_ID)
+            | (F32_TYPE_ID, I32_TYPE_ID)
+            | (F32_TYPE_ID, I64_TYPE_ID)
+            | (F32_TYPE_ID, ISIZE_TYPE_ID) => {
+                CheckedExprKind::F32ToSigned(Box::new(checked_lhs.value))
+            }
+            (F32_TYPE_ID, U8_TYPE_ID)
+            | (F32_TYPE_ID, U16_TYPE_ID)
+            | (F32_TYPE_ID, U32_TYPE_ID)
+            | (F32_TYPE_ID, U64_TYPE_ID)
+            | (F32_TYPE_ID, USIZE_TYPE_ID) => {
+                CheckedExprKind::F32ToUnsigned(Box::new(checked_lhs.value))
+            }
+            (F64_TYPE_ID, I8_TYPE_ID)
+            | (F64_TYPE_ID, I16_TYPE_ID)
+            | (F64_TYPE_ID, I32_TYPE_ID)
+            | (F64_TYPE_ID, I64_TYPE_ID)
+            | (F64_TYPE_ID, ISIZE_TYPE_ID) => {
+                CheckedExprKind::F64ToSigned(Box::new(checked_lhs.value))
+            }
+            (F64_TYPE_ID, U8_TYPE_ID)
+            | (F64_TYPE_ID, U16_TYPE_ID)
+            | (F64_TYPE_ID, U32_TYPE_ID)
+            | (F64_TYPE_ID, U64_TYPE_ID)
+            | (F64_TYPE_ID, USIZE_TYPE_ID) => {
+                CheckedExprKind::F64ToUnsigned(Box::new(checked_lhs.value))
+            }
+            (I32_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::I32ToF32(Box::new(checked_lhs.value)),
+            (U32_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::U32ToF32(Box::new(checked_lhs.value)),
+            (I64_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::I64ToF32(Box::new(checked_lhs.value)),
+            (U64_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::U64ToF32(Box::new(checked_lhs.value)),
+            // Sign extend
+            (I8_TYPE_ID | U8_TYPE_ID, I16_TYPE_ID | I32_TYPE_ID | I64_TYPE_ID | ISIZE_TYPE_ID) => {
+                CheckedExprKind::SignExtend8(Box::new(checked_lhs.value))
+            }
+            (I16_TYPE_ID | U16_TYPE_ID, I32_TYPE_ID | I64_TYPE_ID | ISIZE_TYPE_ID) => {
+                CheckedExprKind::SignExtend16(Box::new(checked_lhs.value))
+            }
+            (I32_TYPE_ID | U32_TYPE_ID, I64_TYPE_ID | ISIZE_TYPE_ID) => {
+                CheckedExprKind::SignExtend32(Box::new(checked_lhs.value))
+            }
+            // Zero extend
+            (I8_TYPE_ID | U8_TYPE_ID, U16_TYPE_ID | U32_TYPE_ID | U64_TYPE_ID | USIZE_TYPE_ID) => {
+                CheckedExprKind::ZeroExtend8(Box::new(checked_lhs.value))
+            }
+            (I16_TYPE_ID | U16_TYPE_ID, U32_TYPE_ID | U64_TYPE_ID | USIZE_TYPE_ID) => {
+                CheckedExprKind::ZeroExtend16(Box::new(checked_lhs.value))
+            }
+            (I32_TYPE_ID | U32_TYPE_ID, U64_TYPE_ID | USIZE_TYPE_ID) => {
+                CheckedExprKind::ZeroExtend32(Box::new(checked_lhs.value))
+            }
+            // Subtype (downcast integer)
+            (
+                USIZE_TYPE_ID | ISIZE_TYPE_ID | I64_TYPE_ID | U64_TYPE_ID,
+                I8_TYPE_ID | U8_TYPE_ID | I16_TYPE_ID | U16_TYPE_ID | I32_TYPE_ID | U32_TYPE_ID,
+            )
+            | (I32_TYPE_ID | U32_TYPE_ID, I8_TYPE_ID | U8_TYPE_ID | I16_TYPE_ID | U16_TYPE_ID)
+            | (I16_TYPE_ID | U16_TYPE_ID, I8_TYPE_ID | U8_TYPE_ID) => checked_lhs.value.kind,
             (got, wanted) if got == wanted => checked_lhs.value.kind,
             (VOID_TYPE_ID, _) | (_, VOID_TYPE_ID) | _ => {
                 return Err(Error::InvalidCast {
