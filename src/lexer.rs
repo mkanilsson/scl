@@ -3,7 +3,7 @@ use logos::{Logos, SpannedIter};
 #[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"[ \t\n\f]+", skip r"//.*\n")]
 pub enum Token<'source> {
-    #[regex("-*[0-9]+")]
+    #[regex("-*[0-9]+(\\.[0-9]*)?")]
     Number(&'source str),
     #[regex("[a-zA-Z]+[a-zA-Z0-9_]*")]
     Identifier(&'source str),

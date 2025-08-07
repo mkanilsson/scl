@@ -23,7 +23,9 @@ pub const U64_TYPE_ID: TypeId = TypeId(9);
 pub const ISIZE_TYPE_ID: TypeId = TypeId(10);
 pub const USIZE_TYPE_ID: TypeId = TypeId(11);
 pub const STRING_TYPE_ID: TypeId = TypeId(12);
-pub const NEVER_TYPE_ID: TypeId = TypeId(14);
+pub const NEVER_TYPE_ID: TypeId = TypeId(13);
+pub const F32_TYPE_ID: TypeId = TypeId(14);
+pub const F64_TYPE_ID: TypeId = TypeId(15);
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIs)]
 pub enum Type {
@@ -43,6 +45,8 @@ pub enum Type {
     USIZE,
     String,
     Never,
+    F32,
+    F64,
     Proc(ProcStructure),
     Struct(StructStructure),
     Ptr(TypeId),
@@ -89,6 +93,14 @@ impl Type {
     }
 
     pub fn is_number(&self) -> bool {
+        self.is_integer() || self.is_float()
+    }
+
+    pub fn is_float(&self) -> bool {
+        matches!(self, Type::F32 | Type::F64)
+    }
+
+    pub fn is_integer(&self) -> bool {
         matches!(
             self,
             Type::I8
@@ -104,8 +116,12 @@ impl Type {
         )
     }
 
-    pub fn is_unsigned(&self) -> bool {
-        matches!(self, Type::U32)
+    pub fn is_signed_integer(&self) -> bool {
+        matches!(self, Type::I16 | Type::I32 | Type::I64 | Type::ISIZE)
+    }
+
+    pub fn is_unsigned_integer(&self) -> bool {
+        self.is_integer() && !self.is_signed_integer()
     }
 
     pub fn to_string(&self, collection: &TypeCollection, checker: &Checker) -> String {
@@ -124,6 +140,8 @@ impl Type {
             Type::USIZE => "usize".into(),
             Type::String => "string".into(),
             Type::Never => "!".into(),
+            Type::F32 => "f32".into(),
+            Type::F64 => "f64".into(),
             Type::Proc(structure) => {
                 let mut params = structure
                     .params
@@ -175,6 +193,8 @@ impl Type {
             | Type::USIZE
             | Type::String
             | Type::Never
+            | Type::F32
+            | Type::F64
             | Type::Struct(_) => self.to_string(collection, checker),
             Type::Proc(_) => {
                 todo!()
@@ -236,6 +256,8 @@ impl TypeCollection {
                 Type::USIZE,
                 Type::String,
                 Type::Never,
+                Type::F32,
+                Type::F64,
             ],
             parsed: HashMap::new(),
             structs: vec![],
@@ -394,6 +416,8 @@ impl TypeCollection {
                 "isize" => ISIZE_TYPE_ID,
                 "usize" => USIZE_TYPE_ID,
                 "string" => STRING_TYPE_ID,
+                "f32" => F32_TYPE_ID,
+                "f64" => F64_TYPE_ID,
                 _ => return None,
             }),
             ast::tajp::TypeKind::Never => Some(NEVER_TYPE_ID),
@@ -424,20 +448,20 @@ impl TypeCollection {
         }
     }
 
-    pub fn is_number(&self, type_id: TypeId) -> bool {
-        self.get_definition(type_id).is_number()
-    }
-
     pub fn is_ptr(&self, type_id: TypeId) -> bool {
         self.get_definition(type_id).is_ptr()
+    }
+
+    pub fn is_number(&self, type_id: TypeId) -> bool {
+        self.get_definition(type_id).is_number()
     }
 
     pub fn is_array(&self, type_id: TypeId) -> bool {
         self.get_definition(type_id).is_array()
     }
 
-    pub fn is_unsigned(&self, type_id: TypeId) -> bool {
-        self.get_definition(type_id).is_unsigned()
+    pub fn is_unsigned_integer(&self, type_id: TypeId) -> bool {
+        self.get_definition(type_id).is_unsigned_integer()
     }
 
     pub fn define_struct(&mut self, type_id: TypeId, s: Type) {
@@ -498,6 +522,8 @@ impl TypeCollection {
             Type::I32 | Type::U32 => qbe::Type::Word,
             Type::I64 | Type::U64 => qbe::Type::Long,
             Type::ISIZE | Type::USIZE => qbe::Type::Long,
+            Type::F32 => qbe::Type::Single,
+            Type::F64 => qbe::Type::Double,
             Type::String => qbe::Type::Long,
             Type::Proc { .. } => qbe::Type::Long,
             Type::Struct { .. } | Type::Array(_, _) => {
@@ -548,6 +574,8 @@ impl TypeCollection {
             | Type::String
             | Type::Proc { .. }
             | Type::Never
+            | Type::F32
+            | Type::F64
             | Type::Void
             | Type::Ptr(_) => MemoryLayout::new(
                 self.size_of_definition(definition, checker),
@@ -674,6 +702,7 @@ impl TypeCollection {
                 })
             }
             Type::Generic(generic_id) => {
+                println!("Found genric {type_id:#?} definition");
                 return Ok(resolved_generics
                     .get(&generic_id)
                     .expect("TODO: nice error about unresolved type_id")

@@ -109,6 +109,8 @@ pub enum CheckedExprKind {
         lhs: Box<CheckedExpr>,
         index: Box<CheckedExpr>,
     },
+    F64ToF32(Box<CheckedExpr>),
+    F32ToF64(Box<CheckedExpr>),
 }
 
 #[derive(Debug, Clone)]

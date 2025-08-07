@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, str::FromStr};
+use std::{collections::HashMap, rc::Rc};
 
 use ast::{
     CheckedBlock, CheckedBuiltin, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt,
@@ -12,10 +12,10 @@ use proc::{Proc, ProcCollection, ProcId};
 use scope::Scope;
 use stack::StackSlots;
 use tajp::{
-    BOOL_TYPE_ID, GenericId, I8_TYPE_ID, I16_TYPE_ID, I32_TYPE_ID, I64_TYPE_ID, ISIZE_TYPE_ID,
-    IdentTypeId, NEVER_TYPE_ID, ProcStructure, STRING_TYPE_ID, Spanned, StructStructure, Type,
-    TypeCollection, TypeId, U8_TYPE_ID, U16_TYPE_ID, U32_TYPE_ID, U64_TYPE_ID, USIZE_TYPE_ID,
-    VOID_TYPE_ID,
+    BOOL_TYPE_ID, F32_TYPE_ID, F64_TYPE_ID, GenericId, I8_TYPE_ID, I16_TYPE_ID, I32_TYPE_ID,
+    I64_TYPE_ID, ISIZE_TYPE_ID, IdentTypeId, NEVER_TYPE_ID, ProcStructure, STRING_TYPE_ID, Spanned,
+    StructStructure, Type, TypeCollection, TypeId, U8_TYPE_ID, U16_TYPE_ID, U32_TYPE_ID,
+    U64_TYPE_ID, USIZE_TYPE_ID, VOID_TYPE_ID,
 };
 
 use crate::{
@@ -36,6 +36,51 @@ pub mod proc;
 mod scope;
 pub mod stack;
 pub mod tajp;
+
+macro_rules! verify_number {
+    ($value:ident, $t:ident, $type_id:ident, $expr:ident, $ctx:ident, $self:ident) => {
+        if let Ok(value) = $value.parse::<$t>() {
+            value
+        } else {
+            return Err(Error::InvalidNumber {
+                src: $self.modules.source_for($ctx.module_id).clone(),
+                span: $expr.span,
+                value: $value.to_string(),
+                type_name: $self.types.name_of($type_id, $self),
+            });
+        }
+    };
+}
+
+macro_rules! parse_number {
+    ($value:ident, $t:ident, $type_id:ident, $expr:ident, $ctx:ident, $self:ident) => {{
+        let value = verify_number!($value, $t, $type_id, $expr, $ctx, $self);
+
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: $type_id,
+                kind: ast::CheckedExprKind::Number(value as u64),
+                lvalue: false,
+            },
+            false,
+        ))
+    }};
+}
+
+macro_rules! parse_float {
+    ($value:ident, $t:ident, $type_id:ident, $expr:ident, $ctx:ident, $self:ident) => {{
+        let value = verify_number!($value, $t, $type_id, $expr, $ctx, $self);
+
+        Ok(HasNever::new(
+            CheckedExpr {
+                type_id: $type_id,
+                kind: ast::CheckedExprKind::Number(value.to_bits() as u64),
+                lvalue: false,
+            },
+            false,
+        ))
+    }};
+}
 
 #[derive(Debug)]
 pub struct Checker {
@@ -1058,145 +1103,49 @@ impl Checker {
                 if let Some(wanted) = wanted {
                     match wanted.0 {
                         I8_TYPE_ID => {
-                            let value = self.verify_number::<i8>(
-                                value.as_str(),
-                                expr.span,
-                                I8_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: I8_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                            parse_number!(value, i8, I8_TYPE_ID, expr, ctx, self)
                         }
                         U8_TYPE_ID => {
-                            let value = self.verify_number::<u8>(
-                                value.as_str(),
-                                expr.span,
-                                U8_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: U8_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                            parse_number!(value, u8, U8_TYPE_ID, expr, ctx, self)
                         }
                         I16_TYPE_ID => {
-                            let value = self.verify_number::<i16>(
-                                value.as_str(),
-                                expr.span,
-                                I16_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: I16_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                            parse_number!(value, i16, I16_TYPE_ID, expr, ctx, self)
                         }
                         U16_TYPE_ID => {
-                            let value = self.verify_number::<u16>(
-                                value.as_str(),
-                                expr.span,
-                                U16_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: U16_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                            parse_number!(value, u16, U16_TYPE_ID, expr, ctx, self)
+                        }
+                        I32_TYPE_ID => {
+                            parse_number!(value, i32, I32_TYPE_ID, expr, ctx, self)
                         }
                         U32_TYPE_ID => {
-                            let value = self.verify_number::<u32>(
-                                value.as_str(),
-                                expr.span,
-                                U32_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: U32_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                            parse_number!(value, u32, U32_TYPE_ID, expr, ctx, self)
                         }
                         I64_TYPE_ID | ISIZE_TYPE_ID => {
-                            let value = self.verify_number::<i64>(
-                                value.as_str(),
-                                expr.span,
-                                I64_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: I64_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                            parse_number!(value, i64, I64_TYPE_ID, expr, ctx, self)
                         }
                         U64_TYPE_ID | USIZE_TYPE_ID => {
-                            let value = self.verify_number::<u64>(
-                                value.as_str(),
-                                expr.span,
-                                U64_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: U64_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                            parse_number!(value, u64, U64_TYPE_ID, expr, ctx, self)
                         }
-                        I32_TYPE_ID | _ => {
-                            let value = self.verify_number::<i32>(
-                                value.as_str(),
-                                expr.span,
-                                I32_TYPE_ID,
-                                ctx,
-                            )?;
-                            Ok(HasNever::new(
-                                CheckedExpr {
-                                    type_id: I32_TYPE_ID,
-                                    kind: ast::CheckedExprKind::Number(value as u64),
-                                    lvalue: false,
-                                },
-                                false,
-                            ))
+                        F32_TYPE_ID => {
+                            parse_float!(value, f32, F32_TYPE_ID, expr, ctx, self)
+                        }
+                        F64_TYPE_ID => {
+                            parse_float!(value, f64, F64_TYPE_ID, expr, ctx, self)
+                        }
+                        _ => {
+                            if value.contains(".") {
+                                parse_float!(value, f32, F32_TYPE_ID, expr, ctx, self)
+                            } else {
+                                parse_number!(value, i32, I32_TYPE_ID, expr, ctx, self)
+                            }
                         }
                     }
                 } else {
-                    let value =
-                        self.verify_number::<i32>(value.as_str(), expr.span, U32_TYPE_ID, ctx)?;
-                    Ok(HasNever::new(
-                        CheckedExpr {
-                            type_id: I32_TYPE_ID,
-                            kind: ast::CheckedExprKind::Number(value as u64),
-                            lvalue: false,
-                        },
-                        false,
-                    ))
+                    if value.contains(".") {
+                        parse_float!(value, f32, F32_TYPE_ID, expr, ctx, self)
+                    } else {
+                        parse_number!(value, i32, I32_TYPE_ID, expr, ctx, self)
+                    }
                 }
             }
             ExprKind::BinOp { lhs, op, rhs } => {
@@ -2072,6 +2021,8 @@ impl Checker {
                     lvalue: false,
                 }),
             },
+            (F64_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::F64ToF32(Box::new(checked_lhs.value)),
+            (F32_TYPE_ID, F64_TYPE_ID) => CheckedExprKind::F32ToF64(Box::new(checked_lhs.value)),
             (got, wanted) if got == wanted => checked_lhs.value.kind,
             (VOID_TYPE_ID, _) | (_, VOID_TYPE_ID) | _ => {
                 return Err(Error::InvalidCast {
@@ -2286,7 +2237,7 @@ impl Checker {
             ctx,
         )?;
 
-        if !self.types.is_number(checked_index.value.type_id) && !checked_lhs.never {
+        if !self.types.is_unsigned_integer(checked_index.value.type_id) && !checked_lhs.never {
             return Err(Error::ArrayAccessWithNonIntegerIndex {
                 src: self.modules.source_for(ctx.module_id).clone(),
                 span: index.span,
@@ -2371,25 +2322,6 @@ impl Checker {
             })
         } else {
             Ok(())
-        }
-    }
-
-    fn verify_number<T: FromStr>(
-        &self,
-        value: &str,
-        span: SourceSpan,
-        type_id: TypeId,
-        ctx: &CheckerContext,
-    ) -> Result<T> {
-        if let Ok(value) = value.parse::<T>() {
-            Ok(value)
-        } else {
-            Err(Error::InvalidNumber {
-                src: self.modules.source_for(ctx.module_id).clone(),
-                span,
-                value: value.to_string(),
-                type_name: self.types.name_of(type_id, self),
-            })
         }
     }
 }

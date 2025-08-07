@@ -12,7 +12,7 @@ use crate::{
         },
         proc::ProcId,
         stack::StackSlotId,
-        tajp::{TypeId, VOID_TYPE_ID},
+        tajp::{F32_TYPE_ID, F64_TYPE_ID, TypeId, VOID_TYPE_ID},
     },
 };
 
@@ -352,6 +352,20 @@ impl Codegen {
             CheckedExprKind::ArrayAccess { lhs, index } => {
                 self.codegen_array_access_expr(expr.type_id, lhs, index, function, module)
             }
+            CheckedExprKind::F32ToF64(lhs) => {
+                let generated_lhs = self.codegen_expr(lhs, function, module);
+                let dest = Value::Temporary(format!(".cast.{}", self.unique_tag()));
+                let t = self.checker.types.qbe_type_of(F64_TYPE_ID, &self.checker);
+                function.assign_instr(dest.clone(), t.clone(), Instr::Exts(generated_lhs.1));
+                (t, dest)
+            }
+            CheckedExprKind::F64ToF32(lhs) => {
+                let generated_lhs = self.codegen_expr(lhs, function, module);
+                let dest = Value::Temporary(format!(".cast.{}", self.unique_tag()));
+                let t = self.checker.types.qbe_type_of(F32_TYPE_ID, &self.checker);
+                function.assign_instr(dest.clone(), t.clone(), Instr::Truncd(generated_lhs.1));
+                (t, dest)
+            }
             kind => todo!("codegen_expr: {}", kind),
         }
     }
@@ -680,28 +694,28 @@ impl Codegen {
                     BinOp::Equal => qbe::Cmp::Eq,
                     BinOp::NotEqual => qbe::Cmp::Ne,
                     BinOp::LessThan => {
-                        if self.checker.types.is_unsigned(lhs.type_id) {
+                        if self.checker.types.is_unsigned_integer(lhs.type_id) {
                             qbe::Cmp::Ult
                         } else {
                             qbe::Cmp::Slt
                         }
                     }
                     BinOp::LessThanOrEqual => {
-                        if self.checker.types.is_unsigned(lhs.type_id) {
+                        if self.checker.types.is_unsigned_integer(lhs.type_id) {
                             qbe::Cmp::Ule
                         } else {
                             qbe::Cmp::Sle
                         }
                     }
                     BinOp::GreaterThan => {
-                        if self.checker.types.is_unsigned(lhs.type_id) {
+                        if self.checker.types.is_unsigned_integer(lhs.type_id) {
                             qbe::Cmp::Ugt
                         } else {
                             qbe::Cmp::Sgt
                         }
                     }
                     BinOp::GreaterThanOrEqual => {
-                        if self.checker.types.is_unsigned(lhs.type_id) {
+                        if self.checker.types.is_unsigned_integer(lhs.type_id) {
                             qbe::Cmp::Uge
                         } else {
                             qbe::Cmp::Sge
