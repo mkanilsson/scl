@@ -36,6 +36,10 @@ export function w $main() {
 	%.ss.16 =l alloc4 4
 	%.ss.17 =l alloc4 4
 	%.ss.18 =l alloc4 4
+	%.ss.19 =l alloc4 4
+	%.ss.20 =l alloc4 4
+	%.ss.21 =l alloc4 4
+	%.ss.22 =l alloc4 4
 @body
 	storel 192748127400, %.ss.0
 	%.sv.6 =l loadl %.ss.0
@@ -78,6 +82,14 @@ export function w $main() {
 	%.sv.56 =w loadsb %.ss.14
 	%.cast.57 =l extub %.sv.56
 	%.printf.return_value.54 =w call $printf(l $.str.55, ..., l %.cast.57)
+	storew 32, %.ss.19
+	%.sv.60 =w loadw %.ss.19
+	%.cast.61 =d swtof %.sv.60
+	%.printf.return_value.58 =w call $printf(l $.str.59, ..., d %.cast.61)
+	stores 1073741816, %.ss.21
+	%.sv.64 =s loads %.ss.21
+	%.cast.65 =w stosi %.sv.64
+	%.printf.return_value.62 =w call $printf(l $.str.63, ..., w %.cast.65)
 	ret 0
 }
 data $.str.5 = { b "Subtype u64 = %u\n", b 0 }
@@ -96,3 +108,5 @@ data $.str.44 = { b "Zero extend: i8 = %d\n", b 0 }
 data $.str.47 = { b "Zero extend: i16 = %d\n", b 0 }
 data $.str.51 = { b "Zero extend: i32 = %d\n", b 0 }
 data $.str.55 = { b "Zero extend: i64 = %d\n", b 0 }
+data $.str.59 = { b "i32 to float: f64 = %f\n", b 0 }
+data $.str.63 = { b "f32 to i32 = %d\n", b 0 }

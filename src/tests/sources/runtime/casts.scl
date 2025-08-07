@@ -24,5 +24,11 @@ proc main() i32 {
     printf("Zero extend: i32 = %d\n", a as u32);
     printf("Zero extend: i64 = %d\n", a as u64);
 
+    let a = 32 as i32;
+    printf("i32 to float: f64 = %f\n", a as f64);
+
+    let a = 1.999999 as f32;
+    printf("f32 to i32 = %d\n", a as i32);
+
     0
 }

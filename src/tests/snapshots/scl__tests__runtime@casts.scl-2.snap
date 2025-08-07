@@ -19,3 +19,5 @@ Zero extend: i8 = 231
 Zero extend: i16 = 231
 Zero extend: i32 = 231
 Zero extend: i64 = 231
+i32 to float: f64 = 32.000000
+f32 to i32 = 1
