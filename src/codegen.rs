@@ -372,16 +372,16 @@ impl Codegen {
             CheckedExprKind::F64ToUnsigned(lhs) => {
                 self.codegen_cast(Instr::Dtoui, expr, lhs, function, module)
             }
-            CheckedExprKind::I32ToF32(lhs) => {
+            CheckedExprKind::I32ToFloat(lhs) => {
                 self.codegen_cast(Instr::Swtof, expr, lhs, function, module)
             }
-            CheckedExprKind::U32ToF32(lhs) => {
+            CheckedExprKind::U32ToFloat(lhs) => {
                 self.codegen_cast(Instr::Uwtof, expr, lhs, function, module)
             }
-            CheckedExprKind::I64ToF32(lhs) => {
+            CheckedExprKind::I64ToFloat(lhs) => {
                 self.codegen_cast(Instr::Sltof, expr, lhs, function, module)
             }
-            CheckedExprKind::U64ToF32(lhs) => {
+            CheckedExprKind::U64ToFloat(lhs) => {
                 self.codegen_cast(Instr::Ultof, expr, lhs, function, module)
             }
             CheckedExprKind::SignExtend8(lhs) => {

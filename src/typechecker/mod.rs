@@ -2071,10 +2071,18 @@ impl Checker {
             | (F64_TYPE_ID, USIZE_TYPE_ID) => {
                 CheckedExprKind::F64ToUnsigned(Box::new(checked_lhs.value))
             }
-            (I32_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::I32ToF32(Box::new(checked_lhs.value)),
-            (U32_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::U32ToF32(Box::new(checked_lhs.value)),
-            (I64_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::I64ToF32(Box::new(checked_lhs.value)),
-            (U64_TYPE_ID, F32_TYPE_ID) => CheckedExprKind::U64ToF32(Box::new(checked_lhs.value)),
+            (I32_TYPE_ID, F32_TYPE_ID | F64_TYPE_ID) => {
+                CheckedExprKind::I32ToFloat(Box::new(checked_lhs.value))
+            }
+            (U32_TYPE_ID, F32_TYPE_ID | F64_TYPE_ID) => {
+                CheckedExprKind::U32ToFloat(Box::new(checked_lhs.value))
+            }
+            (I64_TYPE_ID, F32_TYPE_ID | F64_TYPE_ID) => {
+                CheckedExprKind::I64ToFloat(Box::new(checked_lhs.value))
+            }
+            (U64_TYPE_ID, F32_TYPE_ID | F64_TYPE_ID) => {
+                CheckedExprKind::U64ToFloat(Box::new(checked_lhs.value))
+            }
             // Sign extend
             (I8_TYPE_ID | U8_TYPE_ID, I16_TYPE_ID | I32_TYPE_ID | I64_TYPE_ID | ISIZE_TYPE_ID) => {
                 CheckedExprKind::SignExtend8(Box::new(checked_lhs.value))
