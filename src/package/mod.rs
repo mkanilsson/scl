@@ -1,3 +1,5 @@
+mod file;
+
 use miette::NamedSource;
 
 use crate::{
@@ -7,7 +9,7 @@ use crate::{
     parser::Parser,
     typechecker::{ast::CheckedTranslationUnit, module::ModuleId},
 };
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct Module {
@@ -25,15 +27,18 @@ pub struct Package {
 
 // TODO: Handle errors
 impl Package {
-    pub fn from_path(name: impl Into<String>, path: PathBuf) -> Result<Self> {
-        let path = Self::to_absolute_path(path.join("src"));
-        let modules = Self::find_modules(path.clone())?;
+    pub fn from_path(path: PathBuf) -> Result<Self> {
+        let path = Self::to_absolute_path(path);
+        let package_file = Self::parse_scl_toml_file(path.clone())?;
 
-        let path = path.join("lib.scl");
-        let source = fs::read_to_string(&path).unwrap();
+        let src_path = path.join("src");
+        let modules = Self::find_modules(&src_path)?;
+
+        let path = src_path.join(package_file.package.tajp.to_path());
+        let source = helpers::safe_read(&path)?;
 
         Ok(Self {
-            name: name.into(),
+            name: package_file.package.name,
             modules,
             source: NamedSource::new(helpers::relative_path(&path), source.to_string()),
         })
@@ -42,7 +47,7 @@ impl Package {
     pub fn from_file(path: PathBuf) -> Result<Self> {
         let path = Self::to_absolute_path(path);
 
-        let source = fs::read_to_string(&path).unwrap();
+        let source = helpers::safe_read(&path)?;
 
         Ok(Self {
             name: "main".to_string(),
@@ -51,31 +56,39 @@ impl Package {
         })
     }
 
-    fn find_modules(path: PathBuf) -> Result<Vec<Module>> {
+    fn parse_scl_toml_file(path: PathBuf) -> Result<file::PackageFile> {
+        let path = path.join("scl.toml");
+        let content = helpers::safe_read(&path)?;
+        let package_file: file::PackageFile = toml::from_str(&content).unwrap();
+
+        Ok(package_file)
+    }
+
+    fn find_modules(path: &PathBuf) -> Result<Vec<Module>> {
         Ok(Self::build_module_from_directory("", path, true)?.children)
     }
 
-    fn build_module_from_directory(name: &str, path: PathBuf, first: bool) -> Result<Module> {
+    fn build_module_from_directory(name: &str, path: &PathBuf, first: bool) -> Result<Module> {
         let root_file_name = if first { "lib" } else { "mod" };
 
         let mut root_file_found = false;
 
         let mut children = vec![];
-        for entry in std::fs::read_dir(&path).unwrap() {
-            let entry = entry.unwrap();
+        for entry in helpers::safe_read_dir(&path)? {
+            let entry = entry?;
             let path = entry.path();
 
             let file_name = entry.file_name().into_string().unwrap();
 
             if path.is_dir() {
-                children.push(Self::build_module_from_directory(&file_name, path, false)?);
+                children.push(Self::build_module_from_directory(&file_name, &path, false)?);
             } else if let Some(file_name) = file_name.strip_suffix(".scl") {
                 if file_name == root_file_name {
                     root_file_found = true;
                     continue;
                 }
 
-                let source = fs::read_to_string(&path).unwrap();
+                let source = helpers::safe_read(&path)?;
 
                 children.push(Module {
                     children: vec![],
@@ -87,7 +100,7 @@ impl Package {
 
         if !root_file_found {
             return Err(Error::ExpectedRootFile {
-                path,
+                path: path.clone(),
                 root_file_name,
             });
         }
@@ -101,12 +114,12 @@ impl Package {
         ) {
             return Err(Error::ModuleDefinedTwice {
                 module_name: (**module).clone(),
-                path,
+                path: path.clone(),
             });
         }
 
         let path = path.join(format!("{}.scl", root_file_name));
-        let source = fs::read_to_string(&path).unwrap();
+        let source = helpers::safe_read(&path)?;
 
         Ok(Module {
             name: name.into(),

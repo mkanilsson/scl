@@ -29,7 +29,7 @@ impl Compiler {
             None => return Err(Error::NoStdLibPath),
         };
 
-        let std_package = match Package::from_path("std", path.into()) {
+        let std_package = match Package::from_path(path.into()) {
             Ok(std_package) => std_package,
             Err(_) => return Err(Error::CantCompileStdLib),
         };

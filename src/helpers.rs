@@ -1,4 +1,12 @@
-use std::{collections::HashSet, env, hash::Hash, path::Path};
+use std::{
+    collections::HashSet,
+    env,
+    fs::{self, ReadDir},
+    hash::Hash,
+    path::{Path, PathBuf},
+};
+
+use crate::error::{Error, Result};
 
 pub fn string_join_with_or(items: &[&str]) -> String {
     string_join_with(items, "or")
@@ -56,5 +64,25 @@ pub fn expand(path: String) -> Option<String> {
         Some(path.replacen("~", &home, 1).replacen("$HOME", &home, 1))
     } else {
         Some(path)
+    }
+}
+
+pub fn safe_read<P: AsRef<Path> + Into<PathBuf>>(path: P) -> Result<String> {
+    match fs::read_to_string(&path) {
+        Ok(content) => Ok(content),
+        Err(inner) => Err(Error::IoErrorWithPath {
+            path: path.into(),
+            error: inner,
+        }),
+    }
+}
+
+pub fn safe_read_dir<P: AsRef<Path> + Into<PathBuf>>(path: P) -> Result<ReadDir> {
+    match fs::read_dir(&path) {
+        Ok(content) => Ok(content),
+        Err(inner) => Err(Error::IoErrorWithPath {
+            path: path.into(),
+            error: inner,
+        }),
     }
 }

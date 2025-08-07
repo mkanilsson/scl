@@ -14,8 +14,10 @@ logos = "0.15.0"
 miette = { version = "7.6.0", features = ["fancy"] }
 nanoid = "0.4.0"
 qbe = "2.5.0"
+serde = { version = "1.0.219", features = ["derive"] }
 strum = { version = "0.27.1", features = ["derive"] }
 thiserror = "2.0.12"
+toml = "0.9.5"
 
 [build-dependencies]
 lalrpop = "0.22.2"

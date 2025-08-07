@@ -9,7 +9,7 @@ use crate::{codegen::Codegen, package::Package, parser::Parser, typechecker::Che
 #[test]
 fn runtime() {
     println!("Parsing std");
-    let std_package = Package::from_path("std", "std".into()).unwrap();
+    let std_package = Package::from_path("std".into()).unwrap();
     let std_package = std_package.parse().unwrap();
 
     println!("std parsed");
@@ -94,7 +94,7 @@ fn runtime() {
 
 #[test]
 fn typecheck_errors() {
-    let std_package = Package::from_path("std", "std".into()).unwrap();
+    let std_package = Package::from_path("std".into()).unwrap();
     let std_package = std_package.parse().unwrap();
 
     glob!("sources/typecheck_error/*", |file| {

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{io, path::PathBuf};
 
 use miette::{Diagnostic, NamedSource, SourceSpan};
 
@@ -471,4 +471,14 @@ pub enum Error {
     NoStdLibPath,
     #[error("Can't compile stdlib")]
     CantCompileStdLib,
+
+    #[error("IO error while accessing {path}")]
+    IoErrorWithPath {
+        path: PathBuf,
+
+        #[source]
+        error: io::Error,
+    },
+    #[error("IO error")]
+    IoError(#[from] io::Error),
 }

@@ -1,0 +1,4 @@
+[package]
+name = "std"
+description = "Scl's standard library"
+type = "lib"
