@@ -3,8 +3,8 @@ set shell := ["bash", "-cu"]
 default:
     just --list
 
-run:
-    cargo run
+run *ARGS:
+    cargo run {{ARGS}}
 
 test:
     cargo test

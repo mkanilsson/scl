@@ -48,3 +48,13 @@ pub fn relative_path(path: &Path) -> String {
         path.to_string_lossy().to_string()
     }
 }
+
+pub fn expand(path: String) -> Option<String> {
+    let home = env::var("HOME").ok()?;
+
+    if path.starts_with("~/") || path.starts_with("$HOME/") {
+        Some(path.replacen("~", &home, 1).replacen("$HOME", &home, 1))
+    } else {
+        Some(path)
+    }
+}

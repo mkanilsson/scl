@@ -2,15 +2,19 @@
 // a Vec of errors, making the error variant a lot smaller
 #![allow(clippy::result_large_err)]
 
-use std::process::Command;
+use std::process::{Command, Stdio};
 
-use codegen::Codegen;
+use clap::Parser;
+use colored::Colorize;
 use error::Result;
-use package::Package;
-use typechecker::Checker;
+
+use crate::env::Env;
 
 mod ast;
+mod cli;
 mod codegen;
+mod compiler;
+mod env;
 mod error;
 mod helpers;
 mod lexer;
@@ -21,72 +25,38 @@ mod tests;
 mod typechecker;
 
 fn main() -> miette::Result<()> {
-    let something_or_error = run();
-    if let Err(err) = something_or_error {
-        let me: miette::Error = err.into();
-        return Err(me);
+    let cmd = cli::Cli::parse();
+
+    match cmd {
+        cli::Cli::Build { file } => {
+            compiler::Compiler::build_from_file(file)?;
+        }
+        cli::Cli::Run { file } => {
+            let executable = compiler::Compiler::build_from_file(file)?;
+            Command::new(executable)
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .output()
+                .unwrap();
+        }
+        cli::Cli::Env => {
+            run_env_cmd()?;
+        }
     }
 
     Ok(())
 }
 
-fn run() -> Result<()> {
-    let std_package = Package::from_path("std", "std".into())?;
-    let std_package = std_package.parse()?;
-
-    let main_package = Package::from_file("examples/expressions.scl".into())?;
-    let main_package = main_package.parse()?;
-
-    let mut checker = Checker::new();
-    let checked_std_package = checker.add_package(std_package, &[])?;
-    let checked_main_package = checker.add_package(
-        main_package,
-        &[("std".into(), checked_std_package.package_id)],
-    )?;
-
-    let all_units = checked_std_package
-        .units
-        .into_iter()
-        .chain(checked_main_package.units)
-        .collect::<Vec<_>>();
-
-    let mut codegener = Codegen::new(all_units, checker);
-    let code = codegener.generate();
-
-    std::fs::create_dir_all("out/").unwrap();
-    std::fs::write("out/a.qbe", code).unwrap();
-
-    // Compile to asm
-    let qbe_cmd = Command::new("qbe")
-        .arg("-o")
-        .arg("out/a.S")
-        .arg("out/a.qbe")
-        .output()
-        .unwrap();
-
-    if !qbe_cmd.status.success() {
-        println!("qbe failed");
-        println!("stderr:\n{}", String::from_utf8_lossy(&qbe_cmd.stderr));
-        println!("stdout:\n{}", String::from_utf8_lossy(&qbe_cmd.stdout));
-
-        return Ok(());
-    }
-
-    // Compile to machinecode
-    let gcc_cmd = Command::new("gcc")
-        .arg("-o")
-        .arg("out/a.out")
-        .arg("out/a.S")
-        .output()
-        .unwrap();
-
-    if !gcc_cmd.status.success() {
-        println!("gcc failed");
-        println!("stderr:\n{}", String::from_utf8_lossy(&gcc_cmd.stderr));
-        println!("stdout:\n{}", String::from_utf8_lossy(&gcc_cmd.stdout));
-
-        return Ok(());
-    }
+fn run_env_cmd() -> Result<()> {
+    println!("{}:", "Env".magenta());
+    println!(
+        "    {}: {}",
+        "SCL_STDLIB_PATH".blue().bold(),
+        match Env::stdlib_path() {
+            Some(path) => path.green(),
+            None => "<MISSING>".red().italic(),
+        }
+    );
 
     Ok(())
 }

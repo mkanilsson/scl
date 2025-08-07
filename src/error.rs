@@ -467,4 +467,8 @@ pub enum Error {
         name: String,
         type_name: String,
     },
+    #[error("No stdlib path, set env 'SCL_STDLIB_PATH'")]
+    NoStdLibPath,
+    #[error("Can't compile stdlib")]
+    CantCompileStdLib,
 }
