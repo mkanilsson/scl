@@ -1,0 +1,28 @@
+use std::io::printf
+
+proc main() i32 {
+    let a = 192748127400 as u64;
+    printf("Subtype u64 = %u\n", a);
+    printf("Subtype u32 = %u\n", a as u32);
+    printf("Subtype u16 = %u\n", a as u16);
+    printf("Subtype u8 = %u\n", a as u8);
+    
+    printf("Subtype i64 = %d\n", a as i64);
+    printf("Subtype i32 = %d\n", a as i32);
+    printf("Subtype i16 = %d\n", a as i16);
+    printf("Subtype i8 = %d\n", a as i8);
+
+    let a = -25 as i8;
+    printf("Sign extend: i8 = %d\n", a as i8);
+    printf("Sign extend: i16 = %d\n", a as i16);
+    printf("Sign extend: i32 = %d\n", a as i32);
+    printf("Sign extend: i64 = %d\n", a as i64);
+
+    let a = -25 as i8;
+    printf("Zero extend: i8 = %d\n", a as u8);
+    printf("Zero extend: i16 = %d\n", a as u16);
+    printf("Zero extend: i32 = %d\n", a as u32);
+    printf("Zero extend: i64 = %d\n", a as u64);
+
+    0
+}

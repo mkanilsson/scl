@@ -1,0 +1,21 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/casts.scl
+---
+Subtype u64 = 3769566376
+Subtype u32 = 3769566376
+Subtype u16 = 1192
+Subtype u8 = 168
+Subtype i64 = -525400920
+Subtype i32 = -525400920
+Subtype i16 = 1192
+Subtype i8 = -88
+Sign extend: i8 = -25
+Sign extend: i16 = -25
+Sign extend: i32 = -25
+Sign extend: i64 = -25
+Zero extend: i8 = 231
+Zero extend: i16 = 231
+Zero extend: i32 = 231
+Zero extend: i64 = 231

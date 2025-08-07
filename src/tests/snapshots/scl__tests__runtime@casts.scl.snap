@@ -1,0 +1,98 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/casts.scl
+---
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc8 8
+	%.ss.1 =l alloc4 4
+	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc4 4
+	%.ss.4 =l alloc4 4
+	%.ss.5 =l alloc4 4
+	%.ss.6 =l alloc4 4
+	%.ss.7 =l alloc4 4
+	%.ss.8 =l alloc4 4
+	%.ss.9 =l alloc4 1
+	%.ss.10 =l alloc4 4
+	%.ss.11 =l alloc4 4
+	%.ss.12 =l alloc4 4
+	%.ss.13 =l alloc4 4
+	%.ss.14 =l alloc4 1
+	%.ss.15 =l alloc4 4
+	%.ss.16 =l alloc4 4
+	%.ss.17 =l alloc4 4
+	%.ss.18 =l alloc4 4
+@body
+	storel 192748127400, %.ss.0
+	%.sv.6 =l loadl %.ss.0
+	%.printf.return_value.4 =w call $printf(l $.str.5, ..., l %.sv.6)
+	%.sv.9 =w loadw %.ss.0
+	%.printf.return_value.7 =w call $printf(l $.str.8, ..., w %.sv.9)
+	%.sv.12 =w loaduh %.ss.0
+	%.printf.return_value.10 =w call $printf(l $.str.11, ..., uh %.sv.12)
+	%.sv.15 =w loadub %.ss.0
+	%.printf.return_value.13 =w call $printf(l $.str.14, ..., ub %.sv.15)
+	%.sv.18 =l loadl %.ss.0
+	%.printf.return_value.16 =w call $printf(l $.str.17, ..., l %.sv.18)
+	%.sv.21 =w loadw %.ss.0
+	%.printf.return_value.19 =w call $printf(l $.str.20, ..., w %.sv.21)
+	%.sv.24 =w loadsh %.ss.0
+	%.printf.return_value.22 =w call $printf(l $.str.23, ..., sh %.sv.24)
+	%.sv.27 =w loadsb %.ss.0
+	%.printf.return_value.25 =w call $printf(l $.str.26, ..., sb %.sv.27)
+	storeb 18446744073709551591, %.ss.9
+	%.sv.30 =w loadsb %.ss.9
+	%.printf.return_value.28 =w call $printf(l $.str.29, ..., sb %.sv.30)
+	%.sv.33 =w loadsb %.ss.9
+	%.cast.34 =w extsb %.sv.33
+	%.printf.return_value.31 =w call $printf(l $.str.32, ..., sh %.cast.34)
+	%.sv.37 =w loadsb %.ss.9
+	%.cast.38 =w extsb %.sv.37
+	%.printf.return_value.35 =w call $printf(l $.str.36, ..., w %.cast.38)
+	%.sv.41 =w loadsb %.ss.9
+	%.cast.42 =l extsb %.sv.41
+	%.printf.return_value.39 =w call $printf(l $.str.40, ..., l %.cast.42)
+	storeb 18446744073709551591, %.ss.14
+	%.sv.45 =w loadub %.ss.14
+	%.printf.return_value.43 =w call $printf(l $.str.44, ..., ub %.sv.45)
+	%.sv.48 =w loadsb %.ss.14
+	%.cast.49 =w extub %.sv.48
+	%.printf.return_value.46 =w call $printf(l $.str.47, ..., uh %.cast.49)
+	%.sv.52 =w loadsb %.ss.14
+	%.cast.53 =w extub %.sv.52
+	%.printf.return_value.50 =w call $printf(l $.str.51, ..., w %.cast.53)
+	%.sv.56 =w loadsb %.ss.14
+	%.cast.57 =l extub %.sv.56
+	%.printf.return_value.54 =w call $printf(l $.str.55, ..., l %.cast.57)
+	ret 0
+}
+data $.str.5 = { b "Subtype u64 = %u\n", b 0 }
+data $.str.8 = { b "Subtype u32 = %u\n", b 0 }
+data $.str.11 = { b "Subtype u16 = %u\n", b 0 }
+data $.str.14 = { b "Subtype u8 = %u\n", b 0 }
+data $.str.17 = { b "Subtype i64 = %d\n", b 0 }
+data $.str.20 = { b "Subtype i32 = %d\n", b 0 }
+data $.str.23 = { b "Subtype i16 = %d\n", b 0 }
+data $.str.26 = { b "Subtype i8 = %d\n", b 0 }
+data $.str.29 = { b "Sign extend: i8 = %d\n", b 0 }
+data $.str.32 = { b "Sign extend: i16 = %d\n", b 0 }
+data $.str.36 = { b "Sign extend: i32 = %d\n", b 0 }
+data $.str.40 = { b "Sign extend: i64 = %d\n", b 0 }
+data $.str.44 = { b "Zero extend: i8 = %d\n", b 0 }
+data $.str.47 = { b "Zero extend: i16 = %d\n", b 0 }
+data $.str.51 = { b "Zero extend: i32 = %d\n", b 0 }
+data $.str.55 = { b "Zero extend: i64 = %d\n", b 0 }
