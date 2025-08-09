@@ -37,9 +37,12 @@ impl Codegen {
         // TODO: Sort order after usage since qbe requires
         //       it to be specified in the order of usage
         for type_id in &self.checker.types.structs {
-            let s = self.checker.types.qbe_type_def_of(*type_id, &self.checker);
-
-            module.add_type(s.clone());
+            module.add_type(
+                self.checker
+                    .types
+                    .qbe_type_def_of(*type_id, &self.checker)
+                    .clone(),
+            );
         }
 
         for unit in &self.units {

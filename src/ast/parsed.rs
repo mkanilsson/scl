@@ -198,6 +198,7 @@ pub struct ExternProcDefinition {
 pub struct StructDefinition {
     pub ident: Ident,
     pub fields: Vec<(Ident, Type)>,
+    pub type_params: Vec<Ident>,
 }
 
 #[derive(Debug, Clone)]

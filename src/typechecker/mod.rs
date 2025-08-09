@@ -38,7 +38,7 @@ pub mod stack;
 pub mod tajp;
 
 macro_rules! verify_number {
-    ($value:ident, $t:ident, $type_id:ident, $expr:ident, $ctx:ident, $self:ident) => {
+    ($value:ident, $t:ident, $type_id:expr, $expr:ident, $ctx:ident, $self:ident) => {
         if let Ok(value) = $value.parse::<$t>() {
             value
         } else {
@@ -53,7 +53,7 @@ macro_rules! verify_number {
 }
 
 macro_rules! parse_number {
-    ($value:ident, $t:ident, $type_id:ident, $expr:ident, $ctx:ident, $self:ident) => {{
+    ($value:ident, $t:ident, $type_id:expr, $expr:ident, $ctx:ident, $self:ident) => {{
         let value = verify_number!($value, $t, $type_id, $expr, $ctx, $self);
 
         Ok(HasNever::new(
@@ -150,7 +150,6 @@ impl Checker {
 
         // TODO: Find a way to limit struct and proc lookups in these functions
         self.declare_structs(package_id)?;
-        self.declare_impls(package_id)?;
         let generic_procs = self
             .declare_procs(package_id)?
             .iter()
@@ -165,6 +164,8 @@ impl Checker {
 
         self.resolve_imports(package_id, package_id)?;
         self.define_structs(package_id)?;
+        self.declare_impls(package_id)?;
+
         self.define_procs(package_id)?;
         let units = self.check_package(package_id)?;
 
@@ -685,9 +686,12 @@ impl Checker {
                 });
             }
 
-            let type_id =
-                self.types
-                    .force_find_with_generics(source, ctx.module_id, &field.1, &[])?;
+            let type_id = self.types.force_find_with_generics(
+                source,
+                ctx.module_id,
+                &field.1,
+                &s.type_params,
+            )?;
             fields.push(IdentTypeId {
                 ident: field.0.clone(),
                 type_id,
@@ -700,6 +704,7 @@ impl Checker {
                 module_id: ctx.module_id,
                 ident: s.ident.clone(),
                 fields,
+                generic_instances: vec![],
             }),
         );
 
@@ -1121,10 +1126,10 @@ impl Checker {
                             parse_number!(value, u32, U32_TYPE_ID, expr, ctx, self)
                         }
                         I64_TYPE_ID | ISIZE_TYPE_ID => {
-                            parse_number!(value, i64, I64_TYPE_ID, expr, ctx, self)
+                            parse_number!(value, i64, wanted.0, expr, ctx, self)
                         }
                         U64_TYPE_ID | USIZE_TYPE_ID => {
-                            parse_number!(value, u64, U64_TYPE_ID, expr, ctx, self)
+                            parse_number!(value, u64, wanted.0, expr, ctx, self)
                         }
                         F32_TYPE_ID => {
                             parse_float!(value, f32, F32_TYPE_ID, expr, ctx, self)
@@ -1700,12 +1705,11 @@ impl Checker {
         proc_ctx: &mut ProcContext,
         ctx: &CheckerContext,
     ) -> Result<HasNever<CheckedExpr>> {
-        let struct_type_id = self.types.force_find_by_name_with_resolved_generics(
+        let struct_type_id = self.types.force_find_by_name_with_generics(
             self.modules.source_for(ctx.module_id),
             ctx.module_id,
             name,
-            proc_ctx.generics,
-            proc_ctx.resolved_generics,
+            &[],
         )?;
 
         let definition = self.types.get_definition(struct_type_id);
@@ -1721,6 +1725,8 @@ impl Checker {
         let mut checked_fields: Vec<(Ident, CheckedExpr)> = vec![];
 
         let mut has_encountered_never = false;
+
+        let mut resolved_generics = HashMap::new();
 
         for field in fields {
             let defined_field = s.fields.iter().find(|f| f.ident == field.0);
@@ -1742,19 +1748,33 @@ impl Checker {
                 });
             }
 
-            let checked_expr = self.typecheck_expr(
-                &field.1,
-                Some((defined_field.type_id, defined_field.ident.span)),
-                true,
-                false,
-                block_ctx,
-                proc_ctx,
-                ctx,
+            let wanted = if self.types.is_generic(defined_field.type_id) {
+                // TODO: Check if the GenericId has already been confirmed
+                None
+            } else {
+                Some((defined_field.type_id, (0..0).into()))
+            };
+
+            let checked_expr =
+                self.typecheck_expr(&field.1, wanted, true, false, block_ctx, proc_ctx, ctx)?;
+
+            self.types.infer_generic_types(
+                self.modules.source_for(ctx.module_id),
+                field.1.span,
+                defined_field.type_id,
+                checked_expr.value.type_id,
+                &mut resolved_generics,
+                self,
             )?;
 
             has_encountered_never |= checked_expr.never;
 
-            if checked_expr.value.type_id != defined_field.type_id && !checked_expr.never {
+            if checked_expr.value.type_id
+                != self
+                    .types
+                    .resolve_generic_type(defined_field.type_id, &resolved_generics)?
+                && !checked_expr.never
+            {
                 return Err(Error::StructInstantiationFieldTypeMismatch {
                     src: self.modules.source_for(ctx.module_id).clone(),
                     span: field.1.span,
@@ -1791,6 +1811,10 @@ impl Checker {
                 multiple: missing_fields.len() > 1,
             });
         }
+
+        let struct_type_id = self
+            .types
+            .resolve_generic_type(struct_type_id, &resolved_generics)?;
 
         Ok(HasNever::new(
             CheckedExpr {

@@ -283,10 +283,15 @@ Import: parsed::Import = {
 }
 
 StructDefinition: parsed::StructDefinition = {
-    "struct" <ident:Ident> "{" <fields:StructDefinitionFields> "}" => {
+    "struct" <ident:Ident> <type_params:GenericParams?> "{" <fields:StructDefinitionFields> "}" => {
         parsed::StructDefinition {
             ident,
             fields,
+            type_params: if let Some(type_params) = type_params {
+                type_params
+            } else {
+                vec![]
+            },
         }
     }
 }

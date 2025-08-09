@@ -62,11 +62,21 @@ pub struct ProcStructure {
     pub variadic: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Eq)]
 pub struct StructStructure {
     pub ident: Ident,
     pub fields: Vec<IdentTypeId>,
     pub module_id: ModuleId,
+    pub generic_instances: Vec<TypeId>,
+}
+
+impl PartialEq for StructStructure {
+    fn eq(&self, other: &Self) -> bool {
+        self.ident == other.ident
+            && self.fields == other.fields
+            && self.module_id == other.module_id
+            && self.generic_instances == other.generic_instances
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -160,11 +170,25 @@ impl Type {
                 format!("proc ({params}) {return_type}")
             }
             Type::Struct(structure) => {
-                format!(
+                let base = format!(
                     "{}.{}",
                     checker.modules.mangled_name_of(structure.module_id),
                     structure.ident.name
-                )
+                );
+
+                if structure.generic_instances.len() > 0 {
+                    format!(
+                        "{base}<{}>",
+                        structure
+                            .generic_instances
+                            .iter()
+                            .map(|gi| collection.name_of(*gi, checker))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    )
+                } else {
+                    base
+                }
             }
             Type::Ptr(inner) => format!("*{}", collection.name_of(*inner, checker)),
             Type::Array(inner, size) => format!("[{size}]{}", collection.name_of(*inner, checker)),
@@ -194,8 +218,29 @@ impl Type {
             | Type::String
             | Type::Never
             | Type::F32
-            | Type::F64
-            | Type::Struct(_) => self.to_string(collection, checker),
+            | Type::F64 => self.to_string(collection, checker),
+            Type::Struct(structure) => {
+                let base = format!(
+                    "{}.{}",
+                    checker.modules.mangled_name_of(structure.module_id),
+                    structure.ident.name
+                );
+
+                if structure.generic_instances.len() > 0 {
+                    format!(
+                        "{base}..{}..{}",
+                        structure.generic_instances.len(),
+                        structure
+                            .generic_instances
+                            .iter()
+                            .map(|gi| collection.name_of(*gi, checker))
+                            .collect::<Vec<_>>()
+                            .join("..")
+                    )
+                } else {
+                    base
+                }
+            }
             Type::Proc(_) => {
                 todo!()
             }
@@ -275,7 +320,13 @@ impl TypeCollection {
         }
 
         let id = self.types.len();
+        let is_struct = t.is_struct();
         self.types.push(t);
+
+        if is_struct && !self.is_generic(id.into()) {
+            self.structs.push(id.into());
+        }
+
         id.into()
     }
 
@@ -383,23 +434,6 @@ impl TypeCollection {
         )
     }
 
-    pub fn force_find_by_name_with_resolved_generics(
-        &mut self,
-        src: &NamedSource<String>,
-        module_id: ModuleId,
-        name: &Ident,
-        generics: &[Ident],
-        resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
-    ) -> Result<TypeId> {
-        let type_id = self.force_find_with_generics(
-            src,
-            module_id,
-            &ast::tajp::Type::new(name.span, ast::tajp::TypeKind::Named(name.clone())),
-            generics,
-        )?;
-        self.resolve_generic_type(type_id, resolved_generics)
-    }
-
     fn find_primative(&self, t: &ast::tajp::Type) -> Option<TypeId> {
         match &t.kind {
             ast::tajp::TypeKind::Named(ident) => Some(match ident.name.as_str() {
@@ -467,7 +501,10 @@ impl TypeCollection {
     pub fn define_struct(&mut self, type_id: TypeId, s: Type) {
         assert_eq!(self.types[type_id.0], Type::UndefinedStruct);
         self.types[type_id.0] = s;
-        self.structs.push(type_id);
+
+        if !self.is_generic(type_id) {
+            self.structs.push(type_id);
+        }
     }
 
     pub fn define_proc(&mut self, type_id: TypeId, proc: Type) {
@@ -714,10 +751,14 @@ impl TypeCollection {
                         type_id: self.resolve_generic_type(field.type_id, resolved_generics)?,
                     });
                 }
+                let mut generic_types = resolved_generics.iter().collect::<Vec<_>>();
+                generic_types.sort_by(|a, b| a.0.cmp(b.0));
+
                 Type::Struct(StructStructure {
                     ident: structure.ident,
                     fields,
                     module_id: structure.module_id,
+                    generic_instances: generic_types.into_iter().map(|gt| gt.1.value).collect(),
                 })
             }
             Type::Generic(generic_id) => {
