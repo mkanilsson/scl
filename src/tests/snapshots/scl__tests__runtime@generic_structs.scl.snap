@@ -1,0 +1,47 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/generic_structs.scl
+---
+type :main.Thing..1..i32 = { w }
+type :main.Thing..1..string = { l }
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc8 8
+	%.ss.4 =l alloc8 8
+	%.ss.5 =l alloc4 4
+@body
+	# Store value into Thing.value (offset: 0)
+	%.offset.4 =l add %.ss.0, 0
+	storew 12, %.offset.4
+	blit %.ss.0, %.ss.1, 4
+	%.offset.7 =l add %.ss.1, 0
+	%.read.8 =w loadw %.offset.7
+	%.printf.return_value.5 =w call $printf(l $.str.6, ..., w %.read.8)
+	# Store value into Thing.value (offset: 0)
+	%.offset.10 =l add %.ss.3, 0
+	storel $.str.9, %.offset.10
+	blit %.ss.3, %.ss.4, 8
+	%.offset.13 =l add %.ss.4, 0
+	%.read.14 =l loadl %.offset.13
+	%.printf.return_value.11 =w call $printf(l $.str.12, ..., l %.read.14)
+	ret 0
+}
+data $.str.6 = { b "%d\n", b 0 }
+data $.str.9 = { b "Hello!", b 0 }
+data $.str.12 = { b "%s\n", b 0 }

@@ -1,0 +1,21 @@
+use std::io::printf
+
+struct Thing<T> {
+    value: T,
+}
+
+proc main() i32 {
+    let s = Thing {
+        value: 12,
+    };
+
+    printf("%d\n", s.value);
+
+    let s = Thing {
+        value: "Hello!",
+    };
+
+    printf("%s\n", s.value);
+
+    0
+}

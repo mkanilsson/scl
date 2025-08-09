@@ -1,0 +1,7 @@
+---
+source: src/tests/mod.rs
+expression: stdout
+input_file: src/tests/sources/runtime/generic_structs.scl
+---
+12
+Hello!
