@@ -95,7 +95,7 @@ impl Compiler {
             println!("stderr:\n{}", String::from_utf8_lossy(&qbe_cmd.stderr));
             println!("stdout:\n{}", String::from_utf8_lossy(&qbe_cmd.stdout));
 
-            return;
+            panic!("qbe failed");
         }
 
         // Compile to machinecode
@@ -110,6 +110,8 @@ impl Compiler {
             println!("gcc failed");
             println!("stderr:\n{}", String::from_utf8_lossy(&gcc_cmd.stderr));
             println!("stdout:\n{}", String::from_utf8_lossy(&gcc_cmd.stdout));
+
+            panic!("gcc failed");
         }
     }
 }

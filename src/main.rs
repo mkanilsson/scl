@@ -58,5 +58,25 @@ fn run_env_cmd() -> Result<()> {
         }
     );
 
+    println!(
+        "    {}: {}",
+        "QBE".blue().bold(),
+        if Env::has_qbe() {
+            "Found".green()
+        } else {
+            "<MISSING>".red().italic()
+        }
+    );
+
+    println!(
+        "    {}: {}",
+        "GCC".blue().bold(),
+        if Env::has_gcc() {
+            "Found".green()
+        } else {
+            "<MISSING>".red().italic()
+        }
+    );
+
     Ok(())
 }
