@@ -19,6 +19,7 @@ impl Type {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeKind {
     Named(Ident),
+    Generic { ident: Ident, types: Vec<Type> },
     Never,
     Ptr(Box<Type>),
 }
@@ -29,6 +30,15 @@ impl Display for TypeKind {
             TypeKind::Named(ident) => &ident.name,
             TypeKind::Never => "!",
             TypeKind::Ptr(inner) => &format!("*{}", inner.kind),
+            TypeKind::Generic { ident, types } => &format!(
+                "{}<{}>",
+                ident.name,
+                types
+                    .iter()
+                    .map(|f| format!("{}", f.kind))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         };
 
         write!(f, "{text}")

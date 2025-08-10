@@ -91,6 +91,14 @@ pub Expr: Box<parsed::Expr> = {
             rhs,
         })
     },
+
+    #[precedence(level="8")] #[assoc(side="left")]
+    <s:@L> <lhs:Expr> "as" <tajp:Type> <e:@R> => {
+        expr!(s, e, ExprKind::Cast {
+            lhs,
+            tajp,
+        })
+    },
 }
 
 pub Term: Box<parsed::Expr> = {
@@ -141,12 +149,6 @@ pub Term: Box<parsed::Expr> = {
     },
     <s:@L> <builtin:Builtin> <e:@R> => {
         expr!(s, e, ExprKind::Builtin(builtin))
-    },
-    <s:@L> <lhs:Term> "as" <tajp:Type> <e:@R> => {
-        expr!(s, e, ExprKind::Cast {
-            lhs,
-            tajp,
-        })
     },
     <s:@L> <block:Block> <e:@R> => {
         expr!(s, e, ExprKind::Block(block))
@@ -258,9 +260,22 @@ GenericParams: Vec<parsed::Ident> = {
     }
 }
 
+GenericTypeParams: Vec<tajp::Type> = {
+    "<" <types:Types> ">" => {
+        types
+    }
+}
+
 Type: tajp::Type = {
-    <s:@L> <ident:Ident> <e:@R> => {
-        tajp!(s, e, TypeKind::Named(ident))
+    <s:@L> <ident:Ident> <type_params:GenericTypeParams?> <e:@R> => {
+        tajp!(s, e, if let Some(type_params) = type_params {
+            TypeKind::Generic {
+                ident,
+                types: type_params
+            }
+        } else {
+            TypeKind::Named(ident)
+        })
     },
     <s:@L> "!" <e:@R> => {
         tajp!(s, e, TypeKind::Never)

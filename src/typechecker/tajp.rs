@@ -62,21 +62,12 @@ pub struct ProcStructure {
     pub variadic: bool,
 }
 
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructStructure {
     pub ident: Ident,
     pub fields: Vec<IdentTypeId>,
     pub module_id: ModuleId,
     pub generic_instances: Vec<TypeId>,
-}
-
-impl PartialEq for StructStructure {
-    fn eq(&self, other: &Self) -> bool {
-        self.ident == other.ident
-            && self.fields == other.fields
-            && self.module_id == other.module_id
-            && self.generic_instances == other.generic_instances
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -403,6 +394,35 @@ impl TypeCollection {
                     })
                 }
             }
+            ast::tajp::TypeKind::Generic { ident, types } => {
+                let s = self.force_find_with_generics(
+                    src,
+                    module_id,
+                    &ast::tajp::Type::new(ident.span, ast::tajp::TypeKind::Named(ident.clone())),
+                    generics,
+                )?;
+
+                if !self.is_generic(s) {
+                    todo!(
+                        "Show message about not being generic: {}",
+                        self.get_definition(s).as_struct().ident.name
+                    );
+                }
+
+                let mut resolved_generics = HashMap::new();
+
+                for (i, t) in types.iter().enumerate() {
+                    resolved_generics.insert(
+                        GenericId(i),
+                        Spanned::new(
+                            self.force_find_with_generics(src, module_id, t, generics)?,
+                            t.span,
+                        ),
+                    );
+                }
+
+                Ok(self.resolve_generic_type(s, &resolved_generics)?)
+            }
             ast::tajp::TypeKind::Ptr(inner) => {
                 let inner = self.force_find_with_generics(src, module_id, inner, generics)?;
                 Ok(self.register_type(Type::Ptr(inner)))
@@ -456,6 +476,7 @@ impl TypeCollection {
             }),
             ast::tajp::TypeKind::Never => Some(NEVER_TYPE_ID),
             ast::tajp::TypeKind::Ptr(_) => None,
+            ast::tajp::TypeKind::Generic { .. } => None,
         }
     }
 
@@ -726,6 +747,10 @@ impl TypeCollection {
         type_id: TypeId,
         resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
     ) -> Result<TypeId> {
+        if !self.is_generic(type_id) {
+            return Ok(type_id);
+        }
+
         let definition = match self.get_definition(type_id) {
             Type::Ptr(inner) => Type::Ptr(self.resolve_generic_type(inner, resolved_generics)?),
             Type::Proc(proc) => {
@@ -753,12 +778,16 @@ impl TypeCollection {
                 }
                 let mut generic_types = resolved_generics.iter().collect::<Vec<_>>();
                 generic_types.sort_by(|a, b| a.0.cmp(b.0));
+                let generic_instances = generic_types
+                    .into_iter()
+                    .map(|gt| gt.1.value)
+                    .collect::<Vec<_>>();
 
                 Type::Struct(StructStructure {
                     ident: structure.ident,
                     fields,
                     module_id: structure.module_id,
-                    generic_instances: generic_types.into_iter().map(|gt| gt.1.value).collect(),
+                    generic_instances,
                 })
             }
             Type::Generic(generic_id) => {
@@ -800,7 +829,25 @@ impl TypeCollection {
             (Type::String, Type::String) => todo!(),
             (Type::Never, Type::Never) => todo!(),
             (Type::Proc(_), Type::Proc(_)) => todo!(),
-            (Type::Struct(_), Type::Struct(_)) => todo!(),
+            (Type::Struct(generic_structure), Type::Struct(real_structure)) => {
+                assert!(
+                    generic_structure.ident == real_structure.ident
+                        && generic_structure.module_id == real_structure.module_id
+                );
+
+                for (generic_field, real_field) in
+                    generic_structure.fields.iter().zip(real_structure.fields)
+                {
+                    self.infer_generic_types(
+                        src,
+                        expr_span,
+                        generic_field.type_id,
+                        real_field.type_id,
+                        resolved_generics,
+                        checker,
+                    )?;
+                }
+            }
             (Type::Ptr(generic_inner_type_id), Type::Ptr(real_inner_type_id)) => self
                 .infer_generic_types(
                     src,

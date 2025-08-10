@@ -1443,16 +1443,15 @@ impl Checker {
 
             has_encountered_never |= checked_expr.never;
 
-            if checked_expr.value.type_id
-                != self
-                    .types
-                    .resolve_generic_type(*expected_type, &resolved_generics)?
-                && !checked_expr.never
-            {
+            let expected_type = self
+                .types
+                .resolve_generic_type(*expected_type, &resolved_generics)?;
+
+            if checked_expr.value.type_id != expected_type && !checked_expr.never {
                 return Err(Error::ProcCallParamTypeMismatch {
                     src: self.modules.source_for(ctx.module_id).clone(),
                     span: param.span,
-                    expected: self.types.name_of(*expected_type, self),
+                    expected: self.types.name_of(expected_type, self),
                     got: self.types.name_of(checked_expr.value.type_id, self),
                 });
             }
