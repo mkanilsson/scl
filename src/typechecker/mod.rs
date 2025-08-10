@@ -287,10 +287,10 @@ impl Checker {
     }
 
     fn add_impl(&mut self, impl_block: &Impl, ctx: &CheckerContext) -> Result<()> {
-        let for_type_id = self.types.force_find_by_name_with_generics(
+        let for_type_id = self.types.force_find_with_generics(
             self.modules.source_for(ctx.module_id),
             ctx.module_id,
-            &impl_block.ident,
+            &impl_block.tajp,
             &[],
         )?;
 
@@ -390,10 +390,10 @@ impl Checker {
         }
 
         for impl_block in &unit.impls {
-            let for_type_id = self.types.force_find_by_name_with_generics(
+            let for_type_id = self.types.force_find_with_generics(
                 self.modules.source_for(ctx.module_id),
                 ctx.module_id,
-                &impl_block.ident,
+                &impl_block.tajp,
                 &[],
             )?;
 
@@ -492,10 +492,10 @@ impl Checker {
         }
 
         for impl_block in &unit.impls {
-            let for_type_id = self.types.force_find_by_name_with_generics(
+            let for_type_id = self.types.force_find_with_generics(
                 self.modules.source_for(ctx.module_id),
                 ctx.module_id,
-                &impl_block.ident,
+                &impl_block.tajp,
                 &[],
             )?;
 

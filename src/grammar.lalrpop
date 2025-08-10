@@ -312,9 +312,9 @@ StructDefinition: parsed::StructDefinition = {
 }
 
 Impl: parsed::Impl = {
-    "impl" <ident:Ident> "{" <procs:ProcDefinition*> "}" => {
+    "impl" <tajp:Type> "{" <procs:ProcDefinition*> "}" => {
         parsed::Impl {
-            ident,
+            tajp,
             procs,
         }
     }

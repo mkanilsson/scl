@@ -156,7 +156,7 @@ pub enum Import {
 
 #[derive(Debug, Clone)]
 pub struct Impl {
-    pub ident: Ident,
+    pub tajp: Type,
     pub procs: Vec<ProcDefinition>,
 }
 
