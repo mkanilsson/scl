@@ -1,0 +1,35 @@
+use std::io::printf
+
+struct Thing<T> {
+    value: T
+}
+
+impl Thing<i32> {
+    proc print(this) void {
+        printf("%d\n", this.value);
+        ret;
+    }
+}
+
+impl Thing<string> {
+    proc print(this) void {
+        printf("%s\n", this.value);
+        ret;
+    }
+}
+
+proc main() i32 {
+    let a = Thing {
+        value: 123
+    };
+
+    a.print();
+
+    let b = Thing {
+        value: "Hello, World!"
+    };
+
+    b.print();
+
+    0
+}

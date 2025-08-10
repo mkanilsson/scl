@@ -1,0 +1,61 @@
+---
+source: src/tests/mod.rs
+expression: code
+input_file: src/tests/sources/runtime/impl_specific_struct_type.scl
+---
+type :main.Thing..1..i32 = { w }
+type :main.Thing..1..string = { l }
+export function w $std.math.add(w %a, w %b) {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	storew %a, %.ss.0
+	storew %b, %.ss.1
+@body
+	%.sv.1 =w loadw %.ss.0
+	%.sv.2 =w loadw %.ss.1
+	%.binop.3 =w add %.sv.1, %.sv.2
+	ret %.binop.3
+}
+export function w $main() {
+@start
+	%.ss.0 =l alloc4 4
+	%.ss.1 =l alloc4 4
+	%.ss.2 =l alloc4 4
+	%.ss.3 =l alloc8 8
+	%.ss.4 =l alloc8 8
+	%.ss.5 =l alloc4 4
+@body
+	# Store value into Thing.value (offset: 0)
+	%.offset.4 =l add %.ss.0, 0
+	storew 123, %.offset.4
+	blit %.ss.0, %.ss.1, 4
+	%.main..main.Thing..1..i32.print.return_value.5 =w call $main..main.Thing..1..i32.print(l %.ss.1)
+	# Store value into Thing.value (offset: 0)
+	%.offset.7 =l add %.ss.3, 0
+	storel $.str.6, %.offset.7
+	blit %.ss.3, %.ss.4, 8
+	%.main..main.Thing..1..string.print.return_value.8 =w call $main..main.Thing..1..string.print(l %.ss.4)
+	ret 0
+}
+export function $main..main.Thing..1..i32.print(l %.this) {
+@start
+	%.ss.0 =l alloc4 4
+@body
+	%.offset.11 =l add %.this, 0
+	%.read.12 =w loadw %.offset.11
+	%.printf.return_value.9 =w call $printf(l $.str.10, ..., w %.read.12)
+	ret
+}
+export function $main..main.Thing..1..string.print(l %.this) {
+@start
+	%.ss.0 =l alloc4 4
+@body
+	%.offset.15 =l add %.this, 0
+	%.read.16 =l loadl %.offset.15
+	%.printf.return_value.13 =w call $printf(l $.str.14, ..., l %.read.16)
+	ret
+}
+data $.str.6 = { b "Hello, World!", b 0 }
+data $.str.10 = { b "%d\n", b 0 }
+data $.str.14 = { b "%s\n", b 0 }
