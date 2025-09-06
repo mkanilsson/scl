@@ -91,6 +91,10 @@ pub enum Token<'source> {
     Impl,
     #[token("this")]
     This,
+    #[token("interface")]
+    Interface,
+    #[token("for")]
+    For,
 }
 
 #[derive(Debug, Clone, PartialEq)]

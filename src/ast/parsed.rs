@@ -145,6 +145,7 @@ pub struct TranslationUnit {
     pub structs: Vec<StructDefinition>,
     pub imports: Vec<Import>,
     pub impls: Vec<Impl>,
+    pub interfaces: Vec<Interface>,
 }
 
 #[derive(Debug, Clone)]
@@ -159,6 +160,13 @@ pub struct Impl {
     pub tajp: Type,
     pub procs: Vec<ProcDefinition>,
     pub type_params: Vec<Ident>,
+    pub interface: Option<Type>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Interface {
+    pub ident: Ident,
+    pub signatures: Vec<ProcSignature>,
 }
 
 #[derive(Debug, Clone)]

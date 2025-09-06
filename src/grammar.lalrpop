@@ -320,7 +320,29 @@ Impl: parsed::Impl = {
                 type_params
             } else {
                 vec![]
+            },
+            interface: None
+        }
+    },
+    "impl" <type_params:GenericParams?> <interface:Type> "for" <tajp:Type> "{" <procs:ProcDefinition*> "}" => {
+        parsed::Impl {
+            tajp,
+            procs,
+            interface: Some(interface),
+            type_params: if let Some(type_params) = type_params {
+                type_params
+            } else {
+                vec![]
             }
+        }
+    }
+}
+
+Interface: parsed::Interface = {
+    "interface" <ident:Ident> "{" <signatures:ProcSignature*> "}" => {
+        parsed::Interface {
+            ident,
+            signatures
         }
     }
 }
@@ -430,6 +452,10 @@ pub TranslationUnit: parsed::TranslationUnit = {
         tu.impls.push(impl_block);
         tu
     },
+    <mut tu:TranslationUnit> <interface:Interface> => {
+        tu.interfaces.push(interface);
+        tu
+    },
     => {
         parsed::TranslationUnit {
             procs: vec![],
@@ -437,6 +463,7 @@ pub TranslationUnit: parsed::TranslationUnit = {
             structs: vec![],
             imports: vec![],
             impls: vec![],
+            interfaces: vec![],
         }
     }
 }
@@ -516,5 +543,7 @@ extern {
         "defer" => Token::Defer,
         "impl" => Token::Impl,
         "this" => Token::This,
+        "interface" => Token::Interface,
+        "for" => Token::For,
     }
 }

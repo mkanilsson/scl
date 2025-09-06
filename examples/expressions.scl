@@ -1,14 +1,20 @@
 use std::io::printf
 
-extern proc malloc<T>(u32) *T
-extern proc free<T>(*T) void
+interface Print {
+    proc print(this) void  
+}
+
+struct Thing {
+    a: i32
+}
+
+impl Print for Thing {
+    proc print(this) void {
+        printf("Value: %d\n", this.a);
+        ret;
+    } 
+}
 
 proc main() void {
-    let a = malloc::<i32>(4);
-    a.* = 10;
-    printf("a = %p\na.* = %d\n", a, a.*);
-    free(a);
-    printf("a = %p\na.* = %d\n", a, a.*);
-
     ret;
 }
