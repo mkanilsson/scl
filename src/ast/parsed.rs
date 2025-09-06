@@ -163,11 +163,8 @@ pub struct Impl {
 
 #[derive(Debug, Clone)]
 pub struct ProcDefinition {
-    pub ident: Ident,
-    pub params: Vec<ProcParam>,
-    pub return_type: Type,
+    pub signature: ProcSignature,
     pub body: Block,
-    pub type_params: Vec<Ident>,
 }
 
 #[derive(Debug, Clone, EnumIs)]
@@ -187,10 +184,15 @@ impl ProcParam {
 
 #[derive(Debug, Clone)]
 pub struct ExternProcDefinition {
-    pub ident: Ident,
-    pub params: Vec<Type>,
-    pub return_type: Type,
+    pub signature: ProcSignature,
     pub variadic: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProcSignature {
+    pub ident: Ident,
+    pub params: Vec<ProcParam>,
+    pub return_type: Type,
     pub type_params: Vec<Ident>,
     pub attributes: Vec<Builtin>,
 }

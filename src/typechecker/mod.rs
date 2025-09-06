@@ -301,13 +301,13 @@ impl Checker {
 
         for proc in &impl_block.procs {
             let type_id = self.types.register_undefined_proc();
-            let has_this = proc.params.len() > 0 && proc.params[0].is_this();
+            let has_this = proc.signature.params.len() > 0 && proc.signature.params[0].is_this();
 
             procs.push(self.procs.add(
                 ctx.module_id,
                 Proc {
                     type_id,
-                    name: proc.ident.clone(),
+                    name: proc.signature.ident.clone(),
                     module_id: ctx.module_id,
                     external: false,
                     generic: false,
@@ -341,7 +341,7 @@ impl Checker {
         //        the same
         for proc in &unit.procs {
             let proc_id = self.add_proc_name(proc, &ctx)?;
-            if !proc.type_params.is_empty() {
+            if !proc.signature.type_params.is_empty() {
                 generic_procs.insert(proc_id, Rc::clone(proc));
             }
         }
@@ -389,7 +389,7 @@ impl Checker {
                 self.procs.force_find_for_module_type_of(
                     self.modules.source_for(ctx.module_id),
                     ctx.module_id,
-                    &proc.ident,
+                    &proc.signature.ident,
                 )?,
                 false,
                 &ctx,
@@ -407,7 +407,7 @@ impl Checker {
             for proc in &impl_block.procs {
                 let proc_id = self
                     .implementations
-                    .find_by_exact_type_id_and_name(for_type_id, &proc.ident, &self)
+                    .find_by_exact_type_id_and_name(for_type_id, &proc.signature.ident, &self)
                     .expect("To exist");
 
                 self.define_proc(proc, self.procs.type_id_for(proc_id), true, &ctx)?;
@@ -420,7 +420,7 @@ impl Checker {
                 self.procs.force_find_for_module_type_of(
                     self.modules.source_for(ctx.module_id),
                     ctx.module_id,
-                    &extern_proc.ident,
+                    &extern_proc.signature.ident,
                 )?,
                 &ctx,
             )?;
@@ -487,7 +487,7 @@ impl Checker {
         let mut checked_procs = vec![];
         let unit = self.modules.unit_for(ctx.module_id);
         for proc in &unit.procs {
-            if !proc.type_params.is_empty() {
+            if !proc.signature.type_params.is_empty() {
                 continue;
             }
 
@@ -505,7 +505,7 @@ impl Checker {
             for proc in &impl_block.procs {
                 let proc_id = self
                     .implementations
-                    .find_by_type_id_and_name(for_type_id, &proc.ident, &self)
+                    .find_by_type_id_and_name(for_type_id, &proc.signature.ident, &self)
                     .expect("To exist");
 
                 // FIXME: Impl procs should be generated some other way
@@ -539,7 +539,7 @@ impl Checker {
 
         let source = self.modules.source_for(ctx.module_id);
 
-        for (i, param) in definition.params.iter().enumerate() {
+        for (i, param) in definition.signature.params.iter().enumerate() {
             let (ident, tajp) = match param {
                 crate::ast::parsed::ProcParam::This(span) => {
                     if !is_impl {
@@ -574,7 +574,7 @@ impl Checker {
                 source,
                 ctx.module_id,
                 &tajp,
-                &definition.type_params,
+                &definition.signature.type_params,
             )?;
             params.push((ident.clone(), type_id));
         }
@@ -582,8 +582,8 @@ impl Checker {
         let return_type = self.types.force_find_with_generics(
             source,
             ctx.module_id,
-            &definition.return_type,
-            &definition.type_params,
+            &definition.signature.return_type,
+            &definition.signature.type_params,
         )?;
 
         self.types.define_proc(
@@ -646,7 +646,7 @@ impl Checker {
     ) -> Result<ProcId> {
         let mut link_name = None;
 
-        for attr in &proc.attributes {
+        for attr in &proc.signature.attributes {
             match self.typecheck_builtin_as_proc_attribute(attr, ctx)? {
                 CheckedBuiltin::LinkName(name) => {
                     if link_name.is_some() {
@@ -658,14 +658,14 @@ impl Checker {
             }
         }
 
-        self.add_proc(proc.ident.clone(), true, false, link_name, ctx)
+        self.add_proc(proc.signature.ident.clone(), true, false, link_name, ctx)
     }
 
     fn add_proc_name(&mut self, proc: &ProcDefinition, ctx: &CheckerContext) -> Result<ProcId> {
         self.add_proc(
-            proc.ident.clone(),
+            proc.signature.ident.clone(),
             false,
-            !proc.type_params.is_empty(),
+            !proc.signature.type_params.is_empty(),
             None,
             ctx,
         )
@@ -722,12 +722,12 @@ impl Checker {
     ) -> Result<()> {
         let source = self.modules.source_for(ctx.module_id);
         let mut params: Vec<TypeId> = vec![];
-        for param_type in &definition.params {
+        for param_type in definition.signature.params.iter().map(|p| p.as_normal().1) {
             let type_id = self.types.force_find_with_generics(
                 source,
                 ctx.module_id,
                 param_type,
-                &definition.type_params,
+                &definition.signature.type_params,
             )?;
 
             params.push(type_id);
@@ -736,8 +736,8 @@ impl Checker {
         let return_type = self.types.force_find_with_generics(
             source,
             ctx.module_id,
-            &definition.return_type,
-            &definition.type_params,
+            &definition.signature.return_type,
+            &definition.signature.type_params,
         )?;
 
         self.types.define_proc(
@@ -770,6 +770,7 @@ impl Checker {
 
         let mut params = vec![];
         for param in proc
+            .signature
             .params
             .iter()
             .filter(|p| p.is_normal())
@@ -782,7 +783,7 @@ impl Checker {
             params.push((param.0.name.clone(), stack_slot));
         }
 
-        let return_type = (definition.return_type, proc.return_type.span);
+        let return_type = (definition.return_type, proc.signature.return_type.span);
 
         let mut proc_ctx = ProcContext {
             return_type: return_type,
@@ -834,7 +835,7 @@ impl Checker {
     ) -> Result<CheckedProc> {
         let scope_data = self
             .scope
-            .find(&proc.ident, ctx.module_id, self)
+            .find(&proc.signature.ident, ctx.module_id, self)
             .expect("Proc to have been added to scope");
 
         self.typecheck_proc_with_type_id(
@@ -1499,7 +1500,7 @@ impl Checker {
                     &proc,
                     type_id,
                     proc_id,
-                    &proc.type_params,
+                    &proc.signature.type_params,
                     &resolved_generics,
                     None,
                     &CheckerContext {
