@@ -312,10 +312,15 @@ StructDefinition: parsed::StructDefinition = {
 }
 
 Impl: parsed::Impl = {
-    "impl" <tajp:Type> "{" <procs:ProcDefinition*> "}" => {
+    "impl" <type_params:GenericParams?> <tajp:Type> "{" <procs:ProcDefinition*> "}" => {
         parsed::Impl {
             tajp,
             procs,
+            type_params: if let Some(type_params) = type_params {
+                type_params
+            } else {
+                vec![]
+            }
         }
     }
 }

@@ -81,7 +81,7 @@ impl Type {
     pub fn as_proc(self) -> ProcStructure {
         match self {
             Type::Proc(structure) => structure,
-            _ => unreachable!(),
+            t => unreachable!("as_proc with {:#?}", t),
         }
     }
 
@@ -878,6 +878,68 @@ impl TypeCollection {
         }
 
         Ok(())
+    }
+
+    pub fn matches(&self, a_type_id: TypeId, b_type_id: TypeId) -> bool {
+        let mut resolved_generics = HashMap::new();
+        self.rec_matches(a_type_id, b_type_id, &mut resolved_generics)
+    }
+
+    fn rec_matches(
+        &self,
+        a_type_id: TypeId,
+        b_type_id: TypeId,
+        resolved_generics: &mut HashMap<GenericId, TypeId>,
+    ) -> bool {
+        if a_type_id == b_type_id {
+            return true;
+        }
+
+        let a_definition = self.get_definition(a_type_id);
+        let b_definition = self.get_definition(b_type_id);
+
+        match (a_definition, b_definition) {
+            (Type::Struct(a_struct), Type::Struct(b_struct)) => {
+                if a_struct.ident == b_struct.ident
+                    && a_struct.module_id == b_struct.module_id
+                    && a_struct.fields.len() == b_struct.fields.len()
+                {
+                    a_struct
+                        .fields
+                        .iter()
+                        .zip(b_struct.fields)
+                        .all(|(a_field, b_field)| {
+                            a_field.ident == b_field.ident
+                                && self.rec_matches(
+                                    a_field.type_id,
+                                    b_field.type_id,
+                                    resolved_generics,
+                                )
+                        })
+                } else {
+                    false
+                }
+            }
+            (Type::Ptr(a_inner_type_id), Type::Ptr(b_inner_type_id)) => {
+                self.rec_matches(a_inner_type_id, b_inner_type_id, resolved_generics)
+            }
+            (Type::Array(a_inner_type_id, a_size), Type::Array(b_inner_type_id, b_size)) => {
+                a_size == b_size
+                    && self.rec_matches(a_inner_type_id, b_inner_type_id, resolved_generics)
+            }
+            (Type::Generic(generic_id), _) => {
+                if let Some(resolved_type_id) = resolved_generics.get(&generic_id) {
+                    *resolved_type_id == b_type_id
+                } else {
+                    resolved_generics.insert(generic_id, b_type_id);
+                    true
+                }
+            }
+            (Type::Proc(_), Type::Proc(_)) => todo!(),
+
+            // NOTE: True case is handled by the if statement above
+            (_, _) => false,
+        }
     }
 }
 

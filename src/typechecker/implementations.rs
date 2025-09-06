@@ -32,6 +32,30 @@ impl ImplementationCollection {
         name: &Ident,
         checker: &Checker,
     ) -> Option<ProcId> {
+        // TODO: Return vec of all matches as there might be more than one
+
+        for implementation in &self.implementations {
+            if checker
+                .types
+                .matches(implementation.for_type_id, for_type_id)
+            {
+                for proc in &implementation.procs {
+                    if name == checker.procs.name_for(*proc) {
+                        return Some(*proc);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    pub fn find_by_exact_type_id_and_name(
+        &self,
+        for_type_id: TypeId,
+        name: &Ident,
+        checker: &Checker,
+    ) -> Option<ProcId> {
         for implementation in &self.implementations {
             if implementation.for_type_id == for_type_id {
                 for proc in &implementation.procs {

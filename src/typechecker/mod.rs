@@ -294,7 +294,7 @@ impl Checker {
             self.modules.source_for(ctx.module_id),
             ctx.module_id,
             &impl_block.tajp,
-            &[],
+            &impl_block.type_params,
         )?;
 
         let mut procs = vec![];
@@ -401,13 +401,13 @@ impl Checker {
                 self.modules.source_for(ctx.module_id),
                 ctx.module_id,
                 &impl_block.tajp,
-                &[],
+                &impl_block.type_params,
             )?;
 
             for proc in &impl_block.procs {
                 let proc_id = self
                     .implementations
-                    .find_by_type_id_and_name(for_type_id, &proc.ident, &self)
+                    .find_by_exact_type_id_and_name(for_type_id, &proc.ident, &self)
                     .expect("To exist");
 
                 self.define_proc(proc, self.procs.type_id_for(proc_id), true, &ctx)?;
@@ -508,6 +508,7 @@ impl Checker {
                     .find_by_type_id_and_name(for_type_id, &proc.ident, &self)
                     .expect("To exist");
 
+                // FIXME: Impl procs should be generated some other way
                 checked_procs.push(self.typecheck_proc_with_type_id(
                     proc,
                     self.procs.type_id_for(proc_id),

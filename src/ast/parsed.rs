@@ -158,6 +158,7 @@ pub enum Import {
 pub struct Impl {
     pub tajp: Type,
     pub procs: Vec<ProcDefinition>,
+    pub type_params: Vec<Ident>,
 }
 
 #[derive(Debug, Clone)]
