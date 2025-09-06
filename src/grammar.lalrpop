@@ -371,6 +371,22 @@ ExternProcDefinition: parsed::ExternProcDefinition = {
     }
 }
 
+ProcSignature: parsed::ProcSignature = {
+    "proc" <ident:Ident> <type_params:GenericParams?> "(" <params:ProcParams> ")" <return_type:Type> => {
+        parsed::ProcSignature {
+            ident,
+            params: params,
+            return_type,
+            type_params: if let Some(type_params) = type_params {
+                type_params
+            } else {
+                vec![]
+            },
+            attributes: vec![]
+        }
+    }
+}
+
 ProcParams = Comma<ProcParam>;
 ProcParam: parsed::ProcParam = {
     <s:@L> "this" <e:@R> => {
@@ -385,19 +401,9 @@ ProcParam: parsed::ProcParam = {
 }
 
 ProcDefinition: parsed::ProcDefinition = {
-    "proc" <ident:Ident> <type_params:GenericParams?> "(" <params:ProcParams> ")" <return_type:Type> <body:Block> => {
+    <signature:ProcSignature> <body:Block> => {
         parsed::ProcDefinition {
-            signature: parsed::ProcSignature {
-                ident,
-                params: params,
-                return_type,
-                type_params: if let Some(type_params) = type_params {
-                    type_params
-                } else {
-                    vec![]
-                },
-                attributes: vec![]
-            },
+            signature,
             body: *body,
         }
     }
