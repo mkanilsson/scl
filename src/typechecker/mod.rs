@@ -21,12 +21,12 @@ use tajp::{
 use crate::{
     ast::parsed::{
         BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, Ident, Impl, Import,
-        ProcDefinition, Stmt, StmtKind, StructDefinition,
+        Interface, ProcDefinition, Stmt, StmtKind, StructDefinition,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
     package::{CheckedPackage, ParsedModule, ParsedPackage},
-    typechecker::implementations::ImplementationCollection,
+    typechecker::implementations::{ImplementationCollection, InterfaceId},
 };
 
 pub mod ast;
@@ -152,6 +152,7 @@ impl Checker {
         let package_id = self.create_module_ids(package.base_module, None)?;
 
         // TODO: Find a way to limit struct and proc lookups in these functions
+        self.declare_interfaces(package_id)?;
         self.declare_structs(package_id)?;
         let generic_procs = self
             .declare_procs(package_id)?
@@ -318,7 +319,17 @@ impl Checker {
             ));
         }
 
-        self.implementations.add(for_type_id, procs);
+        let interface_type_id = if let Some(interface) = &impl_block.interface {
+            Some(
+                self.implementations
+                    .force_find_interface(ctx.module_id, &interface)?,
+            )
+        } else {
+            None
+        };
+
+        self.implementations
+            .add(for_type_id, procs, interface_type_id);
 
         Ok(())
     }
@@ -452,6 +463,20 @@ impl Checker {
 
         for s in &self.modules.unit_for(module_id).structs {
             self.add_struct_name(s, &ctx)?;
+        }
+
+        Ok(())
+    }
+
+    fn declare_interfaces(&mut self, module_id: ModuleId) -> Result<()> {
+        let ctx = CheckerContext { module_id };
+
+        for child_id in self.modules.children_for(module_id).iter() {
+            self.declare_interfaces(*child_id)?;
+        }
+
+        for s in &self.modules.unit_for(module_id).interfaces {
+            self.add_interface_name(s, &ctx)?;
         }
 
         Ok(())
@@ -603,6 +628,14 @@ impl Checker {
         let type_id = self
             .types
             .register_undefined_struct(ctx.module_id, &s.ident);
+        Ok(type_id)
+    }
+
+    fn add_interface_name(&mut self, s: &Interface, ctx: &CheckerContext) -> Result<InterfaceId> {
+        // TODO: Verify that the name is unique
+        let type_id = self
+            .implementations
+            .register_interface(ctx.module_id, &s.ident);
         Ok(type_id)
     }
 
