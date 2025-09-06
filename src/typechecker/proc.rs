@@ -28,7 +28,6 @@ impl Display for ProcId {
 pub struct ProcCollection {
     pub procs: Vec<Proc>,
     pub parsed: HashMap<ModuleId, HashMap<Ident, ProcId>>,
-    pub impls: HashMap<TypeId, HashMap<Ident, ProcId>>,
 }
 
 impl ProcCollection {
@@ -36,7 +35,6 @@ impl ProcCollection {
         Self {
             parsed: HashMap::new(),
             procs: vec![],
-            impls: HashMap::new(),
         }
     }
 
@@ -51,14 +49,6 @@ impl ProcCollection {
         let id = self.generate_proc_id(proc);
         let parsed_for_module = self.parsed.entry(module_id).or_default();
         parsed_for_module.insert(name, id);
-        id
-    }
-
-    pub fn add_impl(&mut self, for_type_id: TypeId, proc: Proc) -> ProcId {
-        let name = proc.name.clone();
-        let id = self.generate_proc_id(proc);
-        let impl_for_type_id = self.impls.entry(for_type_id).or_default();
-        impl_for_type_id.insert(name, id);
         id
     }
 
@@ -79,7 +69,7 @@ impl ProcCollection {
             name: generic.name.clone(),
             generic_instances: generics,
             link_name: None,
-            impl_for: None,
+            has_this: false,
         });
 
         id.into()
@@ -107,23 +97,6 @@ impl ProcCollection {
         }
     }
 
-    pub fn force_find_for_impl(
-        &self,
-        src: &NamedSource<String>,
-        for_type_id: TypeId,
-        ident: &Ident,
-    ) -> Result<ProcId> {
-        if let Some(found) = self.find_for_impl(for_type_id, ident) {
-            Ok(found)
-        } else {
-            Err(Error::UnknownProc {
-                src: src.clone(),
-                span: ident.span,
-                proc_name: ident.name.clone(),
-            })
-        }
-    }
-
     pub fn force_find_for_module_type_of(
         &self,
         src: &NamedSource<String>,
@@ -134,21 +107,8 @@ impl ProcCollection {
         Ok(self.procs[proc_id.0].type_id)
     }
 
-    pub fn force_find_for_impl_type_of(
-        &self,
-        src: &NamedSource<String>,
-        for_type_id: TypeId,
-        ident: &Ident,
-    ) -> Result<TypeId> {
-        let proc_id = self.force_find_for_impl(src, for_type_id, ident)?;
-        Ok(self.procs[proc_id.0].type_id)
-    }
     pub fn find_for_module(&self, module_id: ModuleId, ident: &Ident) -> Option<ProcId> {
         self.parsed.get(&module_id)?.get(ident).copied()
-    }
-
-    pub fn find_for_impl(&self, for_type_id: TypeId, ident: &Ident) -> Option<ProcId> {
-        self.impls.get(&for_type_id)?.get(ident).copied()
     }
 
     pub fn for_scope(&self, module_id: ModuleId) -> Vec<(Ident, TypeId, ProcId)> {
@@ -181,12 +141,13 @@ impl ProcCollection {
                 return "main".to_string();
             }
             let module_name = checker.modules.mangled_name_of(proc.module_id);
-            let base = match &proc.impl_for {
-                Some(data) => {
+
+            let base = match &checker.implementations.is_impl_for(proc_id) {
+                Some(for_type_id) => {
                     format!(
                         "{}..{}.{}",
                         module_name,
-                        checker.types.mangled_name_of(data.for_type_id, checker),
+                        checker.types.mangled_name_of(*for_type_id, checker),
                         proc.name.name
                     )
                 }
@@ -222,8 +183,12 @@ impl ProcCollection {
         self.procs[proc_id.0].type_id
     }
 
-    pub fn impl_data_for(&self, proc_id: ProcId) -> Option<ImplData> {
-        self.procs[proc_id.0].impl_for
+    pub fn has_this_for(&self, proc_id: ProcId) -> bool {
+        self.procs[proc_id.0].has_this
+    }
+
+    pub fn name_for(&self, proc_id: ProcId) -> &Ident {
+        &self.procs[proc_id.0].name
     }
 }
 
@@ -236,20 +201,5 @@ pub struct Proc {
     pub generic: bool,
     pub generic_instances: Vec<TypeId>,
     pub link_name: Option<String>,
-    pub impl_for: Option<ImplData>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct ImplData {
-    pub for_type_id: TypeId,
     pub has_this: bool,
-}
-
-impl ImplData {
-    pub fn new(for_type_id: TypeId, has_this: bool) -> Self {
-        Self {
-            for_type_id,
-            has_this,
-        }
-    }
 }

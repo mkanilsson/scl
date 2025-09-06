@@ -26,10 +26,11 @@ use crate::{
     error::{Error, Result},
     helpers::string_join_with_and,
     package::{CheckedPackage, ParsedModule, ParsedPackage},
-    typechecker::proc::ImplData,
+    typechecker::implementations::ImplementationCollection,
 };
 
 pub mod ast;
+mod implementations;
 pub mod module;
 mod package;
 pub mod proc;
@@ -89,6 +90,7 @@ pub struct Checker {
     modules: ModuleCollection,
     pub procs: ProcCollection,
     packages: PackageCollection,
+    implementations: ImplementationCollection,
     pub instantiated_generic_procs: IndexMap<(ProcId, Vec<TypeId>), (ProcId, CheckedProc)>,
     pub generic_procs: HashMap<ProcId, ProcDefinition>,
 }
@@ -138,6 +140,7 @@ impl Checker {
             packages: PackageCollection::new(),
             instantiated_generic_procs: IndexMap::new(),
             generic_procs: HashMap::new(),
+            implementations: ImplementationCollection::new(),
         }
     }
 
@@ -294,12 +297,14 @@ impl Checker {
             &[],
         )?;
 
+        let mut procs = vec![];
+
         for proc in &impl_block.procs {
             let type_id = self.types.register_undefined_proc();
             let has_this = proc.params.len() > 0 && proc.params[0].is_this();
 
-            self.procs.add_impl(
-                for_type_id,
+            procs.push(self.procs.add(
+                ctx.module_id,
                 Proc {
                     type_id,
                     name: proc.ident.clone(),
@@ -308,10 +313,12 @@ impl Checker {
                     generic: false,
                     generic_instances: Vec::new(),
                     link_name: None,
-                    impl_for: Some(ImplData::new(for_type_id, has_this)),
+                    has_this,
                 },
-            );
+            ));
         }
+
+        self.implementations.add(for_type_id, procs);
 
         Ok(())
     }
@@ -398,16 +405,12 @@ impl Checker {
             )?;
 
             for proc in &impl_block.procs {
-                self.define_proc(
-                    proc,
-                    self.procs.force_find_for_impl_type_of(
-                        self.modules.source_for(ctx.module_id),
-                        for_type_id,
-                        &proc.ident,
-                    )?,
-                    true,
-                    &ctx,
-                )?;
+                let proc_id = self
+                    .implementations
+                    .find_by_type_id_and_name(for_type_id, &proc.ident, &self)
+                    .expect("To exist");
+
+                self.define_proc(proc, self.procs.type_id_for(proc_id), true, &ctx)?;
             }
         }
 
@@ -500,11 +503,10 @@ impl Checker {
             )?;
 
             for proc in &impl_block.procs {
-                let proc_id = self.procs.force_find_for_impl(
-                    self.modules.source_for(ctx.module_id),
-                    for_type_id,
-                    &proc.ident,
-                )?;
+                let proc_id = self
+                    .implementations
+                    .find_by_type_id_and_name(for_type_id, &proc.ident, &self)
+                    .expect("To exist");
 
                 checked_procs.push(self.typecheck_proc_with_type_id(
                     proc,
@@ -631,7 +633,7 @@ impl Checker {
                 generic,
                 generic_instances: Vec::new(),
                 link_name,
-                impl_for: None,
+                has_this: false,
             },
         ))
     }
@@ -1379,7 +1381,6 @@ impl Checker {
         };
 
         let mut type_id = self.procs.type_id_for(proc_id);
-        let impl_data = self.procs.impl_data_for(proc_id);
 
         let proc_type = self.types.get_definition(type_id).as_proc();
 
@@ -1510,9 +1511,7 @@ impl Checker {
             }
         }
 
-        if let Some(impl_data) = impl_data
-            && impl_data.has_this
-        {
+        if self.procs.has_this_for(proc_id) {
             let lhs = *lhs.unwrap();
             let inner_type_id = lhs.type_id;
 
@@ -1892,7 +1891,10 @@ impl Checker {
         checked_lhs: &HasNever<CheckedExpr>,
         member: &Ident,
     ) -> Option<CheckedExpr> {
-        if let Some(proc_id) = self.procs.find_for_impl(checked_lhs.value.type_id, member) {
+        if let Some(proc_id) =
+            self.implementations
+                .find_by_type_id_and_name(checked_lhs.value.type_id, member, self)
+        {
             Some(CheckedExpr {
                 type_id: self.procs.type_id_for(proc_id),
                 kind: CheckedExprKind::Proc {
