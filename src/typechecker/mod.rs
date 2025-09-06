@@ -1560,25 +1560,37 @@ impl Checker {
     ) -> Result<CheckedExpr> {
         match name.as_str() {
             "type_name" => {
-                if params.len() != 1 {
-                    return Err(Error::BuiltinParamCountMismatch {
+                let type_id = if params.len() == 1 {
+                    let checked_param = self
+                        .typecheck_expr(&params[0], None, false, false, block_ctx, proc_ctx, ctx)?;
+                    checked_param.value.type_id
+                } else if generic_params.len() == 1 {
+                    self.types.force_find_with_resolved_generics(
+                        self.modules.source_for(ctx.module_id),
+                        ctx.module_id,
+                        &generic_params[0],
+                        proc_ctx.generics,
+                        proc_ctx.resolved_generics,
+                    )?
+                } else {
+                    return Err(Error::BuiltinGenericOrParamCountMismatch {
                         src: self.modules.source_for(ctx.module_id).clone(),
                         span: expr.span,
                         name: name.to_string(),
-                        expected: 1,
-                        got: params.len(),
-                        variadic: false,
-                    });
-                }
 
-                let checked_param =
-                    self.typecheck_expr(&params[0], None, false, false, block_ctx, proc_ctx, ctx)?;
+                        expected_generic: 1,
+                        got_generic: generic_params.len(),
+                        variadic_generic: true,
+
+                        expected_params: 1,
+                        got_params: params.len(),
+                        variadic_params: false,
+                    });
+                };
 
                 Ok(CheckedExpr {
                     type_id: STRING_TYPE_ID,
-                    kind: CheckedExprKind::String(
-                        self.types.name_of(checked_param.value.type_id, self),
-                    ),
+                    kind: CheckedExprKind::String(self.types.name_of(type_id, self)),
                     lvalue: false,
                 })
             }

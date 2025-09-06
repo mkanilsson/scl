@@ -235,6 +235,30 @@ pub enum Error {
 
         variadic: bool,
     },
+    #[error(
+        "Builtin '{name}' expects {}{expected_generic} generic argument{} or {expected_params} argument{} but got {got_generic} generic arugment{} and {got_params} argument{}",
+        if *variadic_generic { "at least " } else { "" },
+        if *expected_generic != 1 { "s" } else { "" },
+        if *expected_params != 1 { "s" } else { "" },
+        if *got_generic != 1 { "s" } else { "" },
+        if *got_params != 1 { "s" } else { "" }
+    )]
+    BuiltinGenericOrParamCountMismatch {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+        name: String,
+
+        expected_generic: usize,
+        got_generic: usize,
+        variadic_generic: bool,
+
+        expected_params: usize,
+        got_params: usize,
+        variadic_params: bool,
+    },
     #[error("Struct field named '{name}' has already been defined")]
     StructFieldNameCollision {
         #[source_code]
