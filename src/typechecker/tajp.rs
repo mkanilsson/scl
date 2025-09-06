@@ -9,6 +9,7 @@ use crate::{
         parsed::{GenericParam, Ident},
     },
     error::{Error, Result},
+    typechecker::implementations::InterfaceId,
 };
 
 use super::{Checker, module::ModuleId};
@@ -56,6 +57,7 @@ pub enum Type {
     Array(TypeId, usize),
 
     Generic(GenericId),
+    Constraints(Vec<InterfaceId>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -189,6 +191,9 @@ impl Type {
             Type::Generic(_) => {
                 format!("(TODO: Generic args in {}:{})", file!(), line!())
             }
+            Type::Constraints(_) => {
+                todo!()
+            }
             Type::UndefinedStruct | Type::UndefinedProc => {
                 unreachable!()
             }
@@ -242,7 +247,7 @@ impl Type {
             Type::Array(inner, size) => {
                 format!("A..{size}..{}", collection.mangled_name_of(*inner, checker))
             }
-            Type::Generic(_) => {
+            Type::Generic(_) | Type::Constraints(_) => {
                 unreachable!()
             }
             Type::UndefinedStruct | Type::UndefinedProc => {
@@ -601,7 +606,7 @@ impl TypeCollection {
             Type::UndefinedStruct | Type::UndefinedProc => {
                 unreachable!()
             }
-            Type::Generic(_) => {
+            Type::Generic(_) | Type::Constraints(_) => {
                 unreachable!("Should've been resolved to a real type")
             }
         }
@@ -668,7 +673,7 @@ impl TypeCollection {
             Type::UndefinedStruct | Type::UndefinedProc => {
                 unreachable!()
             }
-            Type::Generic(_) => {
+            Type::Generic(_) | Type::Constraints(_) => {
                 unreachable!("Should've been resolved to a real type")
             }
         }
@@ -884,9 +889,9 @@ impl TypeCollection {
         Ok(())
     }
 
-    pub fn matches(&self, a_type_id: TypeId, b_type_id: TypeId) -> bool {
+    pub fn matches(&self, a_type_id: TypeId, b_type_id: TypeId, checker: &Checker) -> bool {
         let mut resolved_generics = HashMap::new();
-        self.rec_matches(a_type_id, b_type_id, &mut resolved_generics)
+        self.rec_matches(a_type_id, b_type_id, &mut resolved_generics, checker)
     }
 
     fn rec_matches(
@@ -894,6 +899,7 @@ impl TypeCollection {
         a_type_id: TypeId,
         b_type_id: TypeId,
         resolved_generics: &mut HashMap<GenericId, TypeId>,
+        checker: &Checker,
     ) -> bool {
         if a_type_id == b_type_id {
             return true;
@@ -918,6 +924,7 @@ impl TypeCollection {
                                     a_field.type_id,
                                     b_field.type_id,
                                     resolved_generics,
+                                    checker,
                                 )
                         })
                 } else {
@@ -925,11 +932,16 @@ impl TypeCollection {
                 }
             }
             (Type::Ptr(a_inner_type_id), Type::Ptr(b_inner_type_id)) => {
-                self.rec_matches(a_inner_type_id, b_inner_type_id, resolved_generics)
+                self.rec_matches(a_inner_type_id, b_inner_type_id, resolved_generics, checker)
             }
             (Type::Array(a_inner_type_id, a_size), Type::Array(b_inner_type_id, b_size)) => {
                 a_size == b_size
-                    && self.rec_matches(a_inner_type_id, b_inner_type_id, resolved_generics)
+                    && self.rec_matches(
+                        a_inner_type_id,
+                        b_inner_type_id,
+                        resolved_generics,
+                        checker,
+                    )
             }
             (Type::Generic(generic_id), _) => {
                 if let Some(resolved_type_id) = resolved_generics.get(&generic_id) {
@@ -939,6 +951,11 @@ impl TypeCollection {
                     true
                 }
             }
+            (_, Type::Constraints(interfaces)) => interfaces.iter().all(|interface| {
+                checker
+                    .implementations
+                    .type_implements(a_type_id, *interface, checker)
+            }),
             (Type::Proc(_), Type::Proc(_)) => todo!(),
 
             // NOTE: True case is handled by the if statement above

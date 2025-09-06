@@ -51,10 +51,6 @@ impl Codegen {
             }
         }
 
-        for proc in &self.checker.instantiated_generic_procs {
-            self.codegen_proc(&proc.1.1, &mut module);
-        }
-
         format!("{}", module)
     }
 

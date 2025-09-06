@@ -4,7 +4,6 @@ use ast::{
     CheckedBlock, CheckedBuiltin, CheckedExpr, CheckedExprKind, CheckedProc, CheckedStmt,
     CheckedTranslationUnit,
 };
-use indexmap::IndexMap;
 use miette::SourceSpan;
 use module::{Module, ModuleCollection, ModuleId};
 use package::PackageCollection;
@@ -91,7 +90,6 @@ pub struct Checker {
     pub procs: ProcCollection,
     packages: PackageCollection,
     implementations: ImplementationCollection,
-    pub instantiated_generic_procs: IndexMap<(ProcId, Vec<TypeId>), (ProcId, CheckedProc)>,
     pub generic_procs: HashMap<ProcId, ProcDefinition>,
 }
 
@@ -138,7 +136,6 @@ impl Checker {
             modules: ModuleCollection::new(),
             procs: ProcCollection::new(),
             packages: PackageCollection::new(),
-            instantiated_generic_procs: IndexMap::new(),
             generic_procs: HashMap::new(),
             implementations: ImplementationCollection::new(),
         }
@@ -311,8 +308,7 @@ impl Checker {
                     name: proc.signature.ident.clone(),
                     module_id: ctx.module_id,
                     external: false,
-                    generic: false,
-                    generic_instances: Vec::new(),
+                    generics: Vec::new(),
                     link_name: None,
                     has_this,
                 },
@@ -643,7 +639,7 @@ impl Checker {
         &mut self,
         ident: Ident,
         external: bool,
-        generic: bool,
+        generics: Vec<TypeId>,
         link_name: Option<String>,
         ctx: &CheckerContext,
     ) -> Result<ProcId> {
@@ -664,8 +660,7 @@ impl Checker {
                 name: ident,
                 module_id: ctx.module_id,
                 external,
-                generic,
-                generic_instances: Vec::new(),
+                generics,
                 link_name,
                 has_this: false,
             },
@@ -691,17 +686,31 @@ impl Checker {
             }
         }
 
-        self.add_proc(proc.signature.ident.clone(), true, false, link_name, ctx)
+        self.add_proc(
+            proc.signature.ident.clone(),
+            true,
+            Vec::new(),
+            link_name,
+            ctx,
+        )
     }
 
     fn add_proc_name(&mut self, proc: &ProcDefinition, ctx: &CheckerContext) -> Result<ProcId> {
-        self.add_proc(
-            proc.signature.ident.clone(),
-            false,
-            !proc.signature.type_params.is_empty(),
-            None,
-            ctx,
-        )
+        let mut generics = vec![];
+
+        for generic in &proc.signature.type_params {
+            let mut constraints = vec![];
+            for interface in &generic.constraints {
+                constraints.push(
+                    self.implementations
+                        .force_find_interface(ctx.module_id, interface)?,
+                );
+            }
+
+            generics.push(self.types.register_type(Type::Constraints(constraints)));
+        }
+
+        self.add_proc(proc.signature.ident.clone(), false, generics, None, ctx)
     }
 
     fn define_struct(
@@ -1508,41 +1517,28 @@ impl Checker {
             .types
             .resolve_generic_type(proc_type.return_type, &resolved_generics)?;
 
-        if self.procs.is_generic(proc_id) {
+        let generics = self.procs.generics_for(proc_id);
+
+        if generics.len() > 0 {
             let mut generic_types = resolved_generics.iter().collect::<Vec<_>>();
             generic_types.sort_by(|a, b| a.0.cmp(b.0));
             let generic_types: Vec<TypeId> = generic_types.into_iter().map(|t| t.1.value).collect();
 
-            if let Some((nongeneric_proc_id, _)) = self
-                .instantiated_generic_procs
-                .get(&(proc_id, generic_types.clone()))
-            {
-                proc_id = *nongeneric_proc_id;
-            } else {
-                type_id = self
-                    .types
-                    .resolve_generic_type(type_id, &resolved_generics)?;
+            if generics.len() != generic_types.len() {
+                todo!("Nice error message about generics missmatch");
+            }
 
-                let proc = self.generic_procs.get(&proc_id).unwrap().clone();
-                let nongeneric_proc_id = proc_id;
-                proc_id = self
-                    .procs
-                    .add_generic(proc_id, type_id, generic_types.clone());
+            let matches =
+                generic_types
+                    .iter()
+                    .zip(generics)
+                    .all(|(concrete_type_id, constraint_type_id)| {
+                        self.types
+                            .matches(*concrete_type_id, *constraint_type_id, self)
+                    });
 
-                let checked = self.typecheck_proc_with_type_id(
-                    &proc,
-                    type_id,
-                    proc_id,
-                    &proc.signature.type_params,
-                    &resolved_generics,
-                    None,
-                    &CheckerContext {
-                        module_id: self.procs.module_for(nongeneric_proc_id),
-                    },
-                )?;
-
-                self.instantiated_generic_procs
-                    .insert((nongeneric_proc_id, generic_types), (proc_id, checked));
+            if !matches {
+                todo!("Nice error message about constraints not met");
             }
         }
 

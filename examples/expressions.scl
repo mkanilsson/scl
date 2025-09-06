@@ -16,5 +16,17 @@ impl Print for Thing {
 }
 
 proc main() void {
+    let t = Thing {
+        a: 69
+    };
+    
+    generic(t);
+    generic(87);
+
+    ret;
+}
+
+proc generic<T: Print>(value: T) void {
+    value.print();
     ret;
 }

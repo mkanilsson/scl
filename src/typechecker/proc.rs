@@ -5,6 +5,7 @@ use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::Ident;
 use crate::error::{Error, Result};
+use crate::typechecker::tajp::GenericId;
 
 use super::Checker;
 use super::{module::ModuleId, tajp::TypeId};
@@ -62,12 +63,11 @@ impl ProcCollection {
 
         let generic = &self.procs[original.0];
         self.procs.push(Proc {
-            generic: false,
             external: false,
             module_id: generic.module_id,
             type_id,
             name: generic.name.clone(),
-            generic_instances: generics,
+            generics: vec![],
             link_name: None,
             has_this: false,
         });
@@ -156,23 +156,16 @@ impl ProcCollection {
                 }
             };
 
-            if !proc.generic_instances.is_empty() {
-                let types = proc
-                    .generic_instances
-                    .iter()
-                    .map(|t| checker.types.mangled_name_of(*t, checker))
-                    .collect::<Vec<_>>()
-                    .join("..");
-
-                format!("{base}..{}..{types}", proc.generic_instances.len())
-            } else {
-                base
-            }
+            base
         }
     }
 
+    pub fn generics_for(&self, proc_id: ProcId) -> &Vec<TypeId> {
+        &self.procs[proc_id.0].generics
+    }
+
     pub fn is_generic(&self, proc_id: ProcId) -> bool {
-        self.procs[proc_id.0].generic
+        self.procs[proc_id.0].generics.len() != 0
     }
 
     pub fn module_for(&self, proc_id: ProcId) -> ModuleId {
@@ -198,8 +191,7 @@ pub struct Proc {
     pub type_id: TypeId,
     pub module_id: ModuleId,
     pub external: bool,
-    pub generic: bool,
-    pub generic_instances: Vec<TypeId>,
+    pub generics: Vec<TypeId>,
     pub link_name: Option<String>,
     pub has_this: bool,
 }

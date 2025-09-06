@@ -79,7 +79,7 @@ impl ImplementationCollection {
         for implementation in &self.implementations {
             if checker
                 .types
-                .matches(implementation.for_type_id, for_type_id)
+                .matches(implementation.for_type_id, for_type_id, checker)
             {
                 for proc in &implementation.procs {
                     if name == checker.procs.name_for(*proc) {
@@ -133,5 +133,26 @@ impl ImplementationCollection {
 
     pub fn find_interface(&self, module_id: ModuleId, t: &Type) -> Option<InterfaceId> {
         self.parsed.get(&module_id)?.get(&t.kind).copied()
+    }
+
+    pub fn type_implements(
+        &self,
+        for_type_id: TypeId,
+        interface_id: InterfaceId,
+        checker: &Checker,
+    ) -> bool {
+        for implementation in &self.implementations {
+            if let Some(interface_id_for_impl) = implementation.interface {
+                if interface_id_for_impl == interface_id
+                    && checker
+                        .types
+                        .matches(implementation.for_type_id, for_type_id, checker)
+                {
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 }
