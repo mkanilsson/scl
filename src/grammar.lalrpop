@@ -254,9 +254,34 @@ CallTypeParams: Vec<tajp::Type> = {
 }
 
 Idents = Comma<Ident>;
-GenericParams: Vec<parsed::Ident> = {
-    "<" <idents:Idents> ">" => {
-        idents
+GenericParams: Vec<parsed::GenericParam> = {
+    "<" <params:Comma<GenericParam>> ">" => {
+        params
+    }
+}
+
+GenericParam: parsed::GenericParam = {
+    <ident:Ident> => {
+        parsed::GenericParam {
+            ident,
+            constraints: vec![]
+        }
+    },
+    <ident:Ident> ":" <constraints:InterfaceConstraints> => {
+        parsed::GenericParam {
+            ident,
+            constraints,
+        }
+    }
+}
+
+InterfaceConstraints: Vec<tajp::Type> = {
+    <first:Type> => {
+        vec![first]
+    },
+    <mut first:InterfaceConstraints> "+" <last:Type> => {
+        first.push(last);
+        first
     }
 }
 

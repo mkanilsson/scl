@@ -4,7 +4,10 @@ use miette::{NamedSource, SourceSpan};
 use strum::EnumIs;
 
 use crate::{
-    ast::{self, parsed::Ident},
+    ast::{
+        self,
+        parsed::{GenericParam, Ident},
+    },
     error::{Error, Result},
 };
 
@@ -354,7 +357,7 @@ impl TypeCollection {
         src: &NamedSource<String>,
         module_id: ModuleId,
         t: &ast::tajp::Type,
-        generics: &[Ident],
+        generics: &[GenericParam],
     ) -> Result<TypeId> {
         if let Some(found) = self.find(module_id, t) {
             Ok(found)
@@ -368,7 +371,7 @@ impl TypeCollection {
         src: &NamedSource<String>,
         module_id: ModuleId,
         t: &ast::tajp::Type,
-        generics: &[Ident],
+        generics: &[GenericParam],
         resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
     ) -> Result<TypeId> {
         let type_id = self.force_find_with_generics(src, module_id, t, generics)?;
@@ -380,11 +383,12 @@ impl TypeCollection {
         src: &NamedSource<String>,
         module_id: ModuleId,
         t: &ast::tajp::Type,
-        generics: &[Ident],
+        generics: &[GenericParam],
     ) -> Result<TypeId> {
         match &t.kind {
             ast::tajp::TypeKind::Named(name) => {
-                if let Some(generic_id) = generics.iter().position(|t| t == name) {
+                if let Some(generic_id) = generics.iter().position(|t| t.ident == *name) {
+                    // TODO: Add constraints
                     Ok(self.register_type(Type::Generic(GenericId(generic_id))))
                 } else {
                     Err(Error::UnknownType {
@@ -444,7 +448,7 @@ impl TypeCollection {
         src: &NamedSource<String>,
         module_id: ModuleId,
         name: &Ident,
-        generics: &[Ident],
+        generics: &[GenericParam],
     ) -> Result<TypeId> {
         self.force_find_with_generics(
             src,

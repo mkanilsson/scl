@@ -20,8 +20,8 @@ use tajp::{
 
 use crate::{
     ast::parsed::{
-        BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, Ident, Impl, Import,
-        Interface, ProcDefinition, Stmt, StmtKind, StructDefinition,
+        BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, GenericParam, Ident, Impl,
+        Import, Interface, ProcDefinition, Stmt, StmtKind, StructDefinition,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
@@ -102,7 +102,7 @@ struct CheckerContext {
 struct ProcContext<'a> {
     return_type: (TypeId, SourceSpan),
     stack_slots: &'a mut StackSlots,
-    generics: &'a [Ident],
+    generics: &'a [GenericParam],
     resolved_generics: &'a HashMap<GenericId, Spanned<TypeId>>,
     this: Option<TypeId>,
 }
@@ -790,7 +790,7 @@ impl Checker {
         proc: &ProcDefinition,
         type_id: TypeId,
         proc_id: ProcId,
-        generics: &[Ident],
+        generics: &[GenericParam],
         resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
         this_type_id: Option<TypeId>,
         ctx: &CheckerContext,

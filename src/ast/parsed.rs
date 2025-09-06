@@ -159,7 +159,7 @@ pub enum Import {
 pub struct Impl {
     pub tajp: Type,
     pub procs: Vec<ProcDefinition>,
-    pub type_params: Vec<Ident>,
+    pub type_params: Vec<GenericParam>,
     pub interface: Option<Type>,
 }
 
@@ -179,6 +179,12 @@ pub struct ProcDefinition {
 pub enum ProcParam {
     This(SourceSpan),
     Normal { ident: Ident, tajp: Type },
+}
+
+#[derive(Debug, Clone)]
+pub struct GenericParam {
+    pub ident: Ident,
+    pub constraints: Vec<Type>,
 }
 
 impl ProcParam {
@@ -201,7 +207,7 @@ pub struct ProcSignature {
     pub ident: Ident,
     pub params: Vec<ProcParam>,
     pub return_type: Type,
-    pub type_params: Vec<Ident>,
+    pub type_params: Vec<GenericParam>,
     pub attributes: Vec<Builtin>,
 }
 
@@ -209,7 +215,7 @@ pub struct ProcSignature {
 pub struct StructDefinition {
     pub ident: Ident,
     pub fields: Vec<(Ident, Type)>,
-    pub type_params: Vec<Ident>,
+    pub type_params: Vec<GenericParam>,
 }
 
 #[derive(Debug, Clone)]
