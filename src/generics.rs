@@ -92,7 +92,7 @@ impl<'a> Generic<'a> {
             | CheckedExprKind::Number(_)
             | CheckedExprKind::String(_)
             | CheckedExprKind::This => expr.kind.clone(),
-            CheckedExprKind::Proc { .. } => todo!(),
+            CheckedExprKind::Proc { .. } | CheckedExprKind::InterfaceProc { .. } => unreachable!(),
             CheckedExprKind::BinOp { lhs, op, rhs } => CheckedExprKind::BinOp {
                 lhs: Box::new(self.transform_expr(&lhs, mapping)),
                 op: *op,
@@ -112,6 +112,30 @@ impl<'a> Generic<'a> {
                 variadic_after: *variadic_after,
                 stack_slot: *stack_slot,
             },
+            CheckedExprKind::InterfaceCall {
+                for_type_id,
+                proc_id,
+                interface_id,
+                params,
+                variadic_after,
+                stack_slot,
+            } => {
+                let for_type_id = self.transform_type_id(*for_type_id, mapping);
+                let proc_id = self
+                    .checker
+                    .implementations
+                    .map_proc_via_interface_and_type(*proc_id, for_type_id, *interface_id);
+
+                CheckedExprKind::DirectCall {
+                    proc_id,
+                    params: params
+                        .iter()
+                        .map(|expr| self.transform_expr(expr, mapping))
+                        .collect(),
+                    variadic_after: *variadic_after,
+                    stack_slot: *stack_slot,
+                }
+            }
             CheckedExprKind::StructInstantiation {
                 name,
                 stack_slot,

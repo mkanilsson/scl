@@ -3,19 +3,22 @@ use std::collections::HashMap;
 use crate::{
     ast::{self, parsed::Ident, tajp::TypeKind},
     error::Result,
-    typechecker::{
-        Checker,
-        module::ModuleId,
-        proc::ProcId,
-        tajp::{IdentTypeId, TypeId},
-    },
+    typechecker::{Checker, module::ModuleId, proc::ProcId, tajp::TypeId},
 };
 
 #[derive(Debug)]
 pub struct Implementation {
     for_type_id: TypeId,
-    procs: Vec<ProcId>,
-    interface: Option<InterfaceId>,
+    kind: ImplementationKind,
+}
+
+#[derive(Debug)]
+pub enum ImplementationKind {
+    Interface {
+        interface_id: InterfaceId,
+        procs: HashMap<ProcId, ProcId>,
+    },
+    Normal(Vec<ProcId>),
 }
 
 #[derive(Debug)]
@@ -50,11 +53,52 @@ impl ImplementationCollection {
         }
     }
 
-    pub fn add(&mut self, for_type_id: TypeId, procs: Vec<ProcId>, interface: Option<InterfaceId>) {
+    pub fn add(&mut self, for_type_id: TypeId, procs: Vec<ProcId>) {
         self.implementations.push(Implementation {
             for_type_id,
-            procs,
-            interface,
+            kind: ImplementationKind::Normal(procs),
+        });
+    }
+
+    pub fn map_proc_via_interface_and_type(
+        &self,
+        proc_id: ProcId,
+        for_type_id: TypeId,
+        interface_id: InterfaceId,
+    ) -> ProcId {
+        for implementation in &self.implementations {
+            if implementation.for_type_id != for_type_id {
+                continue;
+            }
+
+            match &implementation.kind {
+                ImplementationKind::Interface {
+                    interface_id: interface_id_for_impl,
+                    procs,
+                } => {
+                    if *interface_id_for_impl == interface_id {
+                        return *procs.get(&proc_id).unwrap();
+                    }
+                }
+                ImplementationKind::Normal(_) => {}
+            }
+        }
+
+        unreachable!()
+    }
+
+    pub fn add_for_interface(
+        &mut self,
+        for_type_id: TypeId,
+        procs: HashMap<ProcId, ProcId>,
+        interface_id: InterfaceId,
+    ) {
+        self.implementations.push(Implementation {
+            for_type_id,
+            kind: ImplementationKind::Interface {
+                interface_id,
+                procs,
+            },
         });
     }
 
@@ -89,9 +133,20 @@ impl ImplementationCollection {
                 .types
                 .matches(implementation.for_type_id, for_type_id, checker)
             {
-                for proc in &implementation.procs {
-                    if name == checker.procs.name_for(*proc) {
-                        return Some(*proc);
+                match &implementation.kind {
+                    ImplementationKind::Normal(procs) => {
+                        for proc in procs {
+                            if name == checker.procs.name_for(*proc) {
+                                return Some(*proc);
+                            }
+                        }
+                    }
+                    ImplementationKind::Interface { procs, .. } => {
+                        for proc in procs {
+                            if name == checker.procs.name_for(*proc.1) {
+                                return Some(*proc.1);
+                            }
+                        }
                     }
                 }
             }
@@ -108,9 +163,20 @@ impl ImplementationCollection {
     ) -> Option<ProcId> {
         for implementation in &self.implementations {
             if implementation.for_type_id == for_type_id {
-                for proc in &implementation.procs {
-                    if name == checker.procs.name_for(*proc) {
-                        return Some(*proc);
+                match &implementation.kind {
+                    ImplementationKind::Normal(procs) => {
+                        for proc in procs {
+                            if name == checker.procs.name_for(*proc) {
+                                return Some(*proc);
+                            }
+                        }
+                    }
+                    ImplementationKind::Interface { procs, .. } => {
+                        for proc in procs {
+                            if name == checker.procs.name_for(*proc.1) {
+                                return Some(*proc.1);
+                            }
+                        }
                     }
                 }
             }
@@ -121,9 +187,20 @@ impl ImplementationCollection {
 
     pub fn is_impl_for(&self, proc_id: ProcId) -> Option<TypeId> {
         for implementation in &self.implementations {
-            for proc in &implementation.procs {
-                if *proc == proc_id {
-                    return Some(implementation.for_type_id);
+            match &implementation.kind {
+                ImplementationKind::Normal(procs) => {
+                    for proc in procs {
+                        if *proc == proc_id {
+                            return Some(implementation.for_type_id);
+                        }
+                    }
+                }
+                ImplementationKind::Interface { procs, .. } => {
+                    for proc in procs {
+                        if *proc.1 == proc_id {
+                            return Some(implementation.for_type_id);
+                        }
+                    }
                 }
             }
         }
@@ -162,14 +239,20 @@ impl ImplementationCollection {
         checker: &Checker,
     ) -> bool {
         for implementation in &self.implementations {
-            if let Some(interface_id_for_impl) = implementation.interface {
-                if interface_id_for_impl == interface_id
-                    && checker
-                        .types
-                        .matches(implementation.for_type_id, for_type_id, checker)
-                {
-                    return true;
+            match &implementation.kind {
+                ImplementationKind::Interface {
+                    interface_id: interface_id_for_impl,
+                    ..
+                } => {
+                    if *interface_id_for_impl == interface_id
+                        && checker
+                            .types
+                            .matches(implementation.for_type_id, for_type_id, checker)
+                    {
+                        return true;
+                    }
                 }
+                ImplementationKind::Normal(_) => {}
             }
         }
 
@@ -193,10 +276,39 @@ impl ImplementationCollection {
         None
     }
 
+    pub fn get_interface(&self, interface_id: InterfaceId) -> &Interface {
+        self.interfaces
+            .get(interface_id.0)
+            .as_ref()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+    }
+
     pub fn name_of(&self, interface_id: InterfaceId, checker: &Checker) -> String {
         let interface = self.interfaces[interface_id.0].as_ref().unwrap();
         let module = checker.modules.mangled_name_of(interface.module_id);
 
         format!("{module}.{}", interface.ident.name)
+    }
+
+    pub fn get_interface_for_proc(&self, proc_id: ProcId) -> Option<InterfaceId> {
+        for implementation in &self.implementations {
+            match &implementation.kind {
+                ImplementationKind::Interface {
+                    interface_id,
+                    procs,
+                } => {
+                    for proc in procs {
+                        if *proc.1 == proc_id {
+                            return Some(*interface_id);
+                        }
+                    }
+                }
+                ImplementationKind::Normal(_) => continue,
+            }
+        }
+
+        None
     }
 }

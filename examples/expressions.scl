@@ -21,7 +21,6 @@ proc main() void {
     };
     
     generic(t);
-    generic(87);
 
     ret;
 }

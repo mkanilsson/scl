@@ -1,6 +1,6 @@
 use strum::{Display, EnumIs};
 
-use crate::ast::parsed::BinOp;
+use crate::{ast::parsed::BinOp, typechecker::implementations::InterfaceId};
 
 use super::{
     proc::ProcId,
@@ -57,6 +57,12 @@ pub enum CheckedExprKind {
         proc_id: ProcId,
         lhs: Option<Box<CheckedExpr>>,
     },
+    InterfaceProc {
+        for_type_id: TypeId,
+        interface_id: InterfaceId,
+        proc_id: ProcId,
+        lhs: Option<Box<CheckedExpr>>,
+    },
     This,
     BinOp {
         lhs: Box<CheckedExpr>,
@@ -65,6 +71,14 @@ pub enum CheckedExprKind {
     },
     DirectCall {
         proc_id: ProcId,
+        params: Vec<CheckedExpr>,
+        variadic_after: Option<u64>,
+        stack_slot: StackSlotId,
+    },
+    InterfaceCall {
+        for_type_id: TypeId,
+        proc_id: ProcId,
+        interface_id: InterfaceId,
         params: Vec<CheckedExpr>,
         variadic_after: Option<u64>,
         stack_slot: StackSlotId,

@@ -74,6 +74,7 @@ impl ProcCollection {
             generics,
             link_name: None,
             has_this: generic.has_this,
+            impl_of: generic.impl_of,
         });
 
         id.into()
@@ -143,12 +144,24 @@ impl ProcCollection {
 
             let base = match &checker.implementations.is_impl_for(proc_id) {
                 Some(for_type_id) => {
-                    format!(
-                        "{}..{}.{}",
-                        module_name,
-                        checker.types.mangled_name_of(*for_type_id, checker),
-                        proc.name.name
-                    )
+                    if let Some(interface_id) =
+                        checker.implementations.get_interface_for_proc(proc_id)
+                    {
+                        format!(
+                            "{}..{}..{}.{}",
+                            module_name,
+                            checker.types.mangled_name_of(*for_type_id, checker),
+                            checker.implementations.name_of(interface_id, checker),
+                            proc.name.name
+                        )
+                    } else {
+                        format!(
+                            "{}..{}.{}",
+                            module_name,
+                            checker.types.mangled_name_of(*for_type_id, checker),
+                            proc.name.name
+                        )
+                    }
                 }
                 None => {
                     format!("{}.{}", module_name, proc.name.name)
@@ -193,6 +206,10 @@ impl ProcCollection {
     pub fn name_for(&self, proc_id: ProcId) -> &Ident {
         &self.procs[proc_id.0].name
     }
+
+    pub fn impl_of_for(&self, proc_id: ProcId) -> Option<ProcId> {
+        self.procs[proc_id.0].impl_of
+    }
 }
 
 #[derive(Debug)]
@@ -204,4 +221,5 @@ pub struct Proc {
     pub generics: Vec<TypeId>,
     pub link_name: Option<String>,
     pub has_this: bool,
+    pub impl_of: Option<ProcId>,
 }

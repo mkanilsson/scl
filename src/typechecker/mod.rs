@@ -93,7 +93,7 @@ pub struct Checker {
     modules: ModuleCollection,
     pub procs: ProcCollection,
     packages: PackageCollection,
-    implementations: ImplementationCollection,
+    pub implementations: ImplementationCollection,
     pub generic_procs: HashMap<ProcId, CheckedProc>,
     pub generic_instances: Vec<GenericInstanceData>,
 }
@@ -305,9 +305,85 @@ impl Checker {
             &impl_block.type_params,
         )?;
 
+        if let Some(interface) = &impl_block.interface {
+            self.add_impl_for(impl_block, for_type_id, interface, ctx)
+        } else {
+            self.add_impl_no_for(impl_block, for_type_id, ctx)
+        }
+    }
+
+    fn add_impl_for(
+        &mut self,
+        impl_block: &Impl,
+        for_type_id: TypeId,
+        interface: &crate::ast::tajp::Type,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
+        let interface_id = self
+            .implementations
+            .force_find_interface(ctx.module_id, &interface.kind)?;
+
+        let interface = self.implementations.get_interface(interface_id);
+
+        let checked: HashSet<ProcId> = HashSet::new();
+
+        let procs = interface
+            .procs
+            .iter()
+            .map(|proc_id| (proc_id, self.procs.name_for(*proc_id).clone()))
+            .collect::<Vec<_>>();
+
+        let mut impl_procs = HashMap::new();
+
+        for proc in &impl_block.procs {
+            if let Some(p) = procs.iter().find(|p| p.1 == proc.signature.ident) {
+                if checked.contains(p.0) {
+                    todo!("Nice error message about proc already being defined");
+                }
+
+                // FIXME: Verify signature
+                let has_this =
+                    proc.signature.params.len() > 0 && proc.signature.params[0].is_this();
+
+                let type_id = self.procs.type_id_for(*p.0);
+
+                impl_procs.insert(
+                    *p.0,
+                    self.procs.add(
+                        ctx.module_id,
+                        Proc {
+                            type_id,
+                            name: proc.signature.ident.clone(),
+                            module_id: ctx.module_id,
+                            external: false,
+                            generics: Vec::new(),
+                            link_name: None,
+                            has_this,
+                            impl_of: Some(*p.0),
+                        },
+                    ),
+                );
+            } else {
+                todo!("Nice error message about name not being a part of the interface");
+            }
+        }
+
+        self.implementations
+            .add_for_interface(for_type_id, impl_procs, interface_id);
+
+        Ok(())
+    }
+
+    fn add_impl_no_for(
+        &mut self,
+        impl_block: &Impl,
+        for_type_id: TypeId,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
         let mut procs = vec![];
 
         for proc in &impl_block.procs {
+            // FIXME: it should have a type...
             let type_id = self.types.register_undefined_proc();
             let has_this = proc.signature.params.len() > 0 && proc.signature.params[0].is_this();
 
@@ -321,22 +397,12 @@ impl Checker {
                     generics: Vec::new(),
                     link_name: None,
                     has_this,
+                    impl_of: None,
                 },
             ));
         }
 
-        let interface_type_id = if let Some(interface) = &impl_block.interface {
-            Some(
-                self.implementations
-                    .force_find_interface(ctx.module_id, &interface.kind)?,
-            )
-        } else {
-            None
-        };
-
-        self.implementations
-            .add(for_type_id, procs, interface_type_id);
-
+        self.implementations.add(for_type_id, procs);
         Ok(())
     }
 
@@ -410,8 +476,6 @@ impl Checker {
         let mut procs = vec![];
         for signature in &interface.signatures {
             let type_id = self.types.register_undefined_proc();
-            self.define_proc(signature, type_id, true, ctx)?;
-
             let proc_id = self.procs.add(
                 ctx.module_id,
                 Proc {
@@ -422,8 +486,10 @@ impl Checker {
                     generics: vec![],
                     link_name: None,
                     has_this: signature.params.len() > 0 && signature.params[0].is_this(),
+                    impl_of: None,
                 },
             );
+            self.define_proc(signature, proc_id, true, ctx)?;
 
             procs.push(proc_id);
         }
@@ -452,7 +518,7 @@ impl Checker {
         for proc in &unit.procs {
             self.define_proc(
                 &proc.signature,
-                self.procs.force_find_for_module_type_of(
+                self.procs.force_find_for_module(
                     self.modules.source_for(ctx.module_id),
                     ctx.module_id,
                     &proc.signature.ident,
@@ -476,7 +542,7 @@ impl Checker {
                     .find_by_exact_type_id_and_name(for_type_id, &proc.signature.ident, &self)
                     .expect("To exist");
 
-                self.define_proc(&proc.signature, self.procs.type_id_for(proc_id), true, &ctx)?;
+                self.define_proc(&proc.signature, proc_id, true, &ctx)?;
             }
         }
 
@@ -613,7 +679,7 @@ impl Checker {
     fn define_proc(
         &mut self,
         signature: &ProcSignature,
-        type_id: TypeId,
+        proc_id: ProcId,
         is_impl: bool,
         ctx: &CheckerContext,
     ) -> Result<TypeId> {
@@ -668,14 +734,20 @@ impl Checker {
             &signature.type_params,
         )?;
 
-        self.types.define_proc(
-            type_id,
-            Type::Proc(ProcStructure {
-                params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
-                return_type,
-                variadic: false,
-            }),
-        );
+        let type_id = if let Some(impl_of) = self.procs.impl_of_for(proc_id) {
+            self.procs.type_id_for(impl_of)
+        } else {
+            let type_id = self.procs.type_id_for(proc_id);
+            self.types.define_proc(
+                type_id,
+                Type::Proc(ProcStructure {
+                    params: params.iter().map(|p| p.1).collect::<Vec<_>>(),
+                    return_type,
+                    variadic: false,
+                }),
+            );
+            type_id
+        };
 
         Ok(type_id)
     }
@@ -728,6 +800,7 @@ impl Checker {
                 generics,
                 link_name,
                 has_this: false,
+                impl_of: None,
             },
         ))
     }
@@ -1501,8 +1574,14 @@ impl Checker {
         let checked_expr =
             self.typecheck_expr(expr, wanted, true, true, block_ctx, proc_ctx, ctx)?;
 
-        let (mut proc_id, lhs) = match checked_expr.value.kind {
-            CheckedExprKind::Proc { proc_id, lhs } => (proc_id, lhs),
+        let (mut proc_id, lhs, interface_call_data) = match checked_expr.value.kind {
+            CheckedExprKind::Proc { proc_id, lhs } => (proc_id, lhs, None),
+            CheckedExprKind::InterfaceProc {
+                proc_id,
+                lhs,
+                interface_id,
+                for_type_id,
+            } => (proc_id, lhs, Some((interface_id, for_type_id))),
             _ => todo!("Indirect calls"),
         };
 
@@ -1669,15 +1748,30 @@ impl Checker {
         Ok(HasNever::new(
             CheckedExpr {
                 type_id: return_type_id,
-                kind: CheckedExprKind::DirectCall {
-                    proc_id,
-                    params: checked_params,
-                    variadic_after: if proc_type.variadic {
-                        Some(proc_type.params.len() as u64)
-                    } else {
-                        None
-                    },
-                    stack_slot: proc_ctx.stack_slots.allocate(return_type_id),
+                kind: if let Some(interface_call_data) = interface_call_data {
+                    CheckedExprKind::InterfaceCall {
+                        proc_id,
+                        interface_id: interface_call_data.0,
+                        for_type_id: interface_call_data.1,
+                        params: checked_params,
+                        variadic_after: if proc_type.variadic {
+                            Some(proc_type.params.len() as u64)
+                        } else {
+                            None
+                        },
+                        stack_slot: proc_ctx.stack_slots.allocate(return_type_id),
+                    }
+                } else {
+                    CheckedExprKind::DirectCall {
+                        proc_id,
+                        params: checked_params,
+                        variadic_after: if proc_type.variadic {
+                            Some(proc_type.params.len() as u64)
+                        } else {
+                            None
+                        },
+                        stack_slot: proc_ctx.stack_slots.allocate(return_type_id),
+                    }
                 },
                 lvalue: true,
             },
@@ -2033,41 +2127,62 @@ impl Checker {
         member: &Ident,
         proc_ctx: &ProcContext,
     ) -> Option<CheckedExpr> {
-        let proc_id = if let Some(generic_id) = self.types.generic_id_for(checked_lhs.value.type_id)
-        {
-            let constraints_type_id = proc_ctx.constraints.get(&generic_id).unwrap();
-            match self.types.get_definition(*constraints_type_id) {
-                Type::Constraints(interface_ids) => {
-                    let mut proc_id = None;
+        let (interface_id, proc_id) =
+            if let Some(generic_id) = self.types.generic_id_for(checked_lhs.value.type_id) {
+                let constraints_type_id = proc_ctx.constraints.get(&generic_id).unwrap();
+                match self.types.get_definition(*constraints_type_id) {
+                    Type::Constraints(interface_ids) => {
+                        let mut proc_id = None;
+                        let mut found_interface_id = None;
 
-                    for interface_id in interface_ids {
-                        let maybe_proc_id = self.implementations.find_by_interface_id_and_name(
-                            interface_id,
-                            member,
-                            &self,
-                        );
-                        if maybe_proc_id.is_some() {
-                            proc_id = maybe_proc_id;
+                        for interface_id in interface_ids {
+                            let maybe_proc_id = self.implementations.find_by_interface_id_and_name(
+                                interface_id,
+                                member,
+                                &self,
+                            );
+                            if maybe_proc_id.is_some() {
+                                proc_id = maybe_proc_id;
+                                found_interface_id = Some(interface_id);
+                            }
                         }
-                    }
 
-                    proc_id
+                        (found_interface_id, proc_id)
+                    }
+                    _ => unreachable!(),
                 }
-                _ => unreachable!(),
-            }
-        } else {
-            self.implementations
-                .find_by_type_id_and_name(checked_lhs.value.type_id, member, self)
-        };
+            } else {
+                (
+                    None,
+                    self.implementations.find_by_type_id_and_name(
+                        checked_lhs.value.type_id,
+                        member,
+                        self,
+                    ),
+                )
+            };
 
         if let Some(proc_id) = proc_id {
-            Some(CheckedExpr {
-                type_id: self.procs.type_id_for(proc_id),
-                kind: CheckedExprKind::Proc {
-                    lhs: Some(Box::new(checked_lhs.value.clone())),
-                    proc_id: proc_id,
-                },
-                lvalue: false,
+            Some(if let Some(interface_id) = interface_id {
+                CheckedExpr {
+                    type_id: self.procs.type_id_for(proc_id),
+                    kind: CheckedExprKind::InterfaceProc {
+                        for_type_id: checked_lhs.value.type_id,
+                        interface_id,
+                        lhs: Some(Box::new(checked_lhs.value.clone())),
+                        proc_id: proc_id,
+                    },
+                    lvalue: false,
+                }
+            } else {
+                CheckedExpr {
+                    type_id: self.procs.type_id_for(proc_id),
+                    kind: CheckedExprKind::Proc {
+                        lhs: Some(Box::new(checked_lhs.value.clone())),
+                        proc_id: proc_id,
+                    },
+                    lvalue: false,
+                }
             })
         } else {
             None
