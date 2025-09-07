@@ -4,7 +4,9 @@ use insta::glob;
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use nanoid::nanoid;
 
-use crate::{codegen::Codegen, package::Package, parser::Parser, typechecker::Checker};
+use crate::{
+    codegen::Codegen, generics::Generic, package::Package, parser::Parser, typechecker::Checker,
+};
 
 #[test]
 fn runtime() {
@@ -42,7 +44,9 @@ fn runtime() {
             .chain(checked_main_package.units.into_iter())
             .collect::<Vec<_>>();
 
-        let mut codegener = Codegen::new(all_units, checker);
+        let generic_procs = Generic::transform(&checker);
+
+        let mut codegener = Codegen::new(all_units, generic_procs, checker);
         let code = codegener.generate();
 
         insta::assert_snapshot!(code);

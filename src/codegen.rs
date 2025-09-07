@@ -18,15 +18,21 @@ use crate::{
 
 pub struct Codegen {
     units: Vec<CheckedTranslationUnit>,
+    generic_procs: Vec<CheckedProc>,
     checker: Checker,
     counter: Cell<usize>,
 }
 
 impl Codegen {
-    pub fn new(units: Vec<CheckedTranslationUnit>, checker: Checker) -> Self {
+    pub fn new(
+        units: Vec<CheckedTranslationUnit>,
+        generic_procs: Vec<CheckedProc>,
+        checker: Checker,
+    ) -> Self {
         Self {
             units,
             checker,
+            generic_procs,
             counter: Cell::new(0),
         }
     }
@@ -49,6 +55,11 @@ impl Codegen {
             for proc in &unit.procs {
                 self.codegen_proc(proc, &mut module);
             }
+        }
+
+        println!("Starting to generate generic procs");
+        for generic_proc in &self.generic_procs {
+            self.codegen_proc(generic_proc, &mut module);
         }
 
         format!("{}", module)

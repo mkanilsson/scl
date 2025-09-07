@@ -176,6 +176,23 @@ impl ImplementationCollection {
         false
     }
 
+    pub fn find_by_interface_id_and_name(
+        &self,
+        interface_id: InterfaceId,
+        name: &Ident,
+        checker: &Checker,
+    ) -> Option<ProcId> {
+        let interface = self.interfaces[interface_id.0].as_ref().unwrap();
+
+        for proc_id in &interface.procs {
+            if checker.procs.name_for(*proc_id) == name {
+                return Some(*proc_id);
+            }
+        }
+
+        None
+    }
+
     pub fn name_of(&self, interface_id: InterfaceId, checker: &Checker) -> String {
         let interface = self.interfaces[interface_id.0].as_ref().unwrap();
         let module = checker.modules.mangled_name_of(interface.module_id);

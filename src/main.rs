@@ -16,6 +16,7 @@ mod codegen;
 mod compiler;
 mod env;
 mod error;
+mod generics;
 mod helpers;
 mod lexer;
 mod package;

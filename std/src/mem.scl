@@ -1,5 +1,5 @@
 @link_name("malloc")
-extern proc libc_malloc<T>(u32) *T
+extern proc libc_malloc<T>(u64) *T
 
 proc malloc<T>() *T {
     libc_malloc::<T>(@size_of::<T>())

@@ -197,12 +197,14 @@ impl Type {
             }
             Type::Ptr(inner) => format!("*{}", collection.name_of(*inner, checker)),
             Type::Array(inner, size) => format!("[{size}]{}", collection.name_of(*inner, checker)),
-            Type::Generic(_) => {
-                format!("(TODO: Generic args in {}:{})", file!(), line!())
+            Type::Generic(id) => {
+                format!("(TODO: Generic({}) args in {}:{})", id.0, file!(), line!())
             }
-            Type::Constraints(_) => {
-                todo!()
-            }
+            Type::Constraints(interfaces) => interfaces
+                .iter()
+                .map(|i| checker.implementations.name_of(*i, checker))
+                .collect::<Vec<_>>()
+                .join(" + "),
             Type::UndefinedStruct | Type::UndefinedProc => {
                 unreachable!()
             }
@@ -256,8 +258,11 @@ impl Type {
             Type::Array(inner, size) => {
                 format!("A..{size}..{}", collection.mangled_name_of(*inner, checker))
             }
-            Type::Generic(_) | Type::Constraints(_) => {
-                unreachable!()
+            Type::Generic(_) => {
+                unreachable!("Generic")
+            }
+            Type::Constraints(_) => {
+                unreachable!("Constraints")
             }
             Type::UndefinedStruct | Type::UndefinedProc => {
                 unreachable!()
@@ -380,17 +385,17 @@ impl TypeCollection {
         }
     }
 
-    pub fn force_find_with_resolved_generics(
-        &mut self,
-        src: &NamedSource<String>,
-        module_id: ModuleId,
-        t: &ast::tajp::Type,
-        generics: &[GenericParam],
-        resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
-    ) -> Result<TypeId> {
-        let type_id = self.force_find_with_generics(src, module_id, t, generics)?;
-        self.resolve_generic_type(type_id, resolved_generics)
-    }
+    // pub fn force_find_with_resolved_generics(
+    //     &mut self,
+    //     src: &NamedSource<String>,
+    //     module_id: ModuleId,
+    //     t: &ast::tajp::Type,
+    //     generics: &[GenericParam],
+    //     resolved_generics: &HashMap<GenericId, Spanned<TypeId>>,
+    // ) -> Result<TypeId> {
+    //     let type_id = self.force_find_with_generics(src, module_id, t, generics)?;
+    //     self.resolve_generic_type(type_id, resolved_generics)
+    // }
 
     fn try_add(
         &mut self,
@@ -616,7 +621,7 @@ impl TypeCollection {
                 unreachable!()
             }
             Type::Generic(_) | Type::Constraints(_) => {
-                unreachable!("Should've been resolved to a real type")
+                unreachable!("Should've been resolved to a real type {:#?}", definition)
             }
         }
     }
@@ -1012,6 +1017,13 @@ impl TypeCollection {
 
             // NOTE: True case is handled by the if statement above
             (_, _) => false,
+        }
+    }
+
+    pub fn generic_id_for(&self, generic_type_id: TypeId) -> Option<GenericId> {
+        match self.get_definition(generic_type_id) {
+            Type::Generic(generic_id) => Some(generic_id),
+            _ => None,
         }
     }
 }

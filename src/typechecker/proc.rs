@@ -52,6 +52,11 @@ impl ProcCollection {
         id
     }
 
+    pub fn add_to_module(&mut self, module_id: ModuleId, proc_id: ProcId, ident: &Ident) {
+        let parsed_for_module = self.parsed.entry(module_id).or_default();
+        parsed_for_module.insert(ident.clone(), proc_id);
+    }
+
     pub fn add_generic(
         &mut self,
         original: ProcId,
@@ -66,17 +71,12 @@ impl ProcCollection {
             module_id: generic.module_id,
             type_id,
             name: generic.name.clone(),
-            generics: vec![],
+            generics,
             link_name: None,
-            has_this: false,
+            has_this: generic.has_this,
         });
 
         id.into()
-    }
-
-    pub fn add_to_module(&mut self, module_id: ModuleId, proc_id: ProcId, ident: &Ident) {
-        let parsed_for_module = self.parsed.entry(module_id).or_default();
-        parsed_for_module.insert(ident.clone(), proc_id);
     }
 
     pub fn force_find_for_module(
@@ -155,7 +155,18 @@ impl ProcCollection {
                 }
             };
 
-            base
+            if !proc.generics.is_empty() {
+                let types = proc
+                    .generics
+                    .iter()
+                    .map(|t| checker.types.mangled_name_of(*t, checker))
+                    .collect::<Vec<_>>()
+                    .join("..");
+
+                format!("{base}..{}..{types}", proc.generics.len())
+            } else {
+                base
+            }
         }
     }
 
