@@ -20,12 +20,13 @@ use tajp::{
 use crate::{
     ast::parsed::{
         BinOp, Block, Builtin, Expr, ExprKind, ExternProcDefinition, GenericParam, Ident, Impl,
-        Import, Interface, ProcDefinition, Stmt, StmtKind, StructDefinition,
+        Import, InterfaceDefinition, ProcDefinition, ProcSignature, Stmt, StmtKind,
+        StructDefinition,
     },
     error::{Error, Result},
     helpers::string_join_with_and,
     package::{CheckedPackage, ParsedModule, ParsedPackage},
-    typechecker::implementations::{ImplementationCollection, InterfaceId},
+    typechecker::implementations::{ImplementationCollection, Interface, InterfaceId},
 };
 
 pub mod ast;
@@ -165,6 +166,7 @@ impl Checker {
 
         self.resolve_imports(package_id, package_id)?;
         self.define_structs(package_id)?;
+        self.define_interfaces(package_id)?;
         self.declare_impls(package_id)?;
 
         self.define_procs(package_id)?;
@@ -318,7 +320,7 @@ impl Checker {
         let interface_type_id = if let Some(interface) = &impl_block.interface {
             Some(
                 self.implementations
-                    .force_find_interface(ctx.module_id, &interface)?,
+                    .force_find_interface(ctx.module_id, &interface.kind)?,
             )
         } else {
             None
@@ -381,6 +383,63 @@ impl Checker {
         Ok(())
     }
 
+    fn define_interfaces(&mut self, module_id: ModuleId) -> Result<()> {
+        let ctx = CheckerContext { module_id };
+
+        for child_id in self.modules.children_for(module_id).iter() {
+            self.define_interfaces(*child_id)?;
+        }
+
+        for interface in &self.modules.unit_for(module_id).interfaces {
+            let interface_id = self
+                .implementations
+                .force_find_interface_by_name(module_id, &interface.ident)?;
+
+            self.define_interface(interface, interface_id, &ctx)?;
+        }
+
+        Ok(())
+    }
+
+    fn define_interface(
+        &mut self,
+        interface: &InterfaceDefinition,
+        interface_id: InterfaceId,
+        ctx: &CheckerContext,
+    ) -> Result<()> {
+        let mut procs = vec![];
+        for signature in &interface.signatures {
+            let type_id = self.types.register_undefined_proc();
+            self.define_proc(signature, type_id, true, ctx)?;
+
+            let proc_id = self.procs.add(
+                ctx.module_id,
+                Proc {
+                    name: signature.ident.clone(),
+                    type_id,
+                    module_id: ctx.module_id,
+                    external: false,
+                    generics: vec![],
+                    link_name: None,
+                    has_this: signature.params.len() > 0 && signature.params[0].is_this(),
+                },
+            );
+
+            procs.push(proc_id);
+        }
+
+        self.implementations.define_interface(
+            interface_id,
+            Interface {
+                ident: interface.ident.clone(),
+                module_id: ctx.module_id,
+                procs,
+            },
+        );
+
+        Ok(())
+    }
+
     fn define_procs(&mut self, module_id: ModuleId) -> Result<()> {
         let ctx = CheckerContext { module_id };
 
@@ -392,7 +451,7 @@ impl Checker {
 
         for proc in &unit.procs {
             self.define_proc(
-                proc,
+                &proc.signature,
                 self.procs.force_find_for_module_type_of(
                     self.modules.source_for(ctx.module_id),
                     ctx.module_id,
@@ -417,7 +476,7 @@ impl Checker {
                     .find_by_exact_type_id_and_name(for_type_id, &proc.signature.ident, &self)
                     .expect("To exist");
 
-                self.define_proc(proc, self.procs.type_id_for(proc_id), true, &ctx)?;
+                self.define_proc(&proc.signature, self.procs.type_id_for(proc_id), true, &ctx)?;
             }
         }
 
@@ -551,16 +610,16 @@ impl Checker {
 
     fn define_proc(
         &mut self,
-        definition: &ProcDefinition,
+        signature: &ProcSignature,
         type_id: TypeId,
         is_impl: bool,
         ctx: &CheckerContext,
-    ) -> Result<()> {
+    ) -> Result<TypeId> {
         let mut params: Vec<(Ident, TypeId)> = vec![];
 
         let source = self.modules.source_for(ctx.module_id);
 
-        for (i, param) in definition.signature.params.iter().enumerate() {
+        for (i, param) in signature.params.iter().enumerate() {
             let (ident, tajp) = match param {
                 crate::ast::parsed::ProcParam::This(span) => {
                     if !is_impl {
@@ -595,7 +654,7 @@ impl Checker {
                 source,
                 ctx.module_id,
                 &tajp,
-                &definition.signature.type_params,
+                &signature.type_params,
             )?;
             params.push((ident.clone(), type_id));
         }
@@ -603,8 +662,8 @@ impl Checker {
         let return_type = self.types.force_find_with_generics(
             source,
             ctx.module_id,
-            &definition.signature.return_type,
-            &definition.signature.type_params,
+            &signature.return_type,
+            &signature.type_params,
         )?;
 
         self.types.define_proc(
@@ -616,7 +675,7 @@ impl Checker {
             }),
         );
 
-        Ok(())
+        Ok(type_id)
     }
 
     fn add_struct_name(&mut self, s: &StructDefinition, ctx: &CheckerContext) -> Result<TypeId> {
@@ -627,7 +686,11 @@ impl Checker {
         Ok(type_id)
     }
 
-    fn add_interface_name(&mut self, s: &Interface, ctx: &CheckerContext) -> Result<InterfaceId> {
+    fn add_interface_name(
+        &mut self,
+        s: &InterfaceDefinition,
+        ctx: &CheckerContext,
+    ) -> Result<InterfaceId> {
         // TODO: Verify that the name is unique
         let type_id = self
             .implementations
@@ -703,7 +766,7 @@ impl Checker {
             for interface in &generic.constraints {
                 constraints.push(
                     self.implementations
-                        .force_find_interface(ctx.module_id, interface)?,
+                        .force_find_interface(ctx.module_id, &interface.kind)?,
                 );
             }
 
@@ -1522,24 +1585,23 @@ impl Checker {
         if generics.len() > 0 {
             let mut generic_types = resolved_generics.iter().collect::<Vec<_>>();
             generic_types.sort_by(|a, b| a.0.cmp(b.0));
-            let generic_types: Vec<TypeId> = generic_types.into_iter().map(|t| t.1.value).collect();
+            let generic_types = generic_types.into_iter().map(|gt| gt.1).collect::<Vec<_>>();
 
             if generics.len() != generic_types.len() {
                 todo!("Nice error message about generics missmatch");
             }
 
-            let matches =
-                generic_types
-                    .iter()
-                    .zip(generics)
-                    .all(|(concrete_type_id, constraint_type_id)| {
-                        self.types
-                            .matches(*concrete_type_id, *constraint_type_id, self)
-                    });
-
-            if !matches {
-                todo!("Nice error message about constraints not met");
+            for (concrete_type, constraints_type_id) in generic_types.iter().zip(generics) {
+                self.types.fullfills_constraints(
+                    self.modules.source_for(ctx.module_id),
+                    concrete_type.span,
+                    concrete_type.value,
+                    *constraints_type_id,
+                    self,
+                )?;
             }
+
+            // TODO: Register proc id and stuff like that
         }
 
         if self.procs.has_this_for(proc_id) {

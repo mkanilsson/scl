@@ -503,6 +503,17 @@ pub enum Error {
         #[source]
         error: io::Error,
     },
+    #[error("'{type_name}' doesn't implement {interfaces}")]
+    TypeDoesntImplementInterfaces {
+        #[source_code]
+        src: NamedSource<String>,
+
+        #[label("here")]
+        span: SourceSpan,
+
+        type_name: String,
+        interfaces: String,
+    },
     #[error("IO error")]
     IoError(#[from] io::Error),
 }

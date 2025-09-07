@@ -363,9 +363,9 @@ Impl: parsed::Impl = {
     }
 }
 
-Interface: parsed::Interface = {
+Interface: parsed::InterfaceDefinition = {
     "interface" <ident:Ident> "{" <signatures:ProcSignature*> "}" => {
-        parsed::Interface {
+        parsed::InterfaceDefinition {
             ident,
             signatures
         }

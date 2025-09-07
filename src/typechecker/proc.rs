@@ -5,7 +5,6 @@ use miette::{NamedSource, SourceSpan};
 
 use crate::ast::parsed::Ident;
 use crate::error::{Error, Result};
-use crate::typechecker::tajp::GenericId;
 
 use super::Checker;
 use super::{module::ModuleId, tajp::TypeId};

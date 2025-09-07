@@ -1,6 +1,7 @@
 use std::{
     collections::HashSet,
     env,
+    fmt::Display,
     fs::{self, ReadDir},
     hash::Hash,
     path::{Path, PathBuf},
@@ -8,21 +9,25 @@ use std::{
 
 use crate::error::{Error, Result};
 
-pub fn string_join_with_or(items: &[&str]) -> String {
+pub fn string_join_with_or<T: AsRef<str> + ToString + Display>(items: &[T]) -> String {
     string_join_with(items, "or")
 }
 
-pub fn string_join_with_and(items: &[&str]) -> String {
+pub fn string_join_with_and<T: AsRef<str> + ToString + Display>(items: &[T]) -> String {
     string_join_with(items, "and")
 }
 
-pub fn string_join_with(items: &[&str], last: &str) -> String {
+pub fn string_join_with<T: AsRef<str> + ToString + Display>(items: &[T], last: &str) -> String {
     match items.len() {
         0 => String::new(),
         1 => items[0].to_string(),
         2 => format!("{} {last} {}", items[0], items[1]),
         _ => {
-            let all_except_last = items[..items.len() - 1].join(", ");
+            let all_except_last = items[..items.len() - 1]
+                .iter()
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
             format!("{} {last} {}", all_except_last, items.last().unwrap())
         }
     }

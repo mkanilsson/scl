@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, vec};
 
 use miette::{NamedSource, SourceSpan};
 use strum::EnumIs;
@@ -9,6 +9,7 @@ use crate::{
         parsed::{GenericParam, Ident},
     },
     error::{Error, Result},
+    helpers,
     typechecker::implementations::InterfaceId,
 };
 
@@ -82,6 +83,14 @@ pub struct IdentTypeId {
 }
 
 impl Type {
+    #[allow(clippy::wrong_self_convention)]
+    pub fn as_constraints(self) -> Vec<InterfaceId> {
+        match self {
+            Type::Constraints(interfaces) => interfaces,
+            t => unreachable!("as_constraints with {:#?}", t),
+        }
+    }
+
     #[allow(clippy::wrong_self_convention)]
     pub fn as_proc(self) -> ProcStructure {
         match self {
@@ -887,6 +896,49 @@ impl TypeCollection {
         }
 
         Ok(())
+    }
+
+    pub fn fullfills_constraints(
+        &self,
+        src: &NamedSource<String>,
+        expr_span: SourceSpan,
+        a_type_id: TypeId,
+        constraints_type_id: TypeId,
+        checker: &Checker,
+    ) -> Result<()> {
+        let interfaces = self.get_definition(constraints_type_id).as_constraints();
+
+        let mut missing_interfaces = vec![];
+
+        for interface in interfaces {
+            if !checker
+                .implementations
+                .type_implements(a_type_id, interface, checker)
+            {
+                missing_interfaces.push(interface);
+            }
+        }
+
+        if missing_interfaces.len() == 0 {
+            return Ok(());
+        }
+
+        let missing_interfaces = helpers::string_join_with_and(
+            missing_interfaces
+                .into_iter()
+                .map(|interface| {
+                    format!("'{}'", checker.implementations.name_of(interface, checker))
+                })
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+
+        Err(Error::TypeDoesntImplementInterfaces {
+            src: src.clone(),
+            span: expr_span,
+            type_name: checker.types.name_of(a_type_id, checker),
+            interfaces: missing_interfaces,
+        })
     }
 
     pub fn matches(&self, a_type_id: TypeId, b_type_id: TypeId, checker: &Checker) -> bool {

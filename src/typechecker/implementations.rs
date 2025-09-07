@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
 use crate::{
-    ast::{
-        parsed::Ident,
-        tajp::{Type, TypeKind},
-    },
+    ast::{self, parsed::Ident, tajp::TypeKind},
     error::Result,
-    typechecker::{Checker, module::ModuleId, proc::ProcId, tajp::TypeId},
+    typechecker::{
+        Checker,
+        module::ModuleId,
+        proc::ProcId,
+        tajp::{IdentTypeId, TypeId},
+    },
 };
 
 #[derive(Debug)]
@@ -20,6 +22,7 @@ pub struct Implementation {
 pub struct Interface {
     pub ident: Ident,
     pub module_id: ModuleId,
+    pub procs: Vec<ProcId>,
 }
 
 #[derive(Debug)]
@@ -61,6 +64,11 @@ impl ImplementationCollection {
         let type_id = type_id.into();
         self.insert_parsed_for_module(module_id, TypeKind::Named(ident.clone()), type_id);
         type_id
+    }
+
+    pub fn define_interface(&mut self, interface_id: InterfaceId, interface: Interface) {
+        assert!(self.interfaces[interface_id.0].is_none());
+        self.interfaces[interface_id.0] = Some(interface);
     }
 
     fn insert_parsed_for_module(&mut self, module_id: ModuleId, t: TypeKind, type_id: InterfaceId) {
@@ -123,7 +131,11 @@ impl ImplementationCollection {
         None
     }
 
-    pub fn force_find_interface(&mut self, module_id: ModuleId, t: &Type) -> Result<InterfaceId> {
+    pub fn force_find_interface(
+        &mut self,
+        module_id: ModuleId,
+        t: &TypeKind,
+    ) -> Result<InterfaceId> {
         if let Some(found) = self.find_interface(module_id, t) {
             Ok(found)
         } else {
@@ -131,8 +143,16 @@ impl ImplementationCollection {
         }
     }
 
-    pub fn find_interface(&self, module_id: ModuleId, t: &Type) -> Option<InterfaceId> {
-        self.parsed.get(&module_id)?.get(&t.kind).copied()
+    pub fn force_find_interface_by_name(
+        &mut self,
+        module_id: ModuleId,
+        ident: &Ident,
+    ) -> Result<InterfaceId> {
+        self.force_find_interface(module_id, &ast::tajp::TypeKind::Named(ident.clone()))
+    }
+
+    pub fn find_interface(&self, module_id: ModuleId, t: &TypeKind) -> Option<InterfaceId> {
+        self.parsed.get(&module_id)?.get(&t).copied()
     }
 
     pub fn type_implements(
@@ -154,5 +174,12 @@ impl ImplementationCollection {
         }
 
         false
+    }
+
+    pub fn name_of(&self, interface_id: InterfaceId, checker: &Checker) -> String {
+        let interface = self.interfaces[interface_id.0].as_ref().unwrap();
+        let module = checker.modules.mangled_name_of(interface.module_id);
+
+        format!("{module}.{}", interface.ident.name)
     }
 }
