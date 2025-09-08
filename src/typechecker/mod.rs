@@ -418,7 +418,7 @@ impl Checker {
         // FIXME: Procs with the same structure will have different TypeId's when they should have
         //        the same
         for proc in &unit.procs {
-            let proc_id = self.add_proc_name(proc, &ctx)?;
+            self.add_proc_name(proc, &ctx)?;
         }
 
         for proc in &unit.extern_procs {
@@ -1585,7 +1585,7 @@ impl Checker {
             _ => todo!("Indirect calls"),
         };
 
-        let mut type_id = self.procs.type_id_for(proc_id);
+        let type_id = self.procs.type_id_for(proc_id);
 
         let proc_type = self.types.get_definition(type_id).as_proc();
 

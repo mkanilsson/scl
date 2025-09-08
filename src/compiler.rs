@@ -34,25 +34,17 @@ impl Compiler {
             None => return Err(Error::NoStdLibPath),
         };
 
-        // let std_package = match Package::from_path(path.into()) {
-        //     Ok(std_package) => std_package,
-        //     Err(_) => return Err(Error::CantCompileStdLib),
-        // };
-        //
-        // let std_package = match std_package.parse() {
-        //     Ok(std_package) => std_package,
-        //     Err(_) => return Err(Error::CantCompileStdLib),
-        // };
+        let std_package = match Package::from_path(path.into()) {
+            Ok(std_package) => std_package,
+            Err(_) => return Err(Error::CantCompileStdLib),
+        };
 
-        let std_package = Package::from_path(path.into())?;
-        let std_package = std_package.parse()?;
+        let std_package = match std_package.parse() {
+            Ok(std_package) => std_package,
+            Err(_) => return Err(Error::CantCompileStdLib),
+        };
 
         let mut checker = Checker::new();
-
-        // let std_package = match checker.add_package(std_package, &[]) {
-        //     Ok(checked_package) => checked_package,
-        //     Err(_) => return Err(Error::CantCompileStdLib),
-        // };
 
         let std_package = checker.add_package(std_package, &[])?;
 
