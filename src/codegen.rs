@@ -57,7 +57,6 @@ impl Codegen {
             }
         }
 
-        println!("Starting to generate generic procs");
         for generic_proc in &self.generic_procs {
             self.codegen_proc(generic_proc, &mut module);
         }
