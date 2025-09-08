@@ -341,9 +341,54 @@ impl Checker {
                     todo!("Nice error message about proc already being defined");
                 }
 
-                // FIXME: Verify signature
                 let has_this =
                     proc.signature.params.len() > 0 && proc.signature.params[0].is_this();
+
+                let original_structure = self
+                    .types
+                    .get_definition(self.procs.type_id_for(*p.0))
+                    .as_proc();
+
+                for (i, param) in proc.signature.params.iter().enumerate() {
+                    if param.is_this() {
+                        if i == 0 && !self.procs.has_this_for(*p.0) {
+                            todo!("Nice error message about missmatching this",);
+                        }
+
+                        if i != 0 {
+                            return Err(Error::ThisNotFirst {
+                                src: self.modules.source_for(ctx.module_id).clone(),
+                                span: param.as_this(),
+                            });
+                        }
+
+                        continue;
+                    }
+
+                    if let Some(original_proc_param) =
+                        original_structure
+                            .params
+                            .get(if has_this { i - 1 } else { i })
+                    {
+                        let param_type_id = self.types.force_find_with_generics(
+                            self.modules.source_for(ctx.module_id),
+                            ctx.module_id,
+                            param.as_normal().1,
+                            &[],
+                        )?;
+
+                        if *original_proc_param != param_type_id {
+                            return Err(Error::ExpectedButGot {
+                                src: self.modules.source_for(ctx.module_id).clone(),
+                                span: param.as_normal().1.span,
+                                expected: self.types.name_of(*original_proc_param, self),
+                                got: self.types.name_of(param_type_id, self),
+                            });
+                        }
+                    } else {
+                        todo!("Nice error about parameter count mismatch");
+                    }
+                }
 
                 let type_id = self.procs.type_id_for(*p.0);
 

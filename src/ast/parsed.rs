@@ -181,6 +181,15 @@ pub enum ProcParam {
     Normal { ident: Ident, tajp: Type },
 }
 
+impl ProcParam {
+    pub fn as_this(&self) -> SourceSpan {
+        match self {
+            ProcParam::This(source_span) => *source_span,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct GenericParam {
     pub ident: Ident,
